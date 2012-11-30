@@ -43,6 +43,13 @@ ifneq ($(CPU),)
 $(warning "You have specified the CPU variable which is no longer in used. Use TARGET_PLATFORM instead.")
 endif
 
+# KDIR not set when included by modpost
+ifneq ($(KBUILD_EXTMOD),)
+	ifeq ($(KDIR),)
+		KDIR := $(KBUILD_SRC)
+	endif
+endif
+
 # Include the mapping between TARGET_PLATFORM and KDIR + MALI_PLATFORM
 -include MALI_CONFIGURATION
 export KDIR ?= $(KDIR-$(TARGET_PLATFORM))
@@ -75,7 +82,11 @@ endif
 # Define host system directory
 KDIR-$(shell uname -m):=/lib/modules/$(shell uname -r)/build
 
-include $(KDIR)/.config
+# .config could be in an output directory, different than KDIR
+# and it's not needed during modpost
+ifeq ($(KBUILD_EXTMOD),)
+	include $(KDIR)/.config
+endif
 
 ifeq ($(ARCH), arm)
 # when compiling for ARM we're cross compiling
