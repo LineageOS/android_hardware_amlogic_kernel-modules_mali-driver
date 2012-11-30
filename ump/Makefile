@@ -8,6 +8,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
+# Skip this Makefile when included from modpost
+ifeq ($(KBUILD_EXTMOD),)
+
 # For each arch check: CROSS_COMPILE , KDIR , CFLAGS += -DARCH
 
 export ARCH ?= arm
@@ -61,3 +64,5 @@ kernelrelease:
 clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
 	$(MAKE) -C $(KDIR) M=$(CURDIR)/../mali clean
+
+endif

@@ -8,6 +8,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
+# KDIR not set when included by modpost
+ifneq ($(KBUILD_EXTMOD),)
+	ifeq ($(KDIR),)
+		KDIR := $(KBUILD_SRC)
+	endif
+endif
+
 USE_UMPV2=0
 
 # The Makefile sets up "arch" based on the CONFIG, creates the version info

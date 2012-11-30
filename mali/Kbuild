@@ -20,7 +20,9 @@ else
 endif
 
 ifneq ($(KBUILD_SRC),)
-TOP_KBUILD_SRC := $(KBUILD_SRC)/
+	ifneq ($(wildcard $(KBUILD_SRC)/$(src)),)
+		TOP_KBUILD_SRC := $(KBUILD_SRC)/
+	endif
 endif
 
 USING_OS_MEMORY ?= 1
