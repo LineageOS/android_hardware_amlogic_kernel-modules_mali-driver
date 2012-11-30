@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #include <linux/module.h>
@@ -125,27 +125,18 @@ _mali_osk_errcode_t _mali_ukk_sw_counters_report(_mali_uk_sw_counters_report_s *
  */
 int _mali_profiling_set_event(u32 counter_id, s32 event_id)
 {
-
 	if (COUNTER_VP_C0 == counter_id)
 	{
-		struct mali_gp_core* gp_core = mali_gp_get_global_gp_core();
-		if (NULL != gp_core)
+		if (MALI_TRUE == mali_gp_job_set_gp_counter_src0(event_id))
 		{
-			if (MALI_TRUE == mali_gp_core_set_counter_src0(gp_core, event_id))
-			{
-				return 1;
-			}
+			return 1;
 		}
 	}
 	if (COUNTER_VP_C1 == counter_id)
 	{
-		struct mali_gp_core* gp_core = mali_gp_get_global_gp_core();
-		if (NULL != gp_core)
+		if (MALI_TRUE == mali_gp_job_set_gp_counter_src1(event_id))
 		{
-			if (MALI_TRUE == mali_gp_core_set_counter_src1(gp_core, event_id))
-			{
-				return 1;
-			}
+			return 1;
 		}
 	}
 	if (COUNTER_FP0_C0 <= counter_id && COUNTER_FP3_C1 >= counter_id)
@@ -154,19 +145,29 @@ int _mali_profiling_set_event(u32 counter_id, s32 event_id)
 		struct mali_pp_core* pp_core = mali_pp_get_global_pp_core(core_id);
 		if (NULL != pp_core)
 		{
-			u32 counter_src = (counter_id - COUNTER_FP0_C0) & 1;
-			if (0 == counter_src)
+			/*todo: this is a hack!!!
+				 * we account only for the counters set for the first PP core
+				 * others are just silently ignored or,
+				 * if the first core coutners are not set, we take the second etc.
+				 * - need further discussion!!!*/
+
+			if ((COUNTER_FP0_C0 == counter_id) || (COUNTER_FP0_C1 == counter_id))
 			{
-				if (MALI_TRUE == mali_pp_core_set_counter_src0(pp_core, event_id))
+				u32 counter_src = (counter_id - COUNTER_FP0_C0) & 1;
+				if (0 == counter_src)
 				{
-					return 1;
+					if (MALI_TRUE == mali_pp_job_set_pp_counter_src0(event_id))
+					{
+						return 1;
+					}
 				}
-			}
-			else
-			{
-				if (MALI_TRUE == mali_pp_core_set_counter_src1(pp_core, event_id))
+				else
 				{
+					if (MALI_TRUE == mali_pp_job_set_pp_counter_src1(event_id))
+					{
+					MALI_DEBUG_PRINT(2, ("MALI PROFILING SET EVENT core 0 counter_id = %d\n",counter_id));
 					return 1;
+					}
 				}
 			}
 		}

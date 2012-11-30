@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010, 2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2010, 2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 #include <linux/fs.h>       /* file system operations */
 #include <asm/uaccess.h>    /* user space access */
@@ -19,12 +19,18 @@
 int pp_start_job_wrapper(struct mali_session_data *session_data, _mali_uk_pp_start_job_s __user *uargs)
 {
 	_mali_osk_errcode_t err;
+	int fence = -1;
 
 	MALI_CHECK_NON_NULL(uargs, -EINVAL);
 	MALI_CHECK_NON_NULL(session_data, -EINVAL);
 
-	err = _mali_ukk_pp_start_job(session_data, uargs);
+	err = _mali_ukk_pp_start_job(session_data, uargs, &fence);
 	if (_MALI_OSK_ERR_OK != err) return map_errcode(err);
+
+	if (-1 != fence)
+	{
+		if (0 != put_user(fence, &uargs->fence)) return -EFAULT;
+	}
 
 	return 0;
 }

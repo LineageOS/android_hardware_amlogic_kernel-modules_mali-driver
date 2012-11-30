@@ -27,6 +27,8 @@
 #include <linux/ioport.h>
 #include <linux/dma-mapping.h>
 
+#include <linux/module.h>
+
 #include <mach/am_regs.h>
 #include <mach/clock.h>
 

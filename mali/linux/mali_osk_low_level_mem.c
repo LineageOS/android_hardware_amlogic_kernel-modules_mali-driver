@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 /**
@@ -48,6 +48,7 @@ typedef struct mali_vma_usage_tracker
 	u32 cookie;
 } mali_vma_usage_tracker;
 
+#define INVALID_PAGE 0xffffffff
 
 /* Linked list structure to hold details of all OS allocations in a particular
  * mapping
@@ -188,7 +189,7 @@ static u32 _kernel_page_allocate(void)
 
 	if ( NULL == new_page )
 	{
-		return 0;
+		return INVALID_PAGE;
 	}
 
 	/* Ensure page is flushed from CPU caches. */
@@ -234,7 +235,7 @@ static AllocationList * _allocation_list_item_get(void)
 	}
 
 	item->physaddr = _kernel_page_allocate();
-	if ( 0 == item->physaddr )
+	if ( INVALID_PAGE == item->physaddr )
 	{
 		/* Non-fatal error condition, out of memory. Upper levels will handle this. */
 		_mali_osk_free( item );
@@ -390,12 +391,18 @@ void _mali_osk_mem_freeioregion( u32 phys, u32 size, mali_io_address virt )
 
 _mali_osk_errcode_t inline _mali_osk_mem_reqregion( u32 phys, u32 size, const char *description )
 {
+#if MALI_LICENSE_IS_GPL
+	return _MALI_OSK_ERR_OK; /* GPL driver gets the mem region for the resources registered automatically */
+#else
 	return ((NULL == request_mem_region(phys, size, description)) ? _MALI_OSK_ERR_NOMEM : _MALI_OSK_ERR_OK);
+#endif
 }
 
 void inline _mali_osk_mem_unreqregion( u32 phys, u32 size )
 {
+#if !MALI_LICENSE_IS_GPL
 	release_mem_region(phys, size);
+#endif
 }
 
 void inline _mali_osk_mem_iowrite32_relaxed( volatile mali_io_address addr, u32 offset, u32 val )

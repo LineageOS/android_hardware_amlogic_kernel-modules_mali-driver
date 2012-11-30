@@ -28,6 +28,7 @@
 #include "mali_platform.h"
 #include "mali_poweron_reg.h"
 #include "mali_fix.h"
+#include "mali_platform.h"
 
 static int last_power_mode = -1;
 static int mali_init_flag = 0;
@@ -157,9 +158,9 @@ static void mali_meson_poweron(int first_poweron)
 	
 	MALI_DEBUG_PRINT(2, ("mali_meson_poweron: Mali APB bus accessing\n"));
 	if (READ_MALI_REG(MALI_PP_PP_VERSION) != MALI_PP_PP_VERSION_MAGIC) {
-		MALI_DEBUG_PRINT(3, ("mali_meson_poweron: Mali APB bus access failed\n"));
-		//printk("mali_meson_poweron: Mali APB bus access failed.");
-		return;
+	MALI_DEBUG_PRINT(3, ("mali_meson_poweron: Mali APB bus access failed\n"));
+	//printk("mali_meson_poweron: Mali APB bus access failed.");
+	return;
 	}
 	MALI_DEBUG_PRINT(2, ("..........accessing done.\n"));
 	if (READ_MALI_REG(MALI_MMU_DTE_ADDR) != 0) {

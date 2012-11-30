@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2009-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 /**
@@ -94,14 +94,13 @@ _mali_osk_errcode_t mali_pmu_powerdown_all(struct mali_pmu_core *pmu)
 	mali_hw_core_register_write(&pmu->hw_core, PMU_REG_ADDR_MGMT_POWER_DOWN, pmu->mali_registered_cores_power_mask);
 
 	/* Wait for cores to be powered down (100 x 100us = 100ms) */
-	timeout = 100;
+	timeout = MALI_REG_POLL_COUNT_SLOW ;
 	do
 	{
 		/* Get status of sleeping cores */
 		stat = mali_hw_core_register_read(&pmu->hw_core, PMU_REG_ADDR_MGMT_STATUS);
 		stat &= pmu->mali_registered_cores_power_mask;
 		if( stat == pmu->mali_registered_cores_power_mask ) break; /* All cores we wanted are now asleep */
-		_mali_osk_time_ubusydelay(100);
 		timeout--;
 	} while( timeout > 0 );
 
@@ -125,18 +124,17 @@ _mali_osk_errcode_t mali_pmu_powerup_all(struct mali_pmu_core *pmu)
 	mali_hw_core_register_write(&pmu->hw_core, PMU_REG_ADDR_MGMT_POWER_UP, pmu->mali_registered_cores_power_mask);
 
 	/* Wait for cores to be powered up (100 x 100us = 100ms) */
-	timeout = 100;
+	timeout = MALI_REG_POLL_COUNT_SLOW;
 	do
 	{
 		/* Get status of sleeping cores */
 		stat = mali_hw_core_register_read(&pmu->hw_core,PMU_REG_ADDR_MGMT_STATUS);
 		stat &= pmu->mali_registered_cores_power_mask;
-		if( stat == 0 ) break; /* All cores we wanted are now awake */
-		_mali_osk_time_ubusydelay(100);
+		if ( stat == 0 ) break; /* All cores we wanted are now awake */
 		timeout--;
-	} while( timeout > 0 );
+	} while ( timeout > 0 );
 
-	if( timeout == 0 )
+	if ( timeout == 0 )
 	{
 		return _MALI_OSK_ERR_TIMEOUT;
 	}

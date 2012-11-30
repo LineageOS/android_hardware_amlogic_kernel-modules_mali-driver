@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2011-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #ifndef __MALI_KERNEL_SYSFS_H__
@@ -20,13 +20,8 @@ extern "C"
 
 #define MALI_PROC_DIR "driver/mali"
 
-extern struct device *mali_device;
-struct mali_dev;
-
-int mali_sysfs_register(struct mali_dev *mali_class, dev_t dev, const char *mali_dev_name);
-
-int mali_sysfs_unregister(struct mali_dev *mali_class, dev_t dev, const char *mali_dev_name);
-
+int mali_sysfs_register(const char *mali_dev_name);
+int mali_sysfs_unregister(void);
 
 #ifdef __cplusplus
 }

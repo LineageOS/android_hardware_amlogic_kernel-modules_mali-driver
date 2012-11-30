@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010, 2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2007-2010, 2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #ifndef _MALIGP2_CONROL_REGS_H_
@@ -60,9 +60,7 @@ typedef enum
 	MALIGP2_REG_VAL_CMD_RESET				= (1<< 5),
 	MALIGP2_REG_VAL_CMD_FORCE_HANG			= (1<< 6),
 	MALIGP2_REG_VAL_CMD_STOP_BUS 			= (1<< 9),
-#if defined(USING_MALI400) || defined(USING_MALI450)
-	MALI400GP_REG_VAL_CMD_SOFT_RESET		= (1<<10),
-#endif
+	MALI400GP_REG_VAL_CMD_SOFT_RESET		= (1<<10), /* only valid for Mali-300 and later */
 } mgp_contr_reg_val_cmd;
 
 
@@ -84,7 +82,6 @@ typedef enum
 #define MALIGP2_REG_VAL_IRQ_WRITE_BOUND_ERR     (1 << 9)
 #define MALIGP2_REG_VAL_IRQ_SYNC_ERROR          (1 << 10)
 #define MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR       (1 << 11)
-#if defined(USING_MALI400) || defined(USING_MALI450)
 #define MALI400GP_REG_VAL_IRQ_AXI_BUS_STOPPED     (1 << 12)
 #define MALI400GP_REG_VAL_IRQ_VS_INVALID_CMD      (1 << 13)
 #define MALI400GP_REG_VAL_IRQ_PLB_INVALID_CMD     (1 << 14)
@@ -92,27 +89,8 @@ typedef enum
 #define MALI400GP_REG_VAL_IRQ_SEMAPHORE_UNDERFLOW (1 << 20)
 #define MALI400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  (1 << 21)
 #define MALI400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS  (1 << 22)
-#elif !defined USING_MALI200
-#error "No supported mali core defined"
-#endif
 
-/* Mask defining all IRQs in MaliGP2 */
-#if defined(USING_MALI200)
-#define MALIGP2_REG_VAL_IRQ_MASK_ALL \
-	(\
-		MALIGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
-		MALIGP2_REG_VAL_IRQ_PLBU_END_CMD_LST    | \
-		MALIGP2_REG_VAL_IRQ_PLBU_OUT_OF_MEM     | \
-		MALIGP2_REG_VAL_IRQ_VS_SEM_IRQ          | \
-		MALIGP2_REG_VAL_IRQ_PLBU_SEM_IRQ        | \
-		MALIGP2_REG_VAL_IRQ_HANG                | \
-		MALIGP2_REG_VAL_IRQ_FORCE_HANG          | \
-		MALIGP2_REG_VAL_IRQ_PERF_CNT_0_LIMIT    | \
-		MALIGP2_REG_VAL_IRQ_PERF_CNT_1_LIMIT    | \
-		MALIGP2_REG_VAL_IRQ_WRITE_BOUND_ERR     | \
-		MALIGP2_REG_VAL_IRQ_SYNC_ERROR          | \
-		MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR)
-#elif defined(USING_MALI400) || defined(USING_MALI450)
+/* Mask defining all IRQs in Mali GP */
 #define MALIGP2_REG_VAL_IRQ_MASK_ALL \
 	(\
 		MALIGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
@@ -134,41 +112,22 @@ typedef enum
 		MALI400GP_REG_VAL_IRQ_SEMAPHORE_UNDERFLOW | \
 		MALI400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  | \
 		MALI400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS)
-#else
-#error "No supported mali core defined"
-#endif
 
-/* Mask defining the IRQs in MaliGP2 which we use*/
-#if defined(USING_MALI200)
+/* Mask defining the IRQs in Mali GP which we use */
 #define MALIGP2_REG_VAL_IRQ_MASK_USED \
 	(\
 		MALIGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
 		MALIGP2_REG_VAL_IRQ_PLBU_END_CMD_LST    | \
 		MALIGP2_REG_VAL_IRQ_PLBU_OUT_OF_MEM     | \
-		MALIGP2_REG_VAL_IRQ_HANG                | \
 		MALIGP2_REG_VAL_IRQ_FORCE_HANG          | \
 		MALIGP2_REG_VAL_IRQ_WRITE_BOUND_ERR     | \
-		MALIGP2_REG_VAL_IRQ_SYNC_ERROR 			| \
-		MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR)
-#elif defined(USING_MALI400) || defined(USING_MALI450)
-#define MALIGP2_REG_VAL_IRQ_MASK_USED \
-	(\
-		MALIGP2_REG_VAL_IRQ_VS_END_CMD_LST      | \
-		MALIGP2_REG_VAL_IRQ_PLBU_END_CMD_LST    | \
-		MALIGP2_REG_VAL_IRQ_PLBU_OUT_OF_MEM     | \
-		MALIGP2_REG_VAL_IRQ_HANG                | \
-		MALIGP2_REG_VAL_IRQ_FORCE_HANG          | \
-		MALIGP2_REG_VAL_IRQ_WRITE_BOUND_ERR     | \
-		MALIGP2_REG_VAL_IRQ_SYNC_ERROR 			| \
+		MALIGP2_REG_VAL_IRQ_SYNC_ERROR          | \
 		MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR       | \
 		MALI400GP_REG_VAL_IRQ_VS_INVALID_CMD      | \
 		MALI400GP_REG_VAL_IRQ_PLB_INVALID_CMD     | \
 		MALI400GP_REG_VAL_IRQ_SEMAPHORE_UNDERFLOW | \
 		MALI400GP_REG_VAL_IRQ_SEMAPHORE_OVERFLOW  | \
 		MALI400GP_REG_VAL_IRQ_PTR_ARRAY_OUT_OF_BOUNDS)
-#else
-#error "No supported mali core defined"
-#endif
 
 /* Mask defining non IRQs on MaliGP2*/
 #define MALIGP2_REG_VAL_IRQ_MASK_NONE 0

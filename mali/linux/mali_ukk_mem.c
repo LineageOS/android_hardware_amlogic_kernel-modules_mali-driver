@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 #include <linux/fs.h>       /* file system operations */
 #include <asm/uaccess.h>    /* user space access */
@@ -127,7 +127,7 @@ int mem_unmap_ext_wrapper(struct mali_session_data *session_data, _mali_uk_unmap
 	return map_errcode(err_code);
 }
 
-#if MALI_USE_UNIFIED_MEMORY_PROVIDER != 0
+#if defined(CONFIG_MALI400_UMP)
 int mem_release_ump_wrapper(struct mali_session_data *session_data, _mali_uk_release_ump_mem_s __user * argument)
 {
 	_mali_uk_release_ump_mem_s uk_args;
@@ -189,7 +189,7 @@ int mem_attach_ump_wrapper(struct mali_session_data *session_data, _mali_uk_atta
     /* Return the error that _mali_ukk_map_external_ump_mem produced */
 	return map_errcode(err_code);
 }
-#endif /* MALI_USE_UNIFIED_MEMORY_PROVIDER */
+#endif /* CONFIG_MALI400_UMP */
 
 int mem_query_mmu_page_table_dump_size_wrapper(struct mali_session_data *session_data, _mali_uk_query_mmu_page_table_dump_size_s __user * uargs)
 {

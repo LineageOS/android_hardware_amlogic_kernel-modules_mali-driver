@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2010-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #ifndef _MALI_UTGARD_PROFILING_EVENTS_H_
@@ -76,12 +76,25 @@ typedef enum
 
 /**
  * These events are applicable when the type MALI_PROFILING_EVENT_TYPE_START/STOP is used from software channel
+ * to inform whether the core is physical or virtual
  */
 typedef enum
 {
-	MALI_PROFILING_EVENT_REASON_START_STOP_SW_NONE      = 0,
-	MALI_PROFILING_EVENT_REASON_START_STOP_MALI         = 1,
-	MALI_PROFILING_EVENT_REASON_START_STOP_BOTTOM_HALF  = 2,
+	MALI_PROFILING_EVENT_REASON_START_STOP_HW_PHYSICAL  = 0,
+	MALI_PROFILING_EVENT_REASON_START_STOP_HW_VIRTUAL   = 1,
+} cinstr_profiling_event_reason_start_stop_hw_t;
+
+/**
+ * These events are applicable when the type MALI_PROFILING_EVENT_TYPE_START/STOP is used from software channel
+ */
+typedef enum
+{
+	/*MALI_PROFILING_EVENT_REASON_START_STOP_SW_NONE            = 0,*/
+	MALI_PROFILING_EVENT_REASON_START_STOP_SW_MALI            = 1,
+	MALI_PROFILING_EVENT_REASON_START_STOP_SW_CALLBACK_THREAD = 2,
+	MALI_PROFILING_EVENT_REASON_START_STOP_SW_WORKER_THREAD   = 3,
+	MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF     = 4,
+	MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF      = 5,
 } cinstr_profiling_event_reason_start_stop_sw_t;
 
 /**
@@ -89,7 +102,7 @@ typedef enum
  */
 typedef enum
 {
-	MALI_PROFILING_EVENT_REASON_SUSPEND_RESUME_SW_NONE                   =  0, /* NOT used */
+	MALI_PROFILING_EVENT_REASON_SUSPEND_RESUME_SW_NONE                   =  0, /* used */
 	MALI_PROFILING_EVENT_REASON_SUSPEND_RESUME_SW_PIPELINE_FULL          =  1, /* NOT used */
 	MALI_PROFILING_EVENT_REASON_SUSPEND_RESUME_SW_VSYNC                  = 26, /* used in some build configurations */
 	MALI_PROFILING_EVENT_REASON_SUSPEND_RESUME_SW_FB_IFRAME_WAIT         = 27, /* USED */

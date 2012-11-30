@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2011-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #include "mali_hw_core.h"
@@ -17,6 +17,7 @@ _mali_osk_errcode_t mali_hw_core_create(struct mali_hw_core *core, const _mali_o
 	core->phys_addr = resource->base;
 	core->description = resource->description;
 	core->size = reg_size;
+
 	if (_MALI_OSK_ERR_OK == _mali_osk_mem_reqregion(core->phys_addr, core->size, core->description))
 	{
 		core->mapped_registers = _mali_osk_mem_mapioregion(core->phys_addr, core->size, core->description);

@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2012 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 /**
@@ -369,7 +369,7 @@ _mali_osk_errcode_t _mali_ukk_map_external_mem( _mali_uk_map_external_mem_s *arg
  */
 _mali_osk_errcode_t _mali_ukk_unmap_external_mem( _mali_uk_unmap_external_mem_s *args );
 
-#if MALI_USE_UNIFIED_MEMORY_PROVIDER != 0
+#if defined(CONFIG_MALI400_UMP)
 /** @brief Map UMP memory into Mali
  * @param args see _mali_uk_attach_ump_mem_s in mali_utgard_uk_types.h
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
@@ -380,7 +380,7 @@ _mali_osk_errcode_t _mali_ukk_attach_ump_mem( _mali_uk_attach_ump_mem_s *args );
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
 _mali_osk_errcode_t _mali_ukk_release_ump_mem( _mali_uk_release_ump_mem_s *args );
-#endif /* MALI_USE_UNIFIED_MEMORY_PROVIDER */
+#endif /* CONFIG_MALI400_UMP */
 
 /** @brief Determine virtual-to-physical mapping of a contiguous memory range
  * (optional)
@@ -453,7 +453,7 @@ _mali_osk_errcode_t _mali_ukk_va_to_mali_pa( _mali_uk_va_to_mali_pa_s * args );
  * @param uargs see _mali_uk_pp_start_job_s in "mali_utgard_uk_types.h". Use _mali_osk_copy_from_user to retrieve data!
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
-_mali_osk_errcode_t _mali_ukk_pp_start_job( void *ctx, _mali_uk_pp_start_job_s *uargs );
+_mali_osk_errcode_t _mali_ukk_pp_start_job( void *ctx, _mali_uk_pp_start_job_s *uargs, int *fence );
 
 /** @brief Returns the number of Fragment Processors in the system
  *
@@ -538,7 +538,7 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response( _mali_uk_gp_suspend_response_
 
 /** @} */ /* end group _mali_uk_gp */
 
-#if MALI_TIMELINE_PROFILING_ENABLED
+#if defined(CONFIG_MALI400_PROFILING)
 /** @addtogroup _mali_uk_profiling U/K Timeline profiling module
  * @{ */
 
@@ -606,6 +606,12 @@ _mali_osk_errcode_t _mali_ukk_sw_counters_report(_mali_uk_sw_counters_report_s *
 /** @} */ /* end group uddapi */
 
 u32 _mali_ukk_report_memory_usage(void);
+
+u32 _mali_ukk_utilization_gp_pp(void);
+
+u32 _mali_ukk_utilization_gp(void);
+
+u32 _mali_ukk_utilization_pp(void);
 
 #ifdef __cplusplus
 }
