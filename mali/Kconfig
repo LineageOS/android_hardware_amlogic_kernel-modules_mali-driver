@@ -19,15 +19,16 @@ config MALI400_DEBUG
 	  This enabled extra debug checks and messages in the Mali driver.
 
 if !PROFILING || !FTRACE
-comment "ARM mali streamline with gator is depends on CONFIG_FTRACE and PROFILING."
-comment "please Enable the Profiling Support option in General Setup and enable"
-comment "Tracers options in Kernel Hacking. I will select other options for you."
-comment "please refer to Setting up an ARM Linux target in ARM DS-5 Documentation."
+comment "ARM mali streamline with gator is depends on CONFIG_FTRACE and PROFILING.I will"
+comment "select them and other options for you.please refer to ARM DS-5 Documentation."
+comment "Setting up an ARM Linux target"
 endif
 
 config MALI400_PROFILING
 	bool "Enable Mali profiling"
-	depends on MALI400 && PROFILING && FTRACE
+	depends on MALI400
+	select PROFILING
+	select FTRACE
 	select MALI400_DEBUG
 	select PERF_EVENTS
 	select ENABLE_DEFAULT_TRACERS
