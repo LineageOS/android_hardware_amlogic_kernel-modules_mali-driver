@@ -36,6 +36,7 @@ config MALI400_PROFILING
 	select HIGH_RES_TIMERS
 	select HW_PERF_EVENTS
 	select CPU_FREQ
+	select TRACEPOINTS
 	---help---
 	  This enables gator profiling of Mali GPU events.
 

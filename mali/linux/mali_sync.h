@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 /**
@@ -71,7 +71,7 @@ struct sync_pt *mali_sync_pt_alloc(struct sync_timeline *parent);
  * If they are signalled in the wrong order then a message will be printed in debug
  * builds and otherwise attempts to signal order sync_pts will be ignored.
  */
-void mali_sync_signal_pt(struct sync_pt *pt);
+void mali_sync_signal_pt(struct sync_pt *pt, int error);
 
 #endif /* CONFIG_SYNC */
 #endif /* _MALI_SYNC_H_ */

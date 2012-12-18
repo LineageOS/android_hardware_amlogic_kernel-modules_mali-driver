@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2011-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_gp_job.h"
@@ -48,29 +48,13 @@ struct mali_gp_job *mali_gp_job_create(struct mali_session_data *session, _mali_
 		}
 
 		perf_counter_flag = mali_gp_job_get_perf_counter_flag(job);
-		/* set counters got from user space only if no counters were set through debugfs / DS-5 */
-		if (MALI_HW_CORE_NO_COUNTER == mali_gp_job_get_gp_counter_src0())
-		{
-			if (perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE)
-			{
-				mali_gp_job_set_gp_counter_src0(job->uargs.perf_counter_src0);
-				mali_gp_job_set_perf_counter_src0(job, mali_gp_job_get_gp_counter_src0());
-			}
-		}
-		else
+
+		/* case when no counters came from user space
+		 * so pass the debugfs / DS-5 provided global ones to the job object */
+		if (!((perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE) ||
+				(perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE)))
 		{
 			mali_gp_job_set_perf_counter_src0(job, mali_gp_job_get_gp_counter_src0());
-		}
-		if (MALI_HW_CORE_NO_COUNTER == mali_gp_job_get_gp_counter_src1())
-		{
-			if (perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE)
-			{
-					mali_gp_job_set_gp_counter_src1(job->uargs.perf_counter_src1);
-					mali_gp_job_set_perf_counter_src1(job, mali_gp_job_get_gp_counter_src1());
-			}
-		}
-		else
-		{
 			mali_gp_job_set_perf_counter_src1(job, mali_gp_job_get_gp_counter_src1());
 		}
 

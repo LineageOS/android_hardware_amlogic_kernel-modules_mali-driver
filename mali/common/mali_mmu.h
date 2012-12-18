@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef __MALI_MMU_H__
@@ -20,7 +20,6 @@
 #include <mach/am_regs.h>
 #include <linux/module.h>
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-#include "mali_platform.h"
 #include "meson_platform/mali_fix.h"
 #endif
 
@@ -140,18 +139,5 @@ MALI_STATIC_INLINE u32 mali_mmu_get_page_fault_addr(struct mali_mmu_core *mmu)
 {
 	return mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_PAGE_FAULT_ADDR);
 }
-
-/*
-needed?
-MALI_STATIC_INLINE void mali_mmu_unmask_all_interrupts(struct mali_mmu_core *mmu)
-{
-	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_INT_MASK, MALI_MMU_REGISTER_INT_MASK, MALI_MMU_INTERRUPT_PAGE_FAULT | MALI_MMU_INTERRUPT_READ_BUS_ERROR);
-}
-needed?
-MALI_STATIC_INLINE void mali_mmu_clear_interrupt(struct mali_mmu_core *mmu, u32 interrupt)
-{
-	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_INT_CLEAR, interrupt);
-}
-*/
 
 #endif /* __MALI_MMU_H__ */

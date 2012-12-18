@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2007-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_kernel_common.h"
@@ -49,6 +49,13 @@ int mali_fb_size = 0;
 
 /** Start profiling from module load? */
 int mali_boot_profiling = 0;
+
+/** Limits for the number of PP cores behind each L2 cache. */
+int mali_max_pp_cores_group_1 = 0xFF;
+int mali_max_pp_cores_group_2 = 0xFF;
+
+int mali_inited_pp_cores_group_1 = 0;
+int mali_inited_pp_cores_group_2 = 0;
 
 static _mali_product_id_t global_product_id = _MALI_PRODUCT_ID_UNKNOWN;
 static u32 global_gpu_base_address = 0;
@@ -438,6 +445,7 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 {
 	if (_MALI_PRODUCT_ID_MALI200 == global_product_id)
 	{
+		_mali_osk_errcode_t err;
 		_mali_osk_resource_t resource_gp;
 		_mali_osk_resource_t resource_pp;
 		_mali_osk_resource_t resource_mmu;
@@ -452,7 +460,15 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 			return _MALI_OSK_ERR_FAULT;
 		}
 
-		return mali_create_group(mali_l2_cache_core_get_glob_l2_core(0), &resource_mmu, &resource_gp, &resource_pp);
+		err = mali_create_group(mali_l2_cache_core_get_glob_l2_core(0), &resource_mmu, &resource_gp, &resource_pp);
+		if (err == _MALI_OSK_ERR_OK)
+		{
+			mali_inited_pp_cores_group_1++;
+			mali_max_pp_cores_group_1 = mali_inited_pp_cores_group_1; /* always 1 */
+			mali_max_pp_cores_group_2 = mali_inited_pp_cores_group_2; /* always zero */
+		}
+
+		return err;
 	}
 	else if (_MALI_PRODUCT_ID_MALI300 == global_product_id ||
 	         _MALI_PRODUCT_ID_MALI400 == global_product_id ||
@@ -466,16 +482,16 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 
 		_mali_osk_resource_t resource_gp;
 		_mali_osk_resource_t resource_gp_mmu;
-		_mali_osk_resource_t resource_pp[MALI_MAX_NUMBER_OF_PP_CORES];
-		_mali_osk_resource_t resource_pp_mmu[MALI_MAX_NUMBER_OF_PP_CORES];
+		_mali_osk_resource_t resource_pp[8];
+		_mali_osk_resource_t resource_pp_mmu[8];
 		_mali_osk_resource_t resource_pp_mmu_bcast;
 		_mali_osk_resource_t resource_pp_bcast;
 		_mali_osk_resource_t resource_dlbu;
 		_mali_osk_resource_t resource_bcast;
 		_mali_osk_errcode_t resource_gp_found;
 		_mali_osk_errcode_t resource_gp_mmu_found;
-		_mali_osk_errcode_t resource_pp_found[MALI_MAX_NUMBER_OF_PP_CORES];
-		_mali_osk_errcode_t resource_pp_mmu_found[MALI_MAX_NUMBER_OF_PP_CORES];
+		_mali_osk_errcode_t resource_pp_found[8];
+		_mali_osk_errcode_t resource_pp_mmu_found[8];
 		_mali_osk_errcode_t resource_pp_mmu_bcast_found;
 		_mali_osk_errcode_t resource_pp_bcast_found;
 		_mali_osk_errcode_t resource_dlbu_found;
@@ -551,29 +567,39 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 			return err;
 		}
 
+		mali_inited_pp_cores_group_1++;
+
 		/* Create groups for rest of the cores in the first PP core group */
 		for (i = 1; i < 4; i++) /* First half of the PP cores belong to first core group */
 		{
-			if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
+			if (mali_inited_pp_cores_group_1 < mali_max_pp_cores_group_1)
 			{
-				err = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[i], NULL, &resource_pp[i]);
-				if (err != _MALI_OSK_ERR_OK)
+				if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
 				{
-					return err;
+					err = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp0), &resource_pp_mmu[i], NULL, &resource_pp[i]);
+					if (err != _MALI_OSK_ERR_OK)
+					{
+						return err;
+					}
+					mali_inited_pp_cores_group_1++;
 				}
 			}
 		}
 
 		/* Create groups for cores in the second PP core group */
-		for (i = 4; i < MALI_MAX_NUMBER_OF_PP_CORES; i++) /* Second half of the PP cores belong to second core group */
+		for (i = 4; i < 8; i++) /* Second half of the PP cores belong to second core group */
 		{
-			if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
+			if (mali_inited_pp_cores_group_2 < mali_max_pp_cores_group_2)
 			{
-				MALI_DEBUG_ASSERT(mali_l2_cache_core_get_glob_num_l2_cores() >= 2); /* Only Mali-450 have a second core group */
-				err = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp1), &resource_pp_mmu[i], NULL, &resource_pp[i]);
-				if (err != _MALI_OSK_ERR_OK)
+				if (_MALI_OSK_ERR_OK == resource_pp_found[i] && _MALI_OSK_ERR_OK == resource_pp_mmu_found[i])
 				{
-					return err;
+					MALI_DEBUG_ASSERT(mali_l2_cache_core_get_glob_num_l2_cores() >= 2); /* Only Mali-450 have a second core group */
+					err = mali_create_group(mali_l2_cache_core_get_glob_l2_core(cluster_id_pp_grp1), &resource_pp_mmu[i], NULL, &resource_pp[i]);
+					if (err != _MALI_OSK_ERR_OK)
+					{
+						return err;
+					}
+					mali_inited_pp_cores_group_2++;
 				}
 			}
 		}
@@ -587,9 +613,15 @@ static _mali_osk_errcode_t mali_parse_config_groups(void)
 			}
 		}
 
+		mali_max_pp_cores_group_1 = mali_inited_pp_cores_group_1;
+		mali_max_pp_cores_group_2 = mali_inited_pp_cores_group_2;
+		MALI_DEBUG_PRINT(2, ("%d+%d PP cores initialized\n", mali_inited_pp_cores_group_1, mali_inited_pp_cores_group_2));
+
+		return _MALI_OSK_ERR_OK;
 	}
 
-	return _MALI_OSK_ERR_OK;
+	/* No known HW core */
+	return _MALI_OSK_ERR_FAULT;
 }
 
 static _mali_osk_errcode_t mali_parse_config_pmu(void)
@@ -979,7 +1011,7 @@ _mali_osk_errcode_t _mali_ukk_open(void **context)
 
 	if (_MALI_OSK_ERR_OK != mali_mmu_pagedir_map(session->page_directory, MALI_DLBU_VIRT_ADDR, _MALI_OSK_MALI_PAGE_SIZE))
 	{
-		MALI_PRINT_ERROR(("Failed to map DLB page into session\n"));
+		MALI_PRINT_ERROR(("Failed to map DLBU page into session\n"));
 		_mali_osk_notification_queue_term(session->ioctl_queue);
 		_mali_osk_free(session);
 		MALI_ERROR(_MALI_OSK_ERR_NOMEM);

@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_gp_scheduler.h"
@@ -56,7 +56,7 @@ _mali_osk_errcode_t mali_gp_scheduler_initialize(void)
 
 	_MALI_OSK_INIT_LIST_HEAD(&job_queue);
 
-	gp_scheduler_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ |_MALI_OSK_LOCKFLAG_NONINTERRUPTABLE, 0, _MALI_OSK_LOCK_ORDER_SCHEDULER);
+	gp_scheduler_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE, 0, _MALI_OSK_LOCK_ORDER_SCHEDULER);
 	if (NULL == gp_scheduler_lock)
 	{
 		return _MALI_OSK_ERR_NOMEM;
@@ -136,9 +136,9 @@ static void mali_gp_scheduler_schedule(void)
 
 	if (0 < pause_count || MALI_GP_SLOT_STATE_IDLE != slot.state || _mali_osk_list_empty(&job_queue))
 	{
-		mali_gp_scheduler_unlock();
 		MALI_DEBUG_PRINT(4, ("Mali GP scheduler: Nothing to schedule (paused=%u, idle slots=%u)\n",
 		                     pause_count, MALI_GP_SLOT_STATE_IDLE == slot.state ? 1 : 0));
+		mali_gp_scheduler_unlock();
 		return; /* Nothing to do, so early out */
 	}
 
@@ -169,7 +169,8 @@ static void mali_gp_scheduler_schedule_on_group(struct mali_group *group)
 {
 	struct mali_gp_job *job;
 
-	mali_gp_scheduler_lock();
+	MALI_DEBUG_ASSERT_LOCK_HELD(group->lock);
+	MALI_DEBUG_ASSERT_LOCK_HELD(gp_scheduler_lock);
 
 	if (0 < pause_count || MALI_GP_SLOT_STATE_IDLE != slot.state || _mali_osk_list_empty(&job_queue))
 	{
@@ -199,28 +200,24 @@ static void mali_gp_scheduler_schedule_on_group(struct mali_group *group)
 
 static void mali_gp_scheduler_return_job_to_user(struct mali_gp_job *job, mali_bool success)
 {
-	/*_mali_osk_notification_t *notobj = _mali_osk_notification_create(_MALI_NOTIFICATION_GP_FINISHED, sizeof(_mali_uk_gp_job_finished_s));*/
-	/*if (NULL != notobj)*/
+	_mali_uk_gp_job_finished_s *jobres = job->finished_notification->result_buffer;
+	_mali_osk_memset(jobres, 0, sizeof(_mali_uk_gp_job_finished_s)); /* @@@@ can be removed once we initialize all members in this struct */
+	jobres->user_job_ptr = mali_gp_job_get_user_id(job);
+	if (MALI_TRUE == success)
 	{
-		_mali_uk_gp_job_finished_s *jobres = job->finished_notification->result_buffer;
-		_mali_osk_memset(jobres, 0, sizeof(_mali_uk_gp_job_finished_s)); /* @@@@ can be removed once we initialize all members in this struct */
-		jobres->user_job_ptr = mali_gp_job_get_user_id(job);
-		if (MALI_TRUE == success)
-		{
-			jobres->status = _MALI_UK_JOB_STATUS_END_SUCCESS;
-		}
-		else
-		{
-			jobres->status = _MALI_UK_JOB_STATUS_END_UNKNOWN_ERR;
-		}
-
-		jobres->heap_current_addr = mali_gp_job_get_current_heap_addr(job);
-		jobres->perf_counter0 = mali_gp_job_get_perf_counter_value0(job);
-		jobres->perf_counter1 = mali_gp_job_get_perf_counter_value1(job);
-
-		mali_session_send_notification(mali_gp_job_get_session(job), job->finished_notification);
-		job->finished_notification = NULL;
+		jobres->status = _MALI_UK_JOB_STATUS_END_SUCCESS;
 	}
+	else
+	{
+		jobres->status = _MALI_UK_JOB_STATUS_END_UNKNOWN_ERR;
+	}
+
+	jobres->heap_current_addr = mali_gp_job_get_current_heap_addr(job);
+	jobres->perf_counter0 = mali_gp_job_get_perf_counter_value0(job);
+	jobres->perf_counter1 = mali_gp_job_get_perf_counter_value1(job);
+
+	mali_session_send_notification(mali_gp_job_get_session(job), job->finished_notification);
+	job->finished_notification = NULL;
 
 	mali_gp_job_delete(job);
 }
@@ -228,6 +225,8 @@ static void mali_gp_scheduler_return_job_to_user(struct mali_gp_job *job, mali_b
 void mali_gp_scheduler_job_done(struct mali_group *group, struct mali_gp_job *job, mali_bool success)
 {
 	MALI_DEBUG_PRINT(3, ("Mali GP scheduler: Job %u (0x%08X) completed (%s)\n", mali_gp_job_get_id(job), job, success ? "success" : "failure"));
+
+	mali_gp_scheduler_return_job_to_user(job, success);
 
 	mali_gp_scheduler_lock();
 
@@ -239,10 +238,6 @@ void mali_gp_scheduler_job_done(struct mali_group *group, struct mali_gp_job *jo
 	{
 		_mali_osk_wait_queue_wake_up(gp_scheduler_working_wait_queue);
 	}
-
-	mali_gp_scheduler_unlock();
-
-	mali_gp_scheduler_return_job_to_user(job, success);
 
 	mali_gp_scheduler_schedule_on_group(group);
 
@@ -381,18 +376,6 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
 			return _MALI_OSK_ERR_FAULT;
 		}
 	}
-
-	mali_gp_scheduler_lock();
-
-	/* Make sure that the cookie returned by user space is the same as we provided in the first place */
-	if (args->cookie != slot.returned_cookie)
-	{
-		MALI_DEBUG_PRINT(2, ("Mali GP scheduler: Got an illegal cookie from user space, expected %u but got %u (job id)\n", slot.returned_cookie, args->cookie)) ;
-		mali_gp_scheduler_unlock();
-		return _MALI_OSK_ERR_FAULT;
-	}
-
-	mali_gp_scheduler_unlock();
 
 	mali_group_lock(slot.group);
 

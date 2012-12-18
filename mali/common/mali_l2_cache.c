@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
@@ -97,6 +97,13 @@ static _mali_osk_errcode_t mali_l2_cache_send_command(struct mali_l2_cache_core 
 struct mali_l2_cache_core *mali_l2_cache_create(_mali_osk_resource_t *resource)
 {
 	struct mali_l2_cache_core *cache = NULL;
+	_mali_osk_lock_flags_t lock_flags;
+
+#if defined(MALI_UPPER_HALF_SCHEDULING)
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#else
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#endif
 
 	MALI_DEBUG_PRINT(2, ("Mali L2 cache: Creating Mali L2 cache: %s\n", resource->description));
 
@@ -114,12 +121,10 @@ struct mali_l2_cache_core *mali_l2_cache_create(_mali_osk_resource_t *resource)
 		cache->counter_src1 = MALI_HW_CORE_NO_COUNTER;
 		if (_MALI_OSK_ERR_OK == mali_hw_core_create(&cache->hw_core, resource, MALI400_L2_CACHE_REGISTERS_SIZE))
 		{
-			cache->command_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE,
-			                                          0, _MALI_OSK_LOCK_ORDER_L2_COMMAND);
+			cache->command_lock = _mali_osk_lock_init(lock_flags, 0, _MALI_OSK_LOCK_ORDER_L2_COMMAND);
 			if (NULL != cache->command_lock)
 			{
-				cache->counter_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE,
-				                                          0, _MALI_OSK_LOCK_ORDER_L2_COUNTER);
+				cache->counter_lock = _mali_osk_lock_init(lock_flags, 0, _MALI_OSK_LOCK_ORDER_L2_COUNTER);
 				if (NULL != cache->counter_lock)
 				{
 					mali_l2_cache_reset(cache);
@@ -285,7 +290,7 @@ void mali_l2_cache_core_get_counter_values(struct mali_l2_cache_core *cache, u32
 		*value0 = mali_hw_core_register_read(&cache->hw_core, MALI400_L2_CACHE_REGISTER_PERFCNT_VAL0);
 	}
 
-	if (cache->counter_src0 != MALI_HW_CORE_NO_COUNTER)
+	if (cache->counter_src1 != MALI_HW_CORE_NO_COUNTER)
 	{
 		*value1 = mali_hw_core_register_read(&cache->hw_core, MALI400_L2_CACHE_REGISTER_PERFCNT_VAL1);
 	}

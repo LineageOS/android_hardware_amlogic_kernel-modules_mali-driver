@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_dlbu.h"
@@ -176,12 +176,12 @@ void mali_dlbu_add_group(struct mali_dlbu_core *dlbu, struct mali_group *group)
 	core_id = mali_pp_core_get_id(pp_core);
 
 	dlbu->pp_cores_mask |= (0x1 << core_id);
-	MALI_DEBUG_PRINT(3, ("Mali DLB: Adding core[%d] New mask= 0x%02x\n",core_id , dlbu->pp_cores_mask));
+	MALI_DEBUG_PRINT(3, ("Mali DLBU: Adding core[%d] New mask= 0x%02x\n",core_id , dlbu->pp_cores_mask));
 
 	mali_hw_core_register_write(&dlbu->hw_core, MALI_DLBU_REGISTER_PP_ENABLE_MASK, dlbu->pp_cores_mask);
 }
 
-/* Remove a group to the list of (PP + MMU) pairs dlb go out to */
+/* Remove a group from the DLBU */
 void mali_dlbu_remove_group(struct mali_dlbu_core *dlbu, struct mali_group *group)
 {
 	struct mali_pp_core *pp_core;
@@ -194,11 +194,12 @@ void mali_dlbu_remove_group(struct mali_dlbu_core *dlbu, struct mali_group *grou
 	core_id = mali_pp_core_get_id(pp_core);
 
 	dlbu->pp_cores_mask &= ~(0x1 << core_id);
-		MALI_DEBUG_PRINT(3, ("Mali DLB: Removing core[%d] New mask= 0x%02x\n", core_id, dlbu->pp_cores_mask));
+		MALI_DEBUG_PRINT(3, ("Mali DLBU: Removing core[%d] New mask= 0x%02x\n", core_id, dlbu->pp_cores_mask));
 
 	mali_hw_core_register_write(&dlbu->hw_core, MALI_DLBU_REGISTER_PP_ENABLE_MASK, dlbu->pp_cores_mask);
 }
 
+/* Configure the DLBU for \a job. This needs to be done before the job is started on the groups in the DLBU. */
 void mali_dlbu_config_job(struct mali_dlbu_core *dlbu, struct mali_pp_job *job)
 {
 	u32 *registers;

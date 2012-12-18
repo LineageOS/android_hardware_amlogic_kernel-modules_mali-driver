@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 /**
@@ -15,6 +15,8 @@
 
 #ifndef __MALI_OSK_LIST_H__
 #define __MALI_OSK_LIST_H__
+
+#include "mali_kernel_common.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -150,30 +152,27 @@ MALI_STATIC_INLINE void _mali_osk_list_move( _mali_osk_list_t *move_entry, _mali
     _mali_osk_list_add(move_entry, list);
 }
 
-/** @brief Join two lists
+/** @brief Move an entire list
  *
  * The list element must be initialized.
  *
- * Allows you to join a list into another list at a specific location
+ * Allows you to move a list from one list head to another list head
  *
- * @param list the new list to add
- * @param at the location in a list to add the new list into
+ * @param old_list The existing list head
+ * @param new_list The new list head (must be an empty list)
  */
-MALI_STATIC_INLINE void _mali_osk_list_splice( _mali_osk_list_t *list, _mali_osk_list_t *at )
+MALI_STATIC_INLINE void _mali_osk_list_move_list( _mali_osk_list_t *old_list, _mali_osk_list_t *new_list )
 {
-    if (!_mali_osk_list_empty(list))
-    {
-        /* insert all items from 'list' after 'at'  */
-        _mali_osk_list_t *first = list->next;
-        _mali_osk_list_t *last = list->prev;
-        _mali_osk_list_t *split = at->next;
-
-        first->prev = at;
-        at->next = first;
-
-        last->next  = split;
-        split->prev = last;
-    }
+	MALI_DEBUG_ASSERT(_mali_osk_list_empty(new_list));
+	if (!_mali_osk_list_empty(old_list))
+	{
+		new_list->next = old_list->next;
+		new_list->prev = old_list->prev;
+		new_list->next->prev = new_list;
+		new_list->prev->next = new_list;
+		old_list->next = old_list;
+		old_list->prev = old_list;
+	}
 }
 /** @} */ /* end group _mali_osk_list */
 

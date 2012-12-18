@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2011-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_pp_job.h"
@@ -27,16 +27,8 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 	{
 		u32 i;
 
-		job->finished_notification = _mali_osk_notification_create(_MALI_NOTIFICATION_PP_FINISHED, sizeof(_mali_uk_pp_job_finished_s));
-		if (NULL == job->finished_notification)
-		{
-			_mali_osk_free(job);
-			return NULL;
-		}
-
 		if (0 != _mali_osk_copy_from_user(&job->uargs, uargs, sizeof(_mali_uk_pp_start_job_s)))
 		{
-			_mali_osk_notification_delete(job->finished_notification);
 			_mali_osk_free(job);
 			return NULL;
 		}
@@ -44,36 +36,32 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 		if (job->uargs.num_cores > _MALI_PP_MAX_SUB_JOBS)
 		{
 			MALI_PRINT_ERROR(("Mali PP job: Too many sub jobs specified in job object\n"));
-			_mali_osk_notification_delete(job->finished_notification);
 			_mali_osk_free(job);
 			return NULL;
 		}
 
-		perf_counter_flag = mali_pp_job_get_perf_counter_flag(job);
-		/* set counters got from user space only if no counters were set through debugfs / DS-5 */
-		if (MALI_HW_CORE_NO_COUNTER == mali_pp_job_get_pp_counter_src0())
+		if (!mali_pp_job_use_no_notification(job))
 		{
-			if (perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE)
+			job->finished_notification = _mali_osk_notification_create(_MALI_NOTIFICATION_PP_FINISHED, sizeof(_mali_uk_pp_job_finished_s));
+			if (NULL == job->finished_notification)
 			{
-				mali_pp_job_set_pp_counter_src0(job->uargs.perf_counter_src0);
-				mali_pp_job_set_perf_counter_src0(job, mali_pp_job_get_pp_counter_src0());
+				_mali_osk_free(job);
+				return NULL;
 			}
 		}
 		else
 		{
-			mali_pp_job_set_perf_counter_src0(job, mali_pp_job_get_pp_counter_src0());
+			job->finished_notification = NULL;
 		}
 
-		if (MALI_HW_CORE_NO_COUNTER == mali_pp_job_get_pp_counter_src1())
+		perf_counter_flag = mali_pp_job_get_perf_counter_flag(job);
+
+		/* case when no counters came from user space
+		 * so pass the debugfs / DS-5 provided global ones to the job object */
+		if (!((perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE) ||
+				(perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE)))
 		{
-			if (perf_counter_flag & _MALI_PERFORMANCE_COUNTER_FLAG_SRC1_ENABLE)
-			{
-					mali_pp_job_set_pp_counter_src1(job->uargs.perf_counter_src1);
-					mali_pp_job_set_perf_counter_src1(job, mali_pp_job_get_pp_counter_src1());
-			}
-		}
-		else
-		{
+			mali_pp_job_set_perf_counter_src0(job, mali_pp_job_get_pp_counter_src0());
 			mali_pp_job_set_perf_counter_src1(job, mali_pp_job_get_pp_counter_src1());
 		}
 

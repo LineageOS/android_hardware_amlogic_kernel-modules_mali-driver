@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2011-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
  
  //#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
@@ -29,14 +29,16 @@
 #include "mali_kernel_core.h"
 #include "mali_osk_profiling.h"
 
-#define CONFIG_MALI400_UPPER_HALF_SCHEDULING
-
 static void mali_group_bottom_half_mmu(void *data);
 static void mali_group_bottom_half_gp(void *data);
 static void mali_group_bottom_half_pp(void *data);
 
 static void mali_group_timeout(void *data);
 static void mali_group_reset_pp(struct mali_group *group);
+
+#if defined(CONFIG_MALI400_PROFILING)
+static void mali_group_report_l2_cache_counters_per_core(struct mali_group *group, u32 core_num);
+#endif /* #if defined(CONFIG_MALI400_PROFILING) */
 
 /*
  * The group object is the most important object in the device driver,
@@ -67,8 +69,8 @@ static void mali_group_remove_session_if_unused(struct mali_group *group, struct
 static void mali_group_recovery_reset(struct mali_group *group);
 static void mali_group_mmu_page_fault(struct mali_group *group);
 
-void mali_group_post_process_job_pp(struct mali_group *group);
-void mali_group_post_process_job_gp(struct mali_group *group, mali_bool suspend);
+static void mali_group_post_process_job_pp(struct mali_group *group);
+static void mali_group_post_process_job_gp(struct mali_group *group, mali_bool suspend);
 
 void mali_group_lock(struct mali_group *group)
 {
@@ -97,6 +99,13 @@ void mali_group_assert_locked(struct mali_group *group)
 struct mali_group *mali_group_create(struct mali_l2_cache_core *core, struct mali_dlbu_core *dlbu, struct mali_bcast_unit *bcast)
 {
 	struct mali_group *group = NULL;
+	_mali_osk_lock_flags_t lock_flags;
+
+#if defined(MALI_UPPER_HALF_SCHEDULING)
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#else
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#endif
 
 	if (mali_global_num_groups >= MALI_MAX_NUMBER_OF_GROUPS)
 	{
@@ -114,7 +123,7 @@ struct mali_group *mali_group_create(struct mali_l2_cache_core *core, struct mal
 			_mali_osk_lock_order_t order;
 			_mali_osk_timer_setcallback(group->timeout_timer, mali_group_timeout, (void *)group);
 
-			if (mali_group_is_virtual(group))
+			if (NULL != dlbu)
 			{
 				order = _MALI_OSK_LOCK_ORDER_GROUP_VIRTUAL;
 			}
@@ -123,10 +132,7 @@ struct mali_group *mali_group_create(struct mali_l2_cache_core *core, struct mal
 				order = _MALI_OSK_LOCK_ORDER_GROUP;
 			}
 
-			group->lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED |
-			                                  _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ |
-			                                  _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE,
-			                                  0, order);
+			group->lock = _mali_osk_lock_init(lock_flags, 0, order);
 			if (NULL != group->lock)
 			{
 				group->l2_cache_core[0] = core;
@@ -147,6 +153,7 @@ struct mali_group *mali_group_create(struct mali_l2_cache_core *core, struct mal
 
 				return group;
 			}
+            _mali_osk_timer_term(group->timeout_timer);
 		}
 		_mali_osk_free(group);
 	}
@@ -255,16 +262,13 @@ void mali_group_delete(struct mali_group *group)
 			child->parent_group = NULL;
 			mali_group_delete(child);
 		}
-	}
 
-	if (NULL != group->dlbu_core)
-	{
 		mali_dlbu_delete(group->dlbu_core);
-	}
 
-	if (NULL != group->bcast_core)
-	{
-		mali_bcast_unit_delete(group->bcast_core);
+		if (NULL != group->bcast_core)
+		{
+			mali_bcast_unit_delete(group->bcast_core);
+		}
 	}
 
 	for (i = 0; i < MALI_MAX_NUMBER_OF_GROUPS; i++)
@@ -410,6 +414,7 @@ void mali_group_add_group(struct mali_group *parent, struct mali_group *child)
 			mali_bool activate_success = mali_mmu_activate_page_directory(child->mmu,
 			        mali_session_get_page_directory(parent->session));
 			MALI_DEBUG_ASSERT(activate_success);
+			MALI_IGNORE(activate_success);
 		}
 	}
 	child->session = NULL;
@@ -569,9 +574,18 @@ _mali_osk_errcode_t mali_group_start_gp_job(struct mali_group *group, struct mal
 		}
 		mali_gp_job_start(group->gp_core, job);
 
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE | MALI_PROFILING_MAKE_EVENT_CHANNEL_GP(0) | MALI_PROFILING_EVENT_REASON_SINGLE_HW_FLUSH,
-		                              mali_gp_job_get_frame_builder_id(job), mali_gp_job_get_flush_id(job), 0, 0, 0);
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START|MALI_PROFILING_MAKE_EVENT_CHANNEL_GP(0), mali_gp_job_get_pid(job), mali_gp_job_get_tid(job), 0, 0, 0);
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
+				MALI_PROFILING_MAKE_EVENT_CHANNEL_GP(0) |
+				MALI_PROFILING_EVENT_REASON_SINGLE_HW_FLUSH,
+		        mali_gp_job_get_frame_builder_id(job), mali_gp_job_get_flush_id(job), 0, 0, 0);
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
+				MALI_PROFILING_MAKE_EVENT_CHANNEL_GP(0),
+				mali_gp_job_get_pid(job), mali_gp_job_get_tid(job), 0, 0, 0);
+#if defined(CONFIG_MALI400_PROFILING)
+		if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+				(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+			mali_group_report_l2_cache_counters_per_core(group, 0);
+#endif /* #if defined(CONFIG_MALI400_PROFILING) */
 
 		group->gp_running_job = job;
 		group->state = MALI_GROUP_STATE_WORKING;
@@ -640,6 +654,7 @@ _mali_osk_errcode_t mali_group_start_pp_job(struct mali_group *group, struct mal
 		{
 			struct mali_group *child;
 			struct mali_group *temp;
+
 			_MALI_OSK_LIST_FOREACHENTRY(child, temp, &group->group_list, struct mali_group, group_list)
 			{
 				_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE|
@@ -651,8 +666,25 @@ _mali_osk_errcode_t mali_group_start_pp_job(struct mali_group *group, struct mal
 				                              MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(mali_pp_core_get_id(child->pp_core))|
 				                              MALI_PROFILING_EVENT_REASON_START_STOP_HW_VIRTUAL,
 				                              mali_pp_job_get_pid(job), mali_pp_job_get_tid(job), 0, 0, 0);
-
 			}
+#if defined(CONFIG_MALI400_PROFILING)
+			if (0 != group->l2_cache_core_ref_count[0])
+			{
+				if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+									(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+				{
+					mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[0]));
+				}
+			}
+			if (0 != group->l2_cache_core_ref_count[1])
+			{
+				if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[1])) &&
+									(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[1])))
+				{
+					mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[1]));
+				}
+			}
+#endif /* #if defined(CONFIG_MALI400_PROFILING) */
 		}
 		else /* group is physical - call profiling events for physical cores */
 		{
@@ -665,7 +697,13 @@ _mali_osk_errcode_t mali_group_start_pp_job(struct mali_group *group, struct mal
 			                              MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(mali_pp_core_get_id(group->pp_core))|
 			                              MALI_PROFILING_EVENT_REASON_START_STOP_HW_PHYSICAL,
 			                              mali_pp_job_get_pid(job), mali_pp_job_get_tid(job), 0, 0, 0);
-
+#if defined(CONFIG_MALI400_PROFILING)
+			if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+					(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+			{
+				mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[0]));
+			}
+#endif /* #if defined(CONFIG_MALI400_PROFILING) */
 		}
 		group->pp_running_job = job;
 		group->pp_running_sub_job = sub_job;
@@ -715,7 +753,7 @@ static void mali_group_reset_pp(struct mali_group *group)
 
 	mali_pp_reset_async(group->pp_core);
 
-	if (!mali_group_is_virtual(group) || group->pp_running_job)
+	if (!mali_group_is_virtual(group) || NULL == group->pp_running_job)
 	{
 		/* This is a physical group or an idle virtual group -- simply wait for
 		 * the reset to complete. */
@@ -756,6 +794,7 @@ static void mali_group_complete_pp(struct mali_group *group, mali_bool success)
 	if (_MALI_OSK_ERR_OK != mali_pp_reset_wait(group->pp_core))
 	{
 		MALI_DEBUG_PRINT(3, ("Mali group: Failed to reset PP, need to reset entire group\n"));
+
 		mali_group_recovery_reset(group);
 	}
 
@@ -783,6 +822,7 @@ static void mali_group_complete_gp(struct mali_group *group, mali_bool success)
 	if (_MALI_OSK_ERR_OK != mali_gp_reset_wait(group->gp_core))
 	{
 		MALI_DEBUG_PRINT(3, ("Mali group: Failed to reset GP, need to reset entire group\n"));
+
 		mali_group_recovery_reset(group);
 	}
 
@@ -796,7 +836,6 @@ void mali_group_abort_gp_job(struct mali_group *group, u32 job_id)
 	if (group->state == MALI_GROUP_STATE_IDLE ||
 	    mali_gp_job_get_id(group->gp_running_job) != job_id)
 	{
-		mali_group_unlock(group);
 		return; /* No need to cancel or job has already been aborted or completed */
 	}
 
@@ -810,7 +849,6 @@ static void mali_group_abort_pp_job(struct mali_group *group, u32 job_id)
 	if (group->state == MALI_GROUP_STATE_IDLE ||
 	    mali_pp_job_get_id(group->pp_running_job) != job_id)
 	{
-		mali_group_unlock(group);
 		return; /* No need to cancel or job has already been aborted or completed */
 	}
 
@@ -838,7 +876,7 @@ void mali_group_abort_session(struct mali_group *group, struct mali_session_data
 	gp_job = group->gp_running_job;
 	pp_job = group->pp_running_job;
 
-	if (gp_job && mali_gp_job_get_session(gp_job) == session)
+	if ((NULL != gp_job) && (mali_gp_job_get_session(gp_job) == session))
 	{
 		MALI_DEBUG_PRINT(4, ("Aborting GP job 0x%08x from session 0x%08x\n", gp_job, session));
 
@@ -846,7 +884,7 @@ void mali_group_abort_session(struct mali_group *group, struct mali_session_data
 		abort_gp = MALI_TRUE;
 	}
 
-	if (pp_job && mali_pp_job_get_session(pp_job) == session)
+	if ((NULL != pp_job) && (mali_pp_job_get_session(pp_job) == session))
 	{
 		MALI_DEBUG_PRINT(4, ("Mali group: Aborting PP job 0x%08x from session 0x%08x\n", pp_job, session));
 
@@ -854,11 +892,11 @@ void mali_group_abort_session(struct mali_group *group, struct mali_session_data
 		abort_pp = MALI_TRUE;
 	}
 
-	if (0 != abort_gp)
+	if (abort_gp)
 	{
 		mali_group_abort_gp_job(group, gp_job_id);
 	}
-	if (0 != abort_pp)
+	if (abort_pp)
 	{
 		mali_group_abort_pp_job(group, pp_job_id);
 	}
@@ -1229,6 +1267,7 @@ static void mali_group_bottom_half_mmu(void * data)
 		                 (status >> 6) & 0x1F,
 		                 (status & 32) ? "write" : "read",
 		                 mmu->hw_core.description));
+		MALI_IGNORE(fault_address);
 
 		mali_group_mmu_page_fault(group);
 	}
@@ -1294,12 +1333,12 @@ static void mali_group_bottom_half_gp(void *data)
 		{
 			MALI_DEBUG_PRINT(4, ("Mali group: GP job completed, calling group handler\n"));
 			group->core_timed_out = MALI_FALSE;
-			mali_group_complete_gp(group, MALI_TRUE);
-			mali_group_unlock(group);
 			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
 			                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
 			                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
 			                              0, _mali_osk_get_tid(), 0, 0, 0);
+			mali_group_complete_gp(group, MALI_TRUE);
+			mali_group_unlock(group);
 			return;
 		}
 	}
@@ -1313,9 +1352,12 @@ static void mali_group_bottom_half_gp(void *data)
 	{
 		MALI_PRINT_ERROR(("Mali group: Unknown interrupt 0x%08X from core %s, aborting job\n", irq_readout, mali_gp_get_hw_core_desc(group->gp_core)));
 		group->core_timed_out = MALI_FALSE;
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+		                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+		                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
+		                              0, _mali_osk_get_tid(), 0, 0, 0);
 		mali_group_complete_gp(group, MALI_FALSE);
 		mali_group_unlock(group);
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP|MALI_PROFILING_EVENT_CHANNEL_SOFTWARE|MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF, 0, _mali_osk_get_tid(), 0, 0, 0);
 		return;
 	}
 	else if (group->core_timed_out) /* SW timeout */
@@ -1324,7 +1366,7 @@ static void mali_group_bottom_half_gp(void *data)
 		if (!_mali_osk_timer_pending(group->timeout_timer) && NULL != group->gp_running_job)
 		{
 			MALI_PRINT(("Mali group: Job %d timed out\n", mali_gp_job_get_id(group->gp_running_job)));
-			mali_group_complete_gp(group, MALI_FALSE); /* Will release group lock */
+			mali_group_complete_gp(group, MALI_FALSE);
 			mali_group_unlock(group);
 			return;
 		}
@@ -1352,13 +1394,10 @@ static void mali_group_bottom_half_gp(void *data)
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP|MALI_PROFILING_EVENT_CHANNEL_SOFTWARE|MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF, 0, _mali_osk_get_tid(), 0, 0, 0);
 }
 
-void mali_group_post_process_job_gp(struct mali_group *group, mali_bool suspend)
+static void mali_group_post_process_job_gp(struct mali_group *group, mali_bool suspend)
 {
-	if (NULL == group->pp_running_job)
-	{
-		/* There is no running jobs, stop the timer. */
-		_mali_osk_timer_del_async(group->timeout_timer);
-	}
+	/* Stop the timeout timer. */
+	_mali_osk_timer_del_async(group->timeout_timer);
 
 	if (NULL == group->gp_running_job)
 	{
@@ -1385,6 +1424,10 @@ void mali_group_post_process_job_gp(struct mali_group *group, mali_bool suspend)
 		                              mali_gp_job_get_perf_counter_value1(group->gp_running_job),
 		                              mali_gp_job_get_perf_counter_src0(group->gp_running_job) | (mali_gp_job_get_perf_counter_src1(group->gp_running_job) << 8),
 		                              0, 0);
+
+		if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+				(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+			mali_group_report_l2_cache_counters_per_core(group, 0);
 	}
 #endif
 
@@ -1412,7 +1455,7 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 	 * processing on the wrong group object (this should only happen on the
 	 * parent group)
 	 */
-#if !defined(CONFIG_MALI400_UPPER_HALF_SCHEDULING)
+#if !defined(MALI_UPPER_HALF_SCHEDULING)
 	if (mali_group_is_in_virtual(group))
 	{
 		/*
@@ -1442,7 +1485,7 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 		}
 #endif
 
-#if defined(CONFIG_MALI400_UPPER_HALF_SCHEDULING)
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 		if (irq_readout & MALI200_REG_VAL_IRQ_END_OF_FRAME)
 		{
 			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
@@ -1476,15 +1519,15 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 				return _MALI_OSK_ERR_FAULT;
 			}
 
-			mali_group_complete_pp(group, MALI_TRUE);
-			/* No need to enable interrupts again, since the core will be reset while completing the job */
-
-			mali_group_unlock(group);
-
 			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
 			                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
 			                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
 			                              0, 0, MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP(core->core_id), 0, 0);
+
+			mali_group_complete_pp(group, MALI_TRUE);
+			/* No need to enable interrupts again, since the core will be reset while completing the job */
+
+			mali_group_unlock(group);
 
 			return _MALI_OSK_ERR_OK;
 		}
@@ -1559,12 +1602,12 @@ static void mali_group_bottom_half_pp(void *data)
 	{
 		MALI_DEBUG_PRINT(3, ("Mali PP: Job completed, calling group handler\n"));
 		group->core_timed_out = MALI_FALSE;
-		mali_group_complete_pp(group, MALI_TRUE);
-		mali_group_unlock(group);
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
 		                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
 		                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
 		                              0, _mali_osk_get_tid(), 0, 0, 0);
+		mali_group_complete_pp(group, MALI_TRUE);
+		mali_group_unlock(group);
 		return;
 	}
 
@@ -1586,17 +1629,21 @@ static void mali_group_bottom_half_pp(void *data)
 		MALI_PRINT_ERROR(("Mali PP: Unknown interrupt 0x%08X from core %s, aborting job\n",
 		                  irq_readout, mali_pp_get_hw_core_desc(group->pp_core)));
 		group->core_timed_out = MALI_FALSE;
-		mali_group_complete_pp(group, MALI_FALSE);
-		mali_group_unlock(group);
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
 		                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
 		                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
 		                              0, _mali_osk_get_tid(), 0, 0, 0);
+		mali_group_complete_pp(group, MALI_FALSE);
+		mali_group_unlock(group);
 		return;
 	}
 	else if (group->core_timed_out) /* SW timeout */
 	{
 		group->core_timed_out = MALI_FALSE;
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+		                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+		                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
+		                              0, _mali_osk_get_tid(), 0, 0, 0);
 		if (!_mali_osk_timer_pending(group->timeout_timer) && NULL != group->pp_running_job)
 		{
 			MALI_PRINT(("Mali PP: Job %d timed out on core %s\n",
@@ -1608,10 +1655,6 @@ static void mali_group_bottom_half_pp(void *data)
 		{
 			mali_group_unlock(group);
 		}
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
-		                              MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
-		                              MALI_PROFILING_EVENT_REASON_START_STOP_SW_BOTTOM_HALF,
-		                              0, _mali_osk_get_tid(), 0, 0, 0);
 		return;
 	}
 
@@ -1637,15 +1680,12 @@ static void mali_group_bottom_half_pp(void *data)
 	                              0, _mali_osk_get_tid(), 0, 0, 0);
 }
 
-void mali_group_post_process_job_pp(struct mali_group *group)
+static void mali_group_post_process_job_pp(struct mali_group *group)
 {
 	MALI_ASSERT_GROUP_LOCKED(group);
 
-	if (NULL == group->gp_running_job)
-	{
-		/* There are no running jobs, stop the timer. */
-		_mali_osk_timer_del_async(group->timeout_timer);
-	}
+	/* Stop the timeout timer. */
+	_mali_osk_timer_del_async(group->timeout_timer);
 
 	/*todo add stop SW counters profiling*/
 
@@ -1674,6 +1714,23 @@ void mali_group_post_process_job_pp(struct mali_group *group)
 				                              mali_pp_job_get_perf_counter_src0(group->pp_running_job) | (mali_pp_job_get_perf_counter_src1(group->pp_running_job) << 8),
 				                              0, 0);
 			}
+			if (0 != group->l2_cache_core_ref_count[0])
+			{
+				if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+									(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+				{
+					mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[0]));
+				}
+			}
+			if (0 != group->l2_cache_core_ref_count[1])
+			{
+				if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[1])) &&
+									(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[1])))
+				{
+					mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[1]));
+				}
+			}
+
 #endif
 		}
 		else
@@ -1681,6 +1738,7 @@ void mali_group_post_process_job_pp(struct mali_group *group)
 			/* update performance counters for a physical group's pp core */
 			mali_pp_update_performance_counters(group->pp_core, group->pp_running_job, group->pp_running_sub_job);
 
+#if defined(CONFIG_MALI400_PROFILING)
 			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP|
 			                              MALI_PROFILING_MAKE_EVENT_CHANNEL_PP(mali_pp_core_get_id(group->pp_core))|
 			                              MALI_PROFILING_EVENT_REASON_START_STOP_HW_PHYSICAL,
@@ -1688,6 +1746,12 @@ void mali_group_post_process_job_pp(struct mali_group *group)
 			                              mali_pp_job_get_perf_counter_value1(group->pp_running_job, group->pp_running_sub_job),
 			                              mali_pp_job_get_perf_counter_src0(group->pp_running_job) | (mali_pp_job_get_perf_counter_src1(group->pp_running_job) << 8),
 			                              0, 0);
+			if ((MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src0(group->l2_cache_core[0])) &&
+					(MALI_HW_CORE_NO_COUNTER != mali_l2_cache_core_get_counter_src1(group->l2_cache_core[0])))
+			{
+				mali_group_report_l2_cache_counters_per_core(group, mali_l2_cache_get_id(group->l2_cache_core[0]));
+			}
+#endif
 		}
 	}
 }
@@ -1700,19 +1764,17 @@ static void mali_group_timeout(void *data)
 
 	if (NULL != group->gp_core)
 	{
-		/* TODO lower debug level */
-		MALI_DEBUG_PRINT(1, ("Mali group: TIMEOUT on %s\n", mali_gp_get_hw_core_desc(group->gp_core)));
+		MALI_DEBUG_PRINT(2, ("Mali group: TIMEOUT on %s\n", mali_gp_get_hw_core_desc(group->gp_core)));
 		_mali_osk_wq_schedule_work(group->bottom_half_work_gp);
 	}
 	else
 	{
-		/* TODO lower debug level */
-		MALI_DEBUG_PRINT(1, ("Mali group: TIMEOUT on %s\n", mali_pp_get_hw_core_desc(group->pp_core)));
+		MALI_DEBUG_PRINT(2, ("Mali group: TIMEOUT on %s\n", mali_pp_get_hw_core_desc(group->pp_core)));
 		_mali_osk_wq_schedule_work(group->bottom_half_work_pp);
 	}
 }
 
-void mali_group_zap_session(struct mali_group* group, struct mali_session_data *session)
+void mali_group_zap_session(struct mali_group *group, struct mali_session_data *session)
 {
 	MALI_DEBUG_ASSERT_POINTER(group);
 	MALI_DEBUG_ASSERT_POINTER(session);
@@ -1737,3 +1799,63 @@ void mali_group_zap_session(struct mali_group* group, struct mali_session_data *
 
 	mali_group_unlock(group);
 }
+
+#if defined(CONFIG_MALI400_PROFILING)
+static void mali_group_report_l2_cache_counters_per_core(struct mali_group *group, u32 core_num)
+{
+	u32 source0 = 0;
+	u32 value0 = 0;
+	u32 source1 = 0;
+	u32 value1 = 0;
+	u32 profiling_channel = 0;
+
+	switch(core_num)
+	{
+		case 0:	profiling_channel = MALI_PROFILING_EVENT_TYPE_SINGLE |
+				MALI_PROFILING_EVENT_CHANNEL_GPU |
+				MALI_PROFILING_EVENT_REASON_SINGLE_GPU_L20_COUNTERS;
+				break;
+		case 1: profiling_channel = MALI_PROFILING_EVENT_TYPE_SINGLE |
+				MALI_PROFILING_EVENT_CHANNEL_GPU |
+				MALI_PROFILING_EVENT_REASON_SINGLE_GPU_L21_COUNTERS;
+				break;
+		case 2: profiling_channel = MALI_PROFILING_EVENT_TYPE_SINGLE |
+				MALI_PROFILING_EVENT_CHANNEL_GPU |
+				MALI_PROFILING_EVENT_REASON_SINGLE_GPU_L22_COUNTERS;
+				break;
+		default: profiling_channel = MALI_PROFILING_EVENT_TYPE_SINGLE |
+				MALI_PROFILING_EVENT_CHANNEL_GPU |
+				MALI_PROFILING_EVENT_REASON_SINGLE_GPU_L20_COUNTERS;
+				break;
+	}
+
+	if (0 == core_num)
+	{
+		mali_l2_cache_core_get_counter_values(group->l2_cache_core[0], &source0, &value0, &source1, &value1);
+	}
+	if (1 == core_num)
+	{
+		if (1 == mali_l2_cache_get_id(group->l2_cache_core[0]))
+		{
+			mali_l2_cache_core_get_counter_values(group->l2_cache_core[0], &source0, &value0, &source1, &value1);
+		}
+		else if (1 == mali_l2_cache_get_id(group->l2_cache_core[1]))
+		{
+			mali_l2_cache_core_get_counter_values(group->l2_cache_core[1], &source0, &value0, &source1, &value1);
+		}
+	}
+	if (2 == core_num)
+	{
+		if (2 == mali_l2_cache_get_id(group->l2_cache_core[0]))
+		{
+			mali_l2_cache_core_get_counter_values(group->l2_cache_core[0], &source0, &value0, &source1, &value1);
+		}
+		else if (2 == mali_l2_cache_get_id(group->l2_cache_core[1]))
+		{
+			mali_l2_cache_core_get_counter_values(group->l2_cache_core[1], &source0, &value0, &source1, &value1);
+		}
+	}
+
+	_mali_osk_profiling_add_event(profiling_channel, source1 << 8 | source0, value0, value1, 0, 0);
+}
+#endif /* #if defined(CONFIG_MALI400_PROFILING) */

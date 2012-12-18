@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 /**
@@ -30,6 +30,7 @@ struct mali_sync_pt
 {
 	struct sync_pt pt;
 	u32 order;
+	s32 error;
 };
 
 static inline struct mali_sync_timeline *to_mali_sync_timeline(struct sync_timeline *timeline)
@@ -64,8 +65,14 @@ static int timeline_has_signaled(struct sync_pt *pt)
 {
 	struct mali_sync_pt *mpt = to_mali_sync_pt(pt);
 	struct mali_sync_timeline *mtl = to_mali_sync_timeline(pt->parent);
+	long diff;
 
-	long diff = atomic_read(&mtl->signalled) - mpt->order;
+	if (0 != mpt->error)
+	{
+		return mpt->error;
+	}
+
+	diff = atomic_read(&mtl->signalled) - mpt->order;
 
 	return diff >= 0;
 }
@@ -153,16 +160,23 @@ struct sync_pt *mali_sync_pt_alloc(struct sync_timeline *parent)
 
 	mpt = to_mali_sync_pt(pt);
 	mpt->order = atomic_inc_return(&mtl->counter);
+	mpt->error = 0;
 
 	return pt;
 }
 
-void mali_sync_signal_pt(struct sync_pt *pt)
+void mali_sync_signal_pt(struct sync_pt *pt, int error)
 {
 	struct mali_sync_pt *mpt = to_mali_sync_pt(pt);
 	struct mali_sync_timeline *mtl = to_mali_sync_timeline(pt->parent);
 	int signalled;
 	long diff;
+
+	if (0 != error)
+	{
+		MALI_DEBUG_ASSERT(0 > error);
+		mpt->error = error;
+	}
 
 	do {
 

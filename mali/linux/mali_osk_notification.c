@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 /**
@@ -107,7 +107,9 @@ void _mali_osk_notification_queue_term( _mali_osk_notification_queue_t *queue )
 
 void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _mali_osk_notification_t *object )
 {
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	unsigned long irq_flags;
+#endif
 
 	_mali_osk_notification_wrapper_t *notification;
 	MALI_DEBUG_ASSERT_POINTER( queue );
@@ -115,9 +117,19 @@ void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _
 
 	notification = container_of( object, _mali_osk_notification_wrapper_t, data );
 
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	spin_lock_irqsave(&queue->mutex, irq_flags);
+#else
+	spin_lock(&queue->mutex);
+#endif
+
 	list_add_tail(&notification->list, &queue->head);
+
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	spin_unlock_irqrestore(&queue->mutex, irq_flags);
+#else
+	spin_unlock(&queue->mutex);
+#endif
 
 	/* and wake up one possible exclusive waiter */
 	wake_up(&queue->receive_queue);
@@ -125,12 +137,18 @@ void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _
 
 _mali_osk_errcode_t _mali_osk_notification_queue_dequeue( _mali_osk_notification_queue_t *queue, _mali_osk_notification_t **result )
 {
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	unsigned long irq_flags;
+#endif
 
 	_mali_osk_errcode_t ret = _MALI_OSK_ERR_ITEM_NOT_FOUND;
 	_mali_osk_notification_wrapper_t *wrapper_object;
 
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	spin_lock_irqsave(&queue->mutex, irq_flags);
+#else
+	spin_lock(&queue->mutex);
+#endif
 
 	if (!list_empty(&queue->head))
 	{
@@ -140,7 +158,11 @@ _mali_osk_errcode_t _mali_osk_notification_queue_dequeue( _mali_osk_notification
 		ret = _MALI_OSK_ERR_OK;
 	}
 
+#if defined(MALI_UPPER_HALF_SCHEDULING)
 	spin_unlock_irqrestore(&queue->mutex, irq_flags);
+#else
+	spin_unlock(&queue->mutex);
+#endif
 
 	return ret;
 }

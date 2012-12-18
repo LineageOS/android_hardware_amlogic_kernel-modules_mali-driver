@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2008-2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 /**
@@ -262,7 +262,6 @@ static void _allocation_list_item_release(AllocationList * item)
 	_mali_osk_free( item );
 }
 
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 static int mali_kernel_memory_cpu_page_fault_handler(struct vm_area_struct *vma, struct vm_fault *vmf)
 #else
@@ -333,7 +332,6 @@ static void mali_kernel_memory_vma_close(struct vm_area_struct * vma)
 	/* vma_usage_tracker is free()d by _mali_osk_mem_mapregion_term().
 	 * In the case of the memory engine, it is called as the release function that has been registered with the engine*/
 }
-
 
 void _mali_osk_mem_barrier( void )
 {

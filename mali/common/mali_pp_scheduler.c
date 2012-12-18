@@ -1,11 +1,11 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2012 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * 
+ * This program is free software and is provided to you under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+ * 
+ * A copy of the licence is included with the program, and can also be obtained from Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "mali_pp_scheduler.h"
@@ -19,11 +19,18 @@
 #include "mali_group.h"
 #include "mali_pm.h"
 
+#if defined(CONFIG_SYNC)
+#define MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE 1
+#endif
 
 /* Maximum of 8 PP cores (a group can only have maximum of 1 PP core) */
 #define MALI_MAX_NUMBER_OF_PP_GROUPS 9
 
 static mali_bool mali_pp_scheduler_is_suspended(void);
+static void mali_pp_scheduler_do_schedule(void *arg);
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+static void mali_pp_scheduler_do_job_delete(void *arg);
+#endif
 
 static u32 pp_version = 0;
 
@@ -54,14 +61,27 @@ static _mali_osk_lock_t *pp_scheduler_lock = NULL;
 /* Contains tid of thread that locked the scheduler or 0, if not locked */
 MALI_DEBUG_CODE(static u32 pp_scheduler_lock_owner = 0);
 
-_mali_osk_wq_work_t *pp_scheduler_wq = NULL;
+static _mali_osk_wq_work_t *pp_scheduler_wq_schedule = NULL;
+
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+static _mali_osk_wq_work_t *pp_scheduler_wq_job_delete = NULL;
+static _mali_osk_lock_t *pp_scheduler_job_delete_lock = NULL;
+static _MALI_OSK_LIST_HEAD_STATIC_INIT(pp_scheduler_job_deletion_queue);
+#endif
 
 _mali_osk_errcode_t mali_pp_scheduler_initialize(void)
 {
 	struct mali_group *group;
 	struct mali_pp_core *pp_core;
+	_mali_osk_lock_flags_t lock_flags;
 	u32 num_groups;
 	u32 i;
+
+#if defined(MALI_UPPER_HALF_SCHEDULING)
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#else
+	lock_flags = _MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK | _MALI_OSK_LOCKFLAG_NONINTERRUPTABLE;
+#endif
 
 	_MALI_OSK_INIT_LIST_HEAD(&job_queue);
 	_MALI_OSK_INIT_LIST_HEAD(&group_list_working);
@@ -69,7 +89,7 @@ _mali_osk_errcode_t mali_pp_scheduler_initialize(void)
 
 	_MALI_OSK_INIT_LIST_HEAD(&virtual_job_queue);
 
-	pp_scheduler_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ |_MALI_OSK_LOCKFLAG_NONINTERRUPTABLE, 0, _MALI_OSK_LOCK_ORDER_SCHEDULER);
+	pp_scheduler_lock = _mali_osk_lock_init(lock_flags, 0, _MALI_OSK_LOCK_ORDER_SCHEDULER);
 	if (NULL == pp_scheduler_lock)
 	{
 		return _MALI_OSK_ERR_NOMEM;
@@ -82,13 +102,34 @@ _mali_osk_errcode_t mali_pp_scheduler_initialize(void)
 		return _MALI_OSK_ERR_NOMEM;
 	}
 
-	pp_scheduler_wq = _mali_osk_wq_create_work(mali_pp_scheduler_do_schedule, NULL);
-	if (NULL == pp_scheduler_wq)
+	pp_scheduler_wq_schedule = _mali_osk_wq_create_work(mali_pp_scheduler_do_schedule, NULL);
+	if (NULL == pp_scheduler_wq_schedule)
 	{
-		_mali_osk_lock_term(pp_scheduler_lock);
 		_mali_osk_wait_queue_term(pp_scheduler_working_wait_queue);
+		_mali_osk_lock_term(pp_scheduler_lock);
 		return _MALI_OSK_ERR_NOMEM;
 	}
+
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+	pp_scheduler_wq_job_delete = _mali_osk_wq_create_work(mali_pp_scheduler_do_job_delete, NULL);
+	if (NULL == pp_scheduler_wq_job_delete)
+	{
+		_mali_osk_wq_delete_work(pp_scheduler_wq_schedule);
+		_mali_osk_wait_queue_term(pp_scheduler_working_wait_queue);
+		_mali_osk_lock_term(pp_scheduler_lock);
+		return _MALI_OSK_ERR_NOMEM;
+	}
+
+	pp_scheduler_job_delete_lock = _mali_osk_lock_init(_MALI_OSK_LOCKFLAG_ORDERED | _MALI_OSK_LOCKFLAG_SPINLOCK_IRQ |_MALI_OSK_LOCKFLAG_NONINTERRUPTABLE, 0, _MALI_OSK_LOCK_ORDER_SCHEDULER_DEFERRED);
+	if (NULL == pp_scheduler_job_delete_lock)
+	{
+		_mali_osk_wq_delete_work(pp_scheduler_wq_job_delete);
+		_mali_osk_wq_delete_work(pp_scheduler_wq_schedule);
+		_mali_osk_wait_queue_term(pp_scheduler_working_wait_queue);
+		_mali_osk_lock_term(pp_scheduler_lock);
+		return _MALI_OSK_ERR_NOMEM;
+	}
+#endif
 
 	num_groups = mali_group_get_glob_num_groups();
 
@@ -156,6 +197,12 @@ void mali_pp_scheduler_terminate(void)
 		mali_group_delete(group);
 	}
 
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+	_mali_osk_lock_term(pp_scheduler_job_delete_lock);
+	_mali_osk_wq_delete_work(pp_scheduler_wq_job_delete);
+#endif
+
+	_mali_osk_wq_delete_work(pp_scheduler_wq_schedule);
 	_mali_osk_wait_queue_term(pp_scheduler_working_wait_queue);
 	_mali_osk_lock_term(pp_scheduler_lock);
 }
@@ -222,7 +269,7 @@ MALI_STATIC_INLINE void mali_pp_scheduler_dequeue_physical_job(struct mali_pp_jo
 	if (!mali_pp_job_has_unstarted_sub_jobs(job))
 	{
 		/* All sub jobs have been started: remove job from queue */
-		_mali_osk_list_del(&job->list);
+		_mali_osk_list_delinit(&job->list);
 	}
 
 	--job_queue_depth;
@@ -258,7 +305,7 @@ MALI_STATIC_INLINE void mali_pp_scheduler_dequeue_virtual_job(struct mali_pp_job
 	MALI_DEBUG_ASSERT(virtual_job_queue_depth > 0);
 
 	/* Remove job from queue */
-	_mali_osk_list_del(&job->list);
+	_mali_osk_list_delinit(&job->list);
 	--virtual_job_queue_depth;
 }
 
@@ -481,7 +528,7 @@ static void mali_pp_scheduler_schedule(void)
 	}
 }
 
-static void mali_pp_scheduler_return_job_to_user(struct mali_pp_job *job)
+static void mali_pp_scheduler_return_job_to_user(struct mali_pp_job *job, mali_bool deferred)
 {
 	if (MALI_FALSE == mali_pp_job_use_no_notification(job))
 	{
@@ -511,20 +558,61 @@ static void mali_pp_scheduler_return_job_to_user(struct mali_pp_job *job)
 		job->finished_notification = NULL;
 	}
 
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+	if (MALI_TRUE == deferred)
+	{
+		/* The deletion of the job object (releasing sync refs etc) must be done in a different context */
+		_mali_osk_lock_wait(pp_scheduler_job_delete_lock, _MALI_OSK_LOCKMODE_RW);
+
+		MALI_DEBUG_ASSERT(_mali_osk_list_empty(&job->list)); /* This job object should not be on any list */
+		_mali_osk_list_addtail(&job->list, &pp_scheduler_job_deletion_queue);
+
+		_mali_osk_lock_signal(pp_scheduler_job_delete_lock, _MALI_OSK_LOCKMODE_RW);
+
+		_mali_osk_wq_schedule_work(pp_scheduler_wq_job_delete);
+	}
+	else
+	{
+		mali_pp_job_delete(job);
+	}
+#else
+	MALI_DEBUG_ASSERT(MALI_FALSE == deferred); /* no use cases need this in this configuration */
 	mali_pp_job_delete(job);
+#endif
 }
 
-void mali_pp_scheduler_do_schedule(void *arg)
+static void mali_pp_scheduler_do_schedule(void *arg)
 {
 	MALI_IGNORE(arg);
 
 	mali_pp_scheduler_schedule();
 }
 
-void mali_pp_scheduler_schedule_async(void)
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+static void mali_pp_scheduler_do_job_delete(void *arg)
 {
-	_mali_osk_wq_schedule_work(pp_scheduler_wq);
+	_MALI_OSK_LIST_HEAD_STATIC_INIT(list);
+	struct mali_pp_job *job;
+	struct mali_pp_job *tmp;
+
+	MALI_IGNORE(arg);
+
+	_mali_osk_lock_wait(pp_scheduler_job_delete_lock, _MALI_OSK_LOCKMODE_RW);
+
+	/*
+	 * Quickly "unhook" the jobs pending to be deleted, so we can release the lock before
+	 * we start deleting the job objects (without any locks held
+	 */
+	_mali_osk_list_move_list(&pp_scheduler_job_deletion_queue, &list);
+
+	_mali_osk_lock_signal(pp_scheduler_job_delete_lock, _MALI_OSK_LOCKMODE_RW);
+
+	_MALI_OSK_LIST_FOREACHENTRY(job, tmp, &list, struct mali_pp_job, list)
+	{
+		mali_pp_job_delete(job); /* delete the job object itself */
+	}
 }
+#endif
 
 void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *job, u32 sub_job, mali_bool success)
 {
@@ -537,6 +625,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 	                     job, sub_job + 1,
 	                     mali_pp_job_get_sub_job_count(job),
 	                     success ? "success" : "failure"));
+	MALI_ASSERT_GROUP_LOCKED(group);
 	mali_pp_scheduler_lock();
 
 	mali_pp_job_mark_sub_job_completed(job, success);
@@ -558,16 +647,24 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 		                     mali_pp_job_is_virtual(job) ? "virtual" : "physical",
 		                     mali_pp_job_get_id(job), job));
 #if defined(CONFIG_SYNC)
-		/* TODO propagate error */
 		if (job->sync_point)
 		{
-			MALI_DEBUG_PRINT(2, ("Sync: Signal point for job %d\n", mali_pp_job_get_id(job)));
-			mali_sync_signal_pt(job->sync_point);
+			int error;
+			if (success) error = 0;
+			else error = -EFAULT;
+			MALI_DEBUG_PRINT(4, ("Sync: Signal %spoint for job %d\n",
+			                     success ? "" : "failed ",
+					     mali_pp_job_get_id(job)));
+			mali_sync_signal_pt(job->sync_point, error);
 		}
 #endif
-		mali_pp_scheduler_return_job_to_user(job);
 
-		/* TODO: Should we do PM here? */
+#if defined(MALI_PP_SCHEDULER_USE_DEFERRED_JOB_DELETE)
+		mali_pp_scheduler_return_job_to_user(job, MALI_TRUE);
+#else
+		mali_pp_scheduler_return_job_to_user(job, MALI_FALSE);
+#endif
+
 		mali_pm_core_event(MALI_CORE_EVENT_PP_STOP);
 
 		/* Resolve any barriers */
@@ -597,7 +694,7 @@ void mali_pp_scheduler_job_done(struct mali_group *group, struct mali_pp_job *jo
 	if (barrier_enforced)
 	{
 		/* A barrier was resolved, so schedule previously blocked jobs */
-		mali_pp_scheduler_schedule_async();
+		_mali_osk_wq_schedule_work(pp_scheduler_wq_schedule);
 
 		/* TODO: Subjob optimisation */
 	}
@@ -834,6 +931,7 @@ static void sync_callback_work(void *arg)
 {
 	struct mali_pp_job *job = (struct mali_pp_job *)arg;
 	struct mali_session_data *session;
+	int err;
 
 	MALI_DEBUG_ASSERT_POINTER(job);
 
@@ -841,24 +939,27 @@ static void sync_callback_work(void *arg)
 
 	/* Remove job from session pending job list */
 	_mali_osk_lock_wait(session->pending_jobs_lock, _MALI_OSK_LOCKMODE_RW);
-	_mali_osk_list_del(&job->list);
+	_mali_osk_list_delinit(&job->list);
 	_mali_osk_lock_signal(session->pending_jobs_lock, _MALI_OSK_LOCKMODE_RW);
 
-	if (likely(0 == sync_fence_wait(job->pre_fence, 0)))
+	err = sync_fence_wait(job->pre_fence, 0);
+	if (likely(0 == err))
 	{
 		MALI_DEBUG_PRINT(3, ("Mali sync: Job %d ready to run\n", mali_pp_job_get_id(job)));
 
 		mali_pp_scheduler_queue_job(job, session);
 
-		if (0 == _mali_osk_list_empty(&group_list_idle)) mali_pp_scheduler_schedule();
+		mali_pp_scheduler_schedule();
 	}
 	else
 	{
 		/* Fence signaled error */
 		MALI_DEBUG_PRINT(3, ("Mali sync: Job %d abort due to sync error\n", mali_pp_job_get_id(job)));
 
+		if (job->sync_point) mali_sync_signal_pt(job->sync_point, err);
+
 		mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-		mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+		mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 	}
 }
 #endif
@@ -887,13 +988,13 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 	{
 		/* Not a valid job, return to user immediately */
 		mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-		mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+		mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 		return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 	}
 
 #if PROFILING_SKIP_PP_JOBS || PROFILING_SKIP_PP_AND_GP_JOBS
 #warning PP jobs will not be executed
-	mali_pp_scheduler_return_job_to_user(job);
+	mali_pp_scheduler_return_job_to_user(job, MALI_FALSE);
 	return _MALI_OSK_ERR_OK;
 #endif
 
@@ -907,7 +1008,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 			/* Fence creation failed. */
 			MALI_DEBUG_PRINT(2, ("Failed to create sync point for job %d\n", mali_pp_job_get_id(job)));
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-			mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 		}
 
@@ -919,7 +1020,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 			/* mali_stream_create_fence already freed the sync_point */
 			MALI_DEBUG_PRINT(2, ("Failed to create fence for job %d\n", mali_pp_job_get_id(job)));
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-			mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 		}
 
@@ -943,16 +1044,18 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		if (NULL == job->pre_fence)
 		{
 			MALI_DEBUG_PRINT(2, ("Failed to import fence %d\n", pre_fence_fd));
+			if (job->sync_point) mali_sync_signal_pt(job->sync_point, -EINVAL);
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-			mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 		}
 
 		job->sync_work = _mali_osk_wq_create_work(sync_callback_work, (void*)job);
 		if (NULL == job->sync_work)
 		{
+			if (job->sync_point) mali_sync_signal_pt(job->sync_point, -ENOMEM);
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-			mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 		}
 
@@ -982,8 +1085,9 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		else if (0 > err)
 		{
 			/* Sync fail */
+			if (job->sync_point) mali_sync_signal_pt(job->sync_point, err);
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
-			mali_pp_scheduler_return_job_to_user(job); /* This will also delete the job object */
+			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */
 		}
 
@@ -1068,7 +1172,7 @@ void mali_pp_scheduler_abort_session(struct mali_session_data *session)
 	_MALI_OSK_LIST_FOREACHENTRY(job, tmp_job, &session->job_list, struct mali_pp_job, session_list)
 	{
 		/* Remove job from queue (if it's not queued, list_del has no effect) */
-		_mali_osk_list_del(&job->list);
+		_mali_osk_list_delinit(&job->list);
 
 		if (mali_pp_job_is_virtual(job))
 		{
@@ -1103,6 +1207,11 @@ void mali_pp_scheduler_abort_session(struct mali_session_data *session)
 	}
 
 	_MALI_OSK_LIST_FOREACHENTRY(group, tmp_group, &group_list_working, struct mali_group, pp_scheduler_list)
+	{
+		groups[i++] = group;
+	}
+
+	_MALI_OSK_LIST_FOREACHENTRY(group, tmp_group, &group_list_idle, struct mali_group, pp_scheduler_list)
 	{
 		groups[i++] = group;
 	}
