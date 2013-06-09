@@ -139,7 +139,7 @@ static struct platform_device mali_gpu_device =
 
 static struct mali_gpu_device_data mali_gpu_data =
 {
-	.shared_mem_size =384 * 1024 * 1024, /* 256MB */
+	.shared_mem_size =CONFIG_MALI400_OS_MEMORY_SIZE * 1024 * 1024,
 	.fb_start = 0x84000000,
 	.fb_size = 0x06000000,
 };
@@ -151,6 +151,11 @@ int mali_platform_device_register(void)
 #	if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
 	static_pp_mmu_cnt = 1;
 #	endif
+
+	if (mali_gpu_data.shared_mem_size < 10) {
+		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
+		mali_gpu_data.shared_mem_size = 512 * 1024 *1024;
+	}
 
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
 
