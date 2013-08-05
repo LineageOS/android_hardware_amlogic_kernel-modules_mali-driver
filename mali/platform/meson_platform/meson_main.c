@@ -62,6 +62,7 @@ static int mali_runtime_idle(struct device *device);
 #define INT_MALI_PP3_MMU (61+32)
 #define INT_MALI_PP4_MMU (63+32)
 
+#ifndef CONFIG_MALI400_4_PP
 static struct resource meson_mali_resources[] =
 {
 	MALI_GPU_RESOURCES_MALI400_MP2(0xd0060000, 
@@ -69,6 +70,18 @@ static struct resource meson_mali_resources[] =
 			INT_MALI_PP, INT_MALI_PP_MMU, 
 			INT_MALI_PP2, INT_MALI_PP2_MMU)
 };
+#else
+static struct resource meson_mali_resources[] =
+{
+	MALI_GPU_RESOURCES_MALI400_MP4(0xd0060000, 
+			INT_MALI_GP, INT_MALI_GP_MMU, 
+			INT_MALI_PP, INT_MALI_PP_MMU, 
+			INT_MALI_PP2, INT_MALI_PP2_MMU,
+			INT_MALI_PP3, INT_MALI_PP3_MMU,
+			INT_MALI_PP4, INT_MALI_PP4_MMU
+			)
+};
+#endif
 
 #elif MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
 
@@ -139,7 +152,7 @@ static struct platform_device mali_gpu_device =
 
 static struct mali_gpu_device_data mali_gpu_data =
 {
-	.shared_mem_size =384 * 1024 * 1024, /* 256MB */
+	.shared_mem_size =CONFIG_MALI400_OS_MEMORY_SIZE * 1024 * 1024, /* 256MB */
 	.fb_start = 0x84000000,
 	.fb_size = 0x06000000,
 };

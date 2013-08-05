@@ -51,6 +51,23 @@ config MALI400_UMP
 	bool "Enable UMP support"
 	depends on MALI400
 	---help---
-	  This enables support for the UMP memory sharing API in the Mali driver.	  
+	  This enables support for the UMP memory sharing API in the Mali driver.
+	  
+config MALI400_OS_MEMORY_SIZE
+	depends on MALI400
+	int "OS Memory Size(MB)"
+	range 64 2048
+	default 384
+	---help---
+	  The size of mali OS memory with unit of mega byte.
+	  
+if ARCH_MESON6TV
+config MALI400_4_PP
+       bool "Mali 400 for M6TV With 4 pp core."
+       depends on MALI400
+       ---help---
+         M6TV Lite only have 4 mali pp cores.
+endif
+	  
 endmenu
 
