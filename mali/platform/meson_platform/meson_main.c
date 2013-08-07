@@ -137,11 +137,18 @@ static struct platform_device mali_gpu_device =
 	.dev.type = &mali_gpu_device_device_type, /* We should probably use the pm_domain instead of type on newer kernels */
 };
 
+void mali_utilization_handler(unsigned int utilization_num)
+{
+
+}
+
 static struct mali_gpu_device_data mali_gpu_data =
 {
 	.shared_mem_size =CONFIG_MALI400_OS_MEMORY_SIZE * 1024 * 1024,
 	.fb_start = 0x84000000,
 	.fb_size = 0x06000000,
+    .utilization_interval = 1000,
+    .utilization_handler = mali_utilization_handler,
 };
 
 int mali_platform_device_register(void)
