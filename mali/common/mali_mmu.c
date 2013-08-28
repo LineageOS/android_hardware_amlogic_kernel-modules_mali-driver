@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -167,14 +167,14 @@ static void mali_mmu_enable_paging(struct mali_mmu_core *mmu)
 
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_COMMAND, MALI_MMU_COMMAND_ENABLE_PAGING);
 
-	for (i = 0; i < MALI_REG_POLL_COUNT_SLOW; ++i)
+	for (i = 0; i < MALI_REG_POLL_COUNT_FAST; ++i)
 	{
 		if (mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS) & MALI_MMU_STATUS_BIT_PAGING_ENABLED)
 		{
 			break;
 		}
 	}
-	if (MALI_REG_POLL_COUNT_SLOW == i)
+	if (MALI_REG_POLL_COUNT_FAST == i)
 	{
 		MALI_PRINT_ERROR(("Enable paging request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 	}
@@ -187,7 +187,7 @@ mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu)
 
 	if ( 0 == (mmu_status & MALI_MMU_STATUS_BIT_PAGING_ENABLED) )
 	{
-		MALI_DEBUG_PRINT(4, ("MMU stall is implicit when Paging is not enebled.\n"));
+		MALI_DEBUG_PRINT(4, ("MMU stall is implicit when Paging is not enabled.\n"));
 		return MALI_TRUE;
 	}
 
@@ -199,11 +199,14 @@ mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu)
 
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_COMMAND, MALI_MMU_COMMAND_ENABLE_STALL);
 
-	for (i = 0; i < MALI_REG_POLL_COUNT_SLOW; ++i)
+	for (i = 0; i < MALI_REG_POLL_COUNT_FAST; ++i)
 	{
 		mmu_status = mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS);
-		if (mmu_status & (MALI_MMU_STATUS_BIT_STALL_ACTIVE|MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE) &&
-		    (0 == (mmu_status & MALI_MMU_STATUS_BIT_STALL_NOT_ACTIVE)))
+		if (mmu_status & MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE)
+		{
+			break;
+		}
+		if ((mmu_status & MALI_MMU_STATUS_BIT_STALL_ACTIVE) && (0 == (mmu_status & MALI_MMU_STATUS_BIT_STALL_NOT_ACTIVE)))
 		{
 			break;
 		}
@@ -212,15 +215,15 @@ mali_bool mali_mmu_enable_stall(struct mali_mmu_core *mmu)
 			break;
 		}
 	}
-	if (MALI_REG_POLL_COUNT_SLOW == i)
+	if (MALI_REG_POLL_COUNT_FAST == i)
 	{
-		MALI_PRINT_ERROR(("Enable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
+		MALI_DEBUG_PRINT(2, ("Enable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 		return MALI_FALSE;
 	}
 
 	if ( mmu_status & MALI_MMU_STATUS_BIT_PAGE_FAULT_ACTIVE )
 	{
-		MALI_DEBUG_PRINT(3, ("Aborting MMU stall request since it has a pagefault.\n"));
+		MALI_DEBUG_PRINT(2, ("Aborting MMU stall request since it has a pagefault.\n"));
 		return MALI_FALSE;
 	}
 
@@ -245,7 +248,7 @@ void mali_mmu_disable_stall(struct mali_mmu_core *mmu)
 
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_COMMAND, MALI_MMU_COMMAND_DISABLE_STALL);
 
-	for (i = 0; i < MALI_REG_POLL_COUNT_SLOW; ++i)
+	for (i = 0; i < MALI_REG_POLL_COUNT_FAST; ++i)
 	{
 		u32 status = mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS);
 		if ( 0 == (status & MALI_MMU_STATUS_BIT_STALL_ACTIVE) )
@@ -261,7 +264,7 @@ void mali_mmu_disable_stall(struct mali_mmu_core *mmu)
 			break;
 		}
 	}
-	if (MALI_REG_POLL_COUNT_SLOW == i) MALI_DEBUG_PRINT(1,("Disable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
+	if (MALI_REG_POLL_COUNT_FAST == i) MALI_DEBUG_PRINT(1,("Disable stall request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 }
 
 void mali_mmu_page_fault_done(struct mali_mmu_core *mmu)
@@ -275,16 +278,17 @@ MALI_STATIC_INLINE _mali_osk_errcode_t mali_mmu_raw_reset(struct mali_mmu_core *
 	int i;
 
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_DTE_ADDR, 0xCAFEBABE);
+	MALI_DEBUG_ASSERT(0xCAFEB000 == mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_DTE_ADDR));
 	mali_hw_core_register_write(&mmu->hw_core, MALI_MMU_REGISTER_COMMAND, MALI_MMU_COMMAND_HARD_RESET);
 
-	for (i = 0; i < MALI_REG_POLL_COUNT_SLOW; ++i)
+	for (i = 0; i < MALI_REG_POLL_COUNT_FAST; ++i)
 	{
 		if (mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_DTE_ADDR) == 0)
 		{
 			break;
 		}
 	}
-	if (MALI_REG_POLL_COUNT_SLOW == i)
+	if (MALI_REG_POLL_COUNT_FAST == i)
 	{
 		MALI_PRINT_ERROR(("Reset request failed, MMU status is 0x%08X\n", mali_hw_core_register_read(&mmu->hw_core, MALI_MMU_REGISTER_STATUS)));
 		return _MALI_OSK_ERR_FAULT;
@@ -300,9 +304,10 @@ _mali_osk_errcode_t mali_mmu_reset(struct mali_mmu_core *mmu)
 	MALI_DEBUG_ASSERT_POINTER(mmu);
 
 	stall_success = mali_mmu_enable_stall(mmu);
-
-	/* The stall can not fail in current hw-state */
-	MALI_DEBUG_ASSERT(stall_success);
+	if (!stall_success)
+	{
+		err = _MALI_OSK_ERR_BUSY;
+	}
 
 	MALI_DEBUG_PRINT(3, ("Mali MMU: mali_kernel_mmu_reset: %s\n", mmu->hw_core.description));
 
@@ -378,8 +383,11 @@ void mali_mmu_activate_empty_page_directory(struct mali_mmu_core* mmu)
 	MALI_DEBUG_PRINT(3, ("Activating the empty page directory on MMU %s\n", mmu->hw_core.description));
 
 	stall_success = mali_mmu_enable_stall(mmu);
+
 	/* This function can only be called when the core is idle, so it could not fail. */
-	MALI_DEBUG_ASSERT( stall_success );
+	MALI_DEBUG_ASSERT(stall_success);
+	MALI_IGNORE(stall_success);
+
 	mali_mmu_activate_address_space(mmu, mali_empty_page_directory);
 	mali_mmu_disable_stall(mmu);
 }

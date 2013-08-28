@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -40,5 +40,8 @@ void mali_gp_scheduler_reset_all_groups(void);
  * The scheculer will zap the session on all groups it owns.
  */
 void mali_gp_scheduler_zap_all_active(struct mali_session_data *session);
+
+void mali_gp_scheduler_enable_group(struct mali_group *group);
+void mali_gp_scheduler_disable_group(struct mali_group *group);
 
 #endif /* __MALI_GP_SCHEDULER_H__ */

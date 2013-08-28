@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2011-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -347,7 +347,7 @@ void mali_gp_update_performance_counters(struct mali_gp_core *core, struct mali_
 		mali_gp_job_set_perf_counter_value0(job, val0);
 
 #if defined(CONFIG_MALI400_PROFILING)
-		_mali_osk_profiling_report_hw_counter(COUNTER_VP_C0, val0);
+		_mali_osk_profiling_report_hw_counter(COUNTER_VP_0_C0, val0);
 #endif
 
 	}
@@ -358,7 +358,7 @@ void mali_gp_update_performance_counters(struct mali_gp_core *core, struct mali_
 		mali_gp_job_set_perf_counter_value1(job, val1);
 
 #if defined(CONFIG_MALI400_PROFILING)
-		_mali_osk_profiling_report_hw_counter(COUNTER_VP_C1, val1);
+		_mali_osk_profiling_report_hw_counter(COUNTER_VP_0_C1, val1);
 #endif
 	}
 }

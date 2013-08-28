@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -19,8 +19,8 @@
 #include <asm/io.h>
 #include <mach/am_regs.h>
 #include <linux/module.h>
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
-#include "meson_platform/mali_fix.h"
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+#include "meson6pre/mali_fix.h"
 #endif
 
 
@@ -78,7 +78,7 @@ struct mali_mmu_core
 	struct mali_hw_core hw_core; /**< Common for all HW cores */
 	_mali_osk_irq_t *irq;        /**< IRQ handler */
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
 	u32 id;
 #endif
 };

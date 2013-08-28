@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2012 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -99,12 +99,17 @@ void _mali_osk_notification_delete( _mali_osk_notification_t *object )
 
 void _mali_osk_notification_queue_term( _mali_osk_notification_queue_t *queue )
 {
+	_mali_osk_notification_t *result;
 	MALI_DEBUG_ASSERT_POINTER( queue );
+
+	while (_MALI_OSK_ERR_OK == _mali_osk_notification_queue_dequeue(queue, &result))
+	{
+		_mali_osk_notification_delete( result );
+	}
 
 	/* not much to do, just free the memory */
 	kfree(queue);
 }
-
 void _mali_osk_notification_queue_send( _mali_osk_notification_queue_t *queue, _mali_osk_notification_t *object )
 {
 #if defined(MALI_UPPER_HALF_SCHEDULING)
