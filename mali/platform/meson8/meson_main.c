@@ -11,6 +11,10 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include <linux/pm.h>
+#include <mach/register.h>
+#include <linux/io.h>
+#include <mach/io.h>
+#include <plat/io.h>
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
@@ -21,7 +25,6 @@
 #include "arm_core_scaling.h"
 
 static void mali_platform_device_release(struct device *device);
-
 static void mali_platform_device_release(struct device *device);
 static int mali_os_suspend(struct device *device);
 static int mali_os_resume(struct device *device);
@@ -32,6 +35,8 @@ static int mali_runtime_suspend(struct device *device);
 static int mali_runtime_resume(struct device *device);
 static int mali_runtime_idle(struct device *device);
 #endif
+
+static DEFINE_SPINLOCK(lock);
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
@@ -51,16 +56,25 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 #define INT_MALI_PP5_MMU 	(175)
 #define INT_MALI_PP_BCAST 	(162)
 
+#define MALI_CTRL_ADDR 0xd00c0000
+
 static struct resource mali_gpu_resources_m450[] =
 {
-	MALI_GPU_RESOURCES_MALI450_MP6_PMU(0xd00c0000, INT_MALI_GP, INT_MALI_GP_MMU, 
+#if 1
+	MALI_GPU_RESOURCES_MALI450_MP6_PMU(MALI_CTRL_ADDR, INT_MALI_GP, INT_MALI_GP_MMU, 
 				INT_MALI_PP0, INT_MALI_PP0_MMU, 
 				INT_MALI_PP1, INT_MALI_PP1_MMU, 
 				INT_MALI_PP2, INT_MALI_PP2_MMU, 
 				INT_MALI_PP3, INT_MALI_PP3_MMU, 
 				INT_MALI_PP4, INT_MALI_PP4_MMU, 
-				INT_MALI_PP4, INT_MALI_PP4_MMU,
+				INT_MALI_PP5, INT_MALI_PP5_MMU,
 				INT_MALI_PP_BCAST)
+#else 
+MALI_GPU_RESOURCES_MALI450_MP2_PMU(MALI_CTRL_ADDR, INT_MALI_GP, INT_MALI_GP_MMU, 
+				INT_MALI_PP0, INT_MALI_PP0_MMU, 
+				INT_MALI_PP1, INT_MALI_PP1_MMU, 
+				INT_MALI_PP_BCAST)
+#endif
 };
 
 static struct dev_pm_ops mali_gpu_device_type_pm_ops =
@@ -106,13 +120,21 @@ static struct mali_gpu_device_data mali_gpu_data =
 	.fb_size = 0x06000000,
 	.utilization_interval = 1000, /* 1000ms */
 	.utilization_callback = mali_gpu_utilization_callback,
-	.pmu_switch_delay = 0xFF, /* do not have to be this high on FPGA, but it is good for testing to have a delay */
+	.pmu_switch_delay = 0xFFFF, /* do not have to be this high on FPGA, but it is good for testing to have a delay */
 };
 
 int mali_platform_device_register(void)
 {
+	unsigned long flags;
 	int err = -1;
 	int num_pp_cores = 6;
+
+	spin_lock_irqsave(&lock, flags);
+	clrbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
+	writel((5 << 9 | 0), P_HHI_MALI_CLK_CNTL); /* set clock to 333MHZ.*/
+	readl(P_HHI_MALI_CLK_CNTL);
+	setbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
+	spin_unlock_irqrestore(&lock, flags);
 
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
@@ -148,7 +170,6 @@ int mali_platform_device_register(void)
 
 		platform_device_unregister(&mali_gpu_device);
 	}
-
 	return err;
 }
 
@@ -258,7 +279,6 @@ static int mali_runtime_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
-
 	return ret;
 }
 

@@ -62,6 +62,14 @@ config MALI400_UMP
 	---help---
 	  This enables support for the UMP memory sharing API in the Mali driver.
 
+if ARCH_MESON6TV
+config MALI400_4_PP
+       bool "Mali 400 for M6TV With 4 pp core."
+       depends on MALI400
+       ---help---
+         M6TV Lite only have 4 mali pp cores.
+endif
+	  
 config MALI_DMA_BUF_MAP_ON_ATTACH
 	bool "Map dma-buf attachments on attach"
 	depends on MALI400 && DMA_SHARED_BUFFER
