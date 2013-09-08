@@ -40,21 +40,21 @@ static DEFINE_SPINLOCK(lock);
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
-#define INT_MALI_GP			(160)
-#define INT_MALI_GP_MMU  	(161)
-#define INT_MALI_PP0     	(164)
-#define INT_MALI_PP0_MMU 	(165)
-#define INT_MALI_PP1     	(166)
-#define INT_MALI_PP1_MMU 	(167)
-#define INT_MALI_PP2     	(168)
-#define INT_MALI_PP2_MMU 	(169)
-#define INT_MALI_PP3     	(170)
-#define INT_MALI_PP3_MMU 	(171)
-#define INT_MALI_PP4     	(172)
-#define INT_MALI_PP4_MMU 	(173)
-#define INT_MALI_PP5     	(174)
-#define INT_MALI_PP5_MMU 	(175)
-#define INT_MALI_PP_BCAST 	(162)
+#define INT_MALI_GP			(192 + 0)
+#define INT_MALI_GP_MMU  	(192 + 1)
+#define INT_MALI_PP0     	(192 + 4)
+#define INT_MALI_PP0_MMU 	(192 + 5)
+#define INT_MALI_PP1     	(192 + 6)
+#define INT_MALI_PP1_MMU 	(192 + 7)
+#define INT_MALI_PP2     	(192 + 8)
+#define INT_MALI_PP2_MMU 	(192 + 9)
+#define INT_MALI_PP3     	(192 + 10)
+#define INT_MALI_PP3_MMU 	(192 + 11)
+#define INT_MALI_PP4     	(192 + 12)
+#define INT_MALI_PP4_MMU 	(192 + 13)
+#define INT_MALI_PP5     	(192 + 14)
+#define INT_MALI_PP5_MMU 	(192 + 15)
+#define INT_MALI_PP_BCAST 	(192 + 2)
 
 #define MALI_CTRL_ADDR 0xd00c0000
 
@@ -206,6 +206,7 @@ static int mali_os_suspend(struct device *device)
 	}
 
 	/* clock scaling off. Kasin... */
+	mali_pmu_powerdown();
 
 	return ret;
 }
@@ -217,6 +218,7 @@ static int mali_os_resume(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_os_resume() called\n"));
 
 	/* clock scaling up. Kasin.. */
+	mali_pmu_powerup();
 
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
