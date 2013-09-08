@@ -12,9 +12,9 @@
 
 OSKOS=linux
 
-TARGET_PLATFORM=meson6pre
+TARGET_PLATFORM:=meson6pre
 ifeq ($(CONFIG_ARCH_MESON8),y)
-TARGET_PLATFORM = meson8
+TARGET_PLATFORM:= meson8
 endif
 
 # set up defaults if not defined by the user
@@ -36,7 +36,7 @@ OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
 ifeq ($(CONFIG_MALI400_PROFILING),y)
 	USING_GPU_UTILIZATION ?= 1
 else
-	USING_GPU_UTILIZATION ?= 0
+	USING_GPU_UTILIZATION ?= 1
 endif
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
@@ -126,13 +126,13 @@ mali-y += \
 	__malidrv_build_info.o
 
 ifeq ($(TARGET_PLATFORM),meson6pre)
-MALI_PLATFORM_FILES = platform/meson6pre/mali_fix.c \
+MALI_PLATFORM_FILES:= platform/meson6pre/mali_fix.c \
 			platform/meson6pre/mali_platform.c \
 			platform/meson6pre/meson_main.c
 endif
 
 ifeq ($(TARGET_PLATFORM),meson8)
-MALI_PLATFORM_FILES = platform/meson8/arm_core_scaling.c \
+MALI_PLATFORM_FILES:= platform/meson8/arm_core_scaling.c \
 			platform/meson8/meson_main.c
 endif
 
