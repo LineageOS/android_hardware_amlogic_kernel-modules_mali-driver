@@ -12,6 +12,7 @@
 #include <linux/version.h>
 #include <linux/pm.h>
 #include <mach/register.h>
+#include <mach/irqs.h>
 #include <linux/io.h>
 #include <mach/io.h>
 #include <plat/io.h>
@@ -40,21 +41,6 @@ static DEFINE_SPINLOCK(lock);
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
-#define INT_MALI_GP			(192 + 0)
-#define INT_MALI_GP_MMU  	(192 + 1)
-#define INT_MALI_PP0     	(192 + 4)
-#define INT_MALI_PP0_MMU 	(192 + 5)
-#define INT_MALI_PP1     	(192 + 6)
-#define INT_MALI_PP1_MMU 	(192 + 7)
-#define INT_MALI_PP2     	(192 + 8)
-#define INT_MALI_PP2_MMU 	(192 + 9)
-#define INT_MALI_PP3     	(192 + 10)
-#define INT_MALI_PP3_MMU 	(192 + 11)
-#define INT_MALI_PP4     	(192 + 12)
-#define INT_MALI_PP4_MMU 	(192 + 13)
-#define INT_MALI_PP5     	(192 + 14)
-#define INT_MALI_PP5_MMU 	(192 + 15)
-#define INT_MALI_PP_BCAST 	(192 + 2)
 
 #define MALI_CTRL_ADDR 0xd00c0000
 
@@ -68,12 +54,12 @@ static struct resource mali_gpu_resources_m450[] =
 				INT_MALI_PP3, INT_MALI_PP3_MMU, 
 				INT_MALI_PP4, INT_MALI_PP4_MMU, 
 				INT_MALI_PP5, INT_MALI_PP5_MMU,
-				INT_MALI_PP_BCAST)
+				INT_MALI_PP)
 #else 
 MALI_GPU_RESOURCES_MALI450_MP2_PMU(MALI_CTRL_ADDR, INT_MALI_GP, INT_MALI_GP_MMU, 
 				INT_MALI_PP0, INT_MALI_PP0_MMU, 
 				INT_MALI_PP1, INT_MALI_PP1_MMU, 
-				INT_MALI_PP_BCAST)
+				INT_MALI_PP)
 #endif
 };
 
