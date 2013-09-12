@@ -25,7 +25,7 @@ struct mali_gpu_utilization_data;
  *
  * @param num_pp_cores Total number of PP cores.
  */
-void mali_core_scaling_init(int num_pp_cores);
+void mali_core_scaling_init(int num_pp_cores, int clock_rate_index);
 
 /**
  * Terminate core scaling policy.

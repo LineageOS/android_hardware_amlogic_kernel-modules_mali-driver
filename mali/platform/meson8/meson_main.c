@@ -13,9 +13,7 @@
 #include <linux/pm.h>
 #include <mach/register.h>
 #include <mach/irqs.h>
-#include <linux/io.h>
 #include <mach/io.h>
-#include <plat/io.h>
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
@@ -24,6 +22,7 @@
 #include "mali_kernel_common.h"
 
 #include "arm_core_scaling.h"
+#include "mali_clock.h"
 
 static void mali_platform_device_release(struct device *device);
 static void mali_platform_device_release(struct device *device);
@@ -36,10 +35,9 @@ static int mali_runtime_suspend(struct device *device);
 static int mali_runtime_resume(struct device *device);
 static int mali_runtime_idle(struct device *device);
 #endif
-
-static DEFINE_SPINLOCK(lock);
-
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
+
+#define MALI_PP_NUMBER 6
 
 static struct resource mali_gpu_resources_m450[] =
 {
@@ -108,16 +106,10 @@ static struct mali_gpu_device_data mali_gpu_data =
 
 int mali_platform_device_register(void)
 {
-	unsigned long flags;
 	int err = -1;
-	int num_pp_cores = 6;
+	int num_pp_cores = MALI_PP_NUMBER;
 
-	spin_lock_irqsave(&lock, flags);
-	clrbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
-	writel((5 << 9 | 0), P_HHI_MALI_CLK_CNTL); /* set clock to 333MHZ.*/
-	readl(P_HHI_MALI_CLK_CNTL);
-	setbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
-	spin_unlock_irqrestore(&lock, flags);
+	mali_clock_set(MALI_CLOCK_637);
 
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
@@ -145,7 +137,7 @@ int mali_platform_device_register(void)
 				pm_runtime_enable(&(mali_gpu_device.dev));
 #endif
 				MALI_DEBUG_ASSERT(0 < num_pp_cores);
-				mali_core_scaling_init(num_pp_cores);
+				mali_core_scaling_init(num_pp_cores, MALI_CLOCK_637);
 
 				return 0;
 			}

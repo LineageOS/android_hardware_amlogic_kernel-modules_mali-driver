@@ -19,9 +19,11 @@
 #include "mali_kernel_common.h"
 
 #include <linux/workqueue.h>
+#include "mali_clock.h"
 
 static int num_cores_total;
 static int num_cores_enabled;
+static current_mali_clock_index;
 
 static struct work_struct wq_work;
 
@@ -70,13 +72,14 @@ static void enable_max_num_cores(void)
 	MALI_DEBUG_ASSERT(num_cores_total == num_cores_enabled);
 }
 
-void mali_core_scaling_init(int num_pp_cores)
+void mali_core_scaling_init(int num_pp_cores, int clock_rate_index)
 {
 	INIT_WORK(&wq_work, set_num_cores);
 
 	num_cores_total   = num_pp_cores;
 	num_cores_enabled = num_pp_cores;
 
+	current_mali_clock_index = clock_rate_index;
 	/* NOTE: Mali is not fully initialized at this point. */
 }
 
@@ -106,7 +109,7 @@ void mali_core_scaling_update(struct mali_gpu_utilization_data *data)
 	/* NOTE: this function is normally called directly from the utilization callback which is in
 	 * timer context. */
 
-	if (     PERCENT_OF(90, 256) < data->utilization_pp)
+	if (PERCENT_OF(90, 256) < data->utilization_pp)
 	{
 		enable_max_num_cores();
 	}
