@@ -21,7 +21,7 @@
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 
-#include "arm_core_scaling.h"
+#include "mali_scaling.h"
 #include "mali_clock.h"
 
 static void mali_platform_device_release(struct device *device);
@@ -109,7 +109,8 @@ int mali_platform_device_register(void)
 	int err = -1;
 	int num_pp_cores = MALI_PP_NUMBER;
 
-	mali_clock_set(MALI_CLOCK_637);
+	mali_clock_set(mali_dvfs_clk[mali_default_clock_step]);
+	printk("  %x   \n", mali_dvfs_clk[mali_default_clock_step]);
 
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
@@ -136,8 +137,9 @@ int mali_platform_device_register(void)
 #endif
 				pm_runtime_enable(&(mali_gpu_device.dev));
 #endif
+
 				MALI_DEBUG_ASSERT(0 < num_pp_cores);
-				mali_core_scaling_init(num_pp_cores, MALI_CLOCK_637);
+				mali_core_scaling_init(num_pp_cores, mali_default_clock_step);
 
 				return 0;
 			}
@@ -151,7 +153,6 @@ int mali_platform_device_register(void)
 void mali_platform_device_unregister(void)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_unregister() called\n"));
-
 	mali_core_scaling_term();
 	platform_device_unregister(&mali_gpu_device);
 }
@@ -163,7 +164,7 @@ static void mali_platform_device_release(struct device *device)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
-	mali_core_scaling_update(data);
+	mali_scaling_update(data);
 }
 
 static int mali_os_suspend(struct device *device)

@@ -132,8 +132,9 @@ MALI_PLATFORM_FILES:= platform/meson6pre/mali_fix.c \
 endif
 
 ifeq ($(TARGET_PLATFORM),meson8)
-MALI_PLATFORM_FILES:= platform/meson8/arm_core_scaling.c \
-			platform/meson8/meson_main.c
+MALI_PLATFORM_FILES:= platform/meson8/mali_scaling.c \
+			platform/meson8/meson_main.c \
+			platform/meson8/mali_clock.c 
 endif
 
 ifneq ($(MALI_PLATFORM_FILES),)
