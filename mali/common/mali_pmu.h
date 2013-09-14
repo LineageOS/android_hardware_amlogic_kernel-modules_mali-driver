@@ -109,5 +109,9 @@ _mali_osk_errcode_t mali_pmu_power_up_all(struct mali_pmu_core *pmu);
  * @return The Mali PMU object, or NULL if no PMU exists.
  */
 struct mali_pmu_core *mali_pmu_get_global_pmu_core(void);
-
+/** @brief Retrieves the Mali Power Domain status.
+ *
+ * @return the Mali Power Domain status 1 off, 0 on.
+ */
+extern u32 mali_pmu_get_status(struct mali_pmu_core * pmu);
 #endif /* __MALI_PMU_H__ */

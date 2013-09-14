@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include <linux/pm.h>
+#include <linux/module.h>            /* kernel module definitions */
+#include <linux/ioport.h>            /* request_mem_region */
 #include <mach/register.h>
 #include <mach/irqs.h>
 #include <mach/io.h>
@@ -23,6 +25,20 @@
 
 #include "mali_scaling.h"
 #include "mali_clock.h"
+
+/* Configure dvfs mode */
+enum mali_scale_mode_t {
+	MALI_PP_SCALING,
+	MALI_FS_SCALING,
+	MALI_PP_FS_SCALING,
+	MALI_SCALING_DISABLE,
+	MALI_SCALING_MODE_MAX
+};
+
+static int  scaling_mode = MALI_PP_FS_SCALING;
+module_param(scaling_mode, int, 0664); 
+MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
+static int last_scaling_mode;
 
 static void mali_platform_device_release(struct device *device);
 static void mali_platform_device_release(struct device *device);
@@ -141,6 +157,9 @@ int mali_platform_device_register(void)
 				MALI_DEBUG_ASSERT(0 < num_pp_cores);
 				mali_core_scaling_init(num_pp_cores, mali_default_clock_step);
 
+				last_scaling_mode = scaling_mode;
+
+
 				return 0;
 			}
 		}
@@ -164,7 +183,33 @@ static void mali_platform_device_release(struct device *device)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
-	mali_scaling_update(data);
+	if (last_scaling_mode != scaling_mode) {
+		reset_mali_scaling_stat();
+		last_scaling_mode = scaling_mode;
+	}
+	switch (scaling_mode) {
+	case MALI_PP_FS_SCALING:
+		mali_pp_fs_scaling_update(data);
+		break;
+	case MALI_PP_SCALING:
+		mali_pp_scaling_update(data);
+		break;
+	case MALI_FS_SCALING:
+		mali_fs_scaling_update(data);
+		break;	
+	}
+}
+
+u32 get_mali_schel_mode(void)
+{
+	return scaling_mode;
+}
+void set_mali_schel_mode(u32 mode)
+{
+	MALI_DEBUG_ASSERT(mode < MALI_SCALING_MODE_MAX);
+	if (mode >= MALI_SCALING_MODE_MAX)return;
+	scaling_mode = mode;
+	reset_mali_scaling_stat();
 }
 
 static int mali_os_suspend(struct device *device)

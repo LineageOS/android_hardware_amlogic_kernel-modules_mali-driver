@@ -403,3 +403,16 @@ static u32 mali_pmu_detect_mask(u32 number_of_pp_cores, u32 number_of_l2_caches)
 
 	return mask;
 }
+
+
+/* 
+ * 
+ * kasin.li@amlogic.com. 
+ **/
+
+u32 mali_pmu_get_status(struct mali_pmu_core * pmu)
+{
+	MALI_DEBUG_ASSERT_POINTER(pmu);
+	return mali_hw_core_register_read(&pmu->hw_core, PMU_REG_ADDR_MGMT_STATUS);
+	
+}

@@ -53,6 +53,7 @@
 #define POWER_BUFFER_SIZE 3
 
 static struct dentry *mali_debugfs_dir = NULL;
+static struct dentry *mali_classfs_dir = NULL;
 
 typedef enum
 {
@@ -1453,7 +1454,162 @@ static const struct file_operations pp_num_cores_total_fops = {
 	.owner = THIS_MODULE,
 	.read = pp_num_cores_total_read,
 };
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+extern u32 get_mali_def_freq_idx(void);
+extern void set_mali_freq_idx(u32 idx);
+extern u32 get_mali_qq_for_sched(void);
+extern void set_mali_qq_for_sched(u32 pp_num);
+extern u32 get_mali_schel_mode(void);
+extern void set_mali_schel_mode(u32 mode);
 
+static ssize_t pp_for_sched_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_mali_qq_for_sched());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t pp_for_sched_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	set_mali_qq_for_sched(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations pp_for_sched_fops = {
+	.owner = THIS_MODULE,
+	.read = pp_for_sched_read,
+	.write = pp_for_sched_write,
+};
+
+static ssize_t cur_freq_read (struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_mali_def_freq_idx());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t cur_freq_write (struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	set_mali_freq_idx(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations cur_freq_fops = {
+	.owner = THIS_MODULE,
+	.read = cur_freq_read,
+	.write = cur_freq_write,
+};
+
+static ssize_t scale_mode_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_mali_schel_mode());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t scale_mode_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	set_mali_schel_mode(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations scale_mode_fops = {
+	.owner = THIS_MODULE,
+	.read = scale_mode_read,
+	.write = scale_mode_write
+};
+
+static ssize_t domain_stat_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	struct mali_pmu_core *pmu;
+	int r;
+	char buffer[64];
+	pmu = mali_pmu_get_global_pmu_core();
+	r = sprintf(buffer, "%x\n", mali_pmu_get_status(pmu));
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static const struct file_operations domain_stat_fops = {
+	.owner = THIS_MODULE,
+	.read = domain_stat_read,
+};
+#endif /* MESON_CPU_TYPE_MESON8 */
 
 static ssize_t version_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
 {
@@ -1668,6 +1824,20 @@ int mali_sysfs_register(const char *mali_dev_name)
 #if MALI_STATE_TRACKING
 			debugfs_create_file("state_dump", 0400, mali_debugfs_dir, NULL, &mali_seq_internal_state_fops);
 #endif
+
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+			/* kasin.li@amlogic.com. misc setting. */
+			{
+				struct dentry *mali_misc_setting_dir = debugfs_create_dir("misc", mali_debugfs_dir);
+				if (mali_misc_setting_dir != NULL)
+				{
+					debugfs_create_file("pp_for_sched", 0600, mali_misc_setting_dir, NULL, &pp_for_sched_fops);
+					debugfs_create_file("cur_freq", 0600, mali_misc_setting_dir, NULL, &cur_freq_fops);
+					debugfs_create_file("scale_mode", 0600, mali_misc_setting_dir, NULL, &scale_mode_fops);
+					debugfs_create_file("domain_stat", 0600, mali_misc_setting_dir, NULL, &domain_stat_fops);
+				}
+			}
+#endif /* MESON_CPU_TYPE_MESON8 */
 
 			if (mali_sysfs_user_settings_register())
 			{
