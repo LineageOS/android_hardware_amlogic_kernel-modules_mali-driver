@@ -16,6 +16,8 @@
 #ifndef __ARM_CORE_SCALING_H__
 #define __ARM_CORE_SCALING_H__
 
+#define MALI_PP_NUMBER 6
+
 struct mali_gpu_utilization_data;
 
 /**
@@ -37,6 +39,8 @@ void mali_core_scaling_term(void);
  *
  * @param data Utilization data.
  */
-void mali_core_scaling_update(struct mali_gpu_utilization_data *data);
-
+extern void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data);
+extern void mali_pp_scaling_update(struct mali_gpu_utilization_data *data);
+extern void mali_fs_scaling_update(struct mali_gpu_utilization_data *data);
+extern void reset_mali_scaling_stat(void);
 #endif /* __ARM_CORE_SCALING_H__ */

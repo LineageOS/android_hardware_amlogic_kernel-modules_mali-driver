@@ -189,10 +189,6 @@ struct file_operations mali_fops =
 };
 
 
-
-
-
-
 int mali_module_init(void)
 {
 	int err = 0;

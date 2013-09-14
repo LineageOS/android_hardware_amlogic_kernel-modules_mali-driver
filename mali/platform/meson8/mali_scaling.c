@@ -12,26 +12,46 @@
  * @file arm_core_scaling.c
  * Example core scaling policy.
  */
-
-#include "arm_core_scaling.h"
-
+#include <linux/workqueue.h>
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
-
-#include <linux/workqueue.h>
+#include "mali_scaling.h"
 #include "mali_clock.h"
 
 static int num_cores_total;
 static int num_cores_enabled;
-static current_mali_clock_index;
-
+static int currentStep;
+static int lastStep;
 static struct work_struct wq_work;
+unsigned int utilization;
 
-static void set_num_cores(struct work_struct *work)
+
+unsigned int mali_dvfs_clk[] = {
+//                FCLK_DEV7 | 3,     /* 91  Mhz */
+                FCLK_DEV7 | 1,     /* 182.1 Mhz */
+                FCLK_DEV4 | 1,     /* 318.7 Mhz */
+                FCLK_DEV3 | 1,     /* 425 Mhz */
+                FCLK_DEV4 | 0,     /* 637.5 Mhz */
+};
+
+mali_dvfs_threshold_table mali_dvfs_threshold[]={
+        { 0  		    , 43 * 256 / 100 }, 
+        { 40 * 256 / 100, 53 * 256 / 100 },
+        { 50 * 256 / 100, 92 * 256 / 100 },
+        { 87 * 256 / 100, 256			 } 
+};
+
+static void do_scaling(struct work_struct *work)
 {
 	int err = mali_perf_set_num_pp_cores(num_cores_enabled);
 	MALI_DEBUG_ASSERT(0 == err);
 	MALI_IGNORE(err);
+	if (currentStep != lastStep) {
+		mali_dev_pause();
+		mali_clock_set (mali_dvfs_clk[currentStep]);
+		mali_dev_resume();
+		lastStep = currentStep;
+	}
 }
 
 static void enable_one_core(void)
@@ -74,12 +94,13 @@ static void enable_max_num_cores(void)
 
 void mali_core_scaling_init(int num_pp_cores, int clock_rate_index)
 {
-	INIT_WORK(&wq_work, set_num_cores);
+	INIT_WORK(&wq_work, do_scaling);
 
 	num_cores_total   = num_pp_cores;
 	num_cores_enabled = num_pp_cores;
-
-	current_mali_clock_index = clock_rate_index;
+	
+	currentStep = clock_rate_index;
+	lastStep = currentStep;
 	/* NOTE: Mali is not fully initialized at this point. */
 }
 
@@ -90,7 +111,7 @@ void mali_core_scaling_term(void)
 
 #define PERCENT_OF(percent, max) ((int) ((percent)*(max)/100.0 + 0.5))
 
-void mali_core_scaling_update(struct mali_gpu_utilization_data *data)
+void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 {
 	/*
 	 * This function implements a very trivial PP core scaling algorithm.
@@ -129,4 +150,74 @@ void mali_core_scaling_update(struct mali_gpu_utilization_data *data)
 	{
 		/* do nothing */
 	}
+}
+
+void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
+{
+	MALI_DEBUG_PRINT(2, ("Utilization: (%3d, %3d, %3d), cores enabled: %d/%d\n", data->utilization_gpu, data->utilization_gp, data->utilization_pp, num_cores_enabled, num_cores_total));
+	MALI_DEBUG_PRINT(2, ("  %d   \n", currentStep));
+	utilization = data->utilization_gpu;
+
+	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
+		currentStep = MALI_CLOCK_637;
+		if (data->utilization_pp > 230) // 90%
+			enable_max_num_cores();
+		else
+			enable_one_core();
+	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > 0) {
+		currentStep--;
+		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
+	} else {
+		if (data->utilization_pp < mali_dvfs_threshold[0].upthreshold)
+			disable_one_core();
+		return;
+	}
+
+}
+
+void reset_mali_scaling_stat(void)
+{
+	printk(" ****** scaling mode reset to default.*****\n");
+	currentStep = mali_default_clock_step;
+	enable_max_num_cores();
+}
+
+void mali_fs_scaling_update(struct mali_gpu_utilization_data *data)
+{
+	
+	utilization = data->utilization_gpu;
+
+	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
+		currentStep = MALI_CLOCK_637;
+	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > 0) {
+		currentStep--;
+		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
+	} 
+}
+
+u32 get_mali_def_freq_idx(void)
+{
+	return mali_default_clock_step;
+}
+
+void set_mali_freq_idx(u32 idx)
+{
+	MALI_DEBUG_ASSERT(clock_rate_index < MALI_CLOCK_INDX_MAX);
+	currentStep = idx;
+	lastStep = MALI_CLOCK_INDX_MAX;
+	mali_default_clock_step = currentStep;
+	schedule_work(&wq_work);
+	/* NOTE: Mali is not fully initialized at this point. */
+}
+
+void set_mali_qq_for_sched(u32 pp_num)
+{
+	num_cores_total   = pp_num;
+	num_cores_enabled = pp_num;
+	schedule_work(&wq_work);
+}
+
+u32 get_mali_qq_for_sched(void)
+{
+	return num_cores_total;	
 }

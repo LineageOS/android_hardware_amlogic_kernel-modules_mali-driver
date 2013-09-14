@@ -11,11 +11,11 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 #include <linux/pm.h>
+#include <linux/module.h>            /* kernel module definitions */
+#include <linux/ioport.h>            /* request_mem_region */
 #include <mach/register.h>
 #include <mach/irqs.h>
-#include <linux/io.h>
 #include <mach/io.h>
-#include <plat/io.h>
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
@@ -23,7 +23,22 @@
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 
-#include "arm_core_scaling.h"
+#include "mali_scaling.h"
+#include "mali_clock.h"
+
+/* Configure dvfs mode */
+enum mali_scale_mode_t {
+	MALI_PP_SCALING,
+	MALI_FS_SCALING,
+	MALI_PP_FS_SCALING,
+	MALI_SCALING_DISABLE,
+	MALI_SCALING_MODE_MAX
+};
+
+static int  scaling_mode = MALI_PP_FS_SCALING;
+module_param(scaling_mode, int, 0664); 
+MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
+static int last_scaling_mode;
 
 static void mali_platform_device_release(struct device *device);
 static void mali_platform_device_release(struct device *device);
@@ -36,9 +51,6 @@ static int mali_runtime_suspend(struct device *device);
 static int mali_runtime_resume(struct device *device);
 static int mali_runtime_idle(struct device *device);
 #endif
-
-static DEFINE_SPINLOCK(lock);
-
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
 static struct resource mali_gpu_resources_m450[] =
@@ -108,16 +120,11 @@ static struct mali_gpu_device_data mali_gpu_data =
 
 int mali_platform_device_register(void)
 {
-	unsigned long flags;
 	int err = -1;
-	int num_pp_cores = 6;
+	int num_pp_cores = MALI_PP_NUMBER;
 
-	spin_lock_irqsave(&lock, flags);
-	clrbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
-	writel((5 << 9 | 0), P_HHI_MALI_CLK_CNTL); /* set clock to 333MHZ.*/
-	readl(P_HHI_MALI_CLK_CNTL);
-	setbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
-	spin_unlock_irqrestore(&lock, flags);
+	mali_clock_set(mali_dvfs_clk[mali_default_clock_step]);
+	printk("  %x   \n", mali_dvfs_clk[mali_default_clock_step]);
 
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
@@ -144,8 +151,10 @@ int mali_platform_device_register(void)
 #endif
 				pm_runtime_enable(&(mali_gpu_device.dev));
 #endif
+
 				MALI_DEBUG_ASSERT(0 < num_pp_cores);
-				mali_core_scaling_init(num_pp_cores);
+				mali_core_scaling_init(num_pp_cores, mali_default_clock_step);
+				last_scaling_mode = scaling_mode;
 
 				return 0;
 			}
@@ -159,7 +168,6 @@ int mali_platform_device_register(void)
 void mali_platform_device_unregister(void)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_unregister() called\n"));
-
 	mali_core_scaling_term();
 	platform_device_unregister(&mali_gpu_device);
 }
@@ -171,7 +179,33 @@ static void mali_platform_device_release(struct device *device)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
-	mali_core_scaling_update(data);
+	if (last_scaling_mode != scaling_mode) {
+		reset_mali_scaling_stat();
+		last_scaling_mode = scaling_mode;
+	}
+	switch (scaling_mode) {
+	case MALI_PP_FS_SCALING:
+		mali_pp_fs_scaling_update(data);
+		break;
+	case MALI_PP_SCALING:
+		mali_pp_scaling_update(data);
+		break;
+	case MALI_FS_SCALING:
+		mali_fs_scaling_update(data);
+		break;	
+	}
+}
+
+u32 get_mali_schel_mode(void)
+{
+	return scaling_mode;
+}
+void set_mali_schel_mode(u32 mode)
+{
+	MALI_DEBUG_ASSERT(mode < MALI_SCALING_MODE_MAX);
+	if (mode >= MALI_SCALING_MODE_MAX)return;
+	scaling_mode = mode;
+	reset_mali_scaling_stat();
 }
 
 static int mali_os_suspend(struct device *device)
