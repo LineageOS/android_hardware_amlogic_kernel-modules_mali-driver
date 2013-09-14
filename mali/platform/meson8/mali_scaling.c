@@ -34,12 +34,29 @@ unsigned int mali_dvfs_clk[] = {
                 FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
-mali_dvfs_threshold_table mali_dvfs_threshold[]={
-        { 0  		    , 43 * 256 / 100 }, 
-        { 40 * 256 / 100, 53 * 256 / 100 },
-        { 50 * 256 / 100, 92 * 256 / 100 },
-        { 87 * 256 / 100, 256			 } 
+static mali_dvfs_threshold_table mali_dvfs_threshold[]={
+        { 0  		    		  , (43 * 256) / 100.0 + 0.5}, 
+        { (40 * 256) / 100.0 + 0.5, (53 * 256) / 100.0 + 0.5},
+        { (50 * 256) / 100.0 + 0.5, (92 * 256) / 100.0 + 0.5},
+        { (87 * 256) / 100.0 + 0.5, 256			 } 
 };
+
+enum mali_pp_scale_threshold_t {
+	MALI_PP_THRESHOLD_40,
+	MALI_PP_THRESHOLD_50,
+	MALI_PP_THRESHOLD_90,
+	MALI_PP_THRESHOLD_MAX,
+};
+static u32 mali_pp_scale_threshold [] = {
+	(40 * 256) / 100.0 + 0.5,
+	(50 * 256) / 100.0 + 0.5,
+	(90 * 256) / 100.0 + 0.5,
+};
+
+static int mali_utilization_low = (256 * 30) / 100.0 + 0.5;
+static int mali_utilization_mid = (256 * 60) / 100.0 + 0.5;
+static int mali_utilization_high = (256 * 80) / 100.0 + 0.5;
+
 
 static void do_scaling(struct work_struct *work)
 {
@@ -130,19 +147,19 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 	/* NOTE: this function is normally called directly from the utilization callback which is in
 	 * timer context. */
 
-	if (PERCENT_OF(90, 256) < data->utilization_pp)
+	if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_90] < data->utilization_pp)
 	{
 		enable_max_num_cores();
 	}
-	else if (PERCENT_OF(50, 256) < data->utilization_pp)
+	else if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_50]< data->utilization_pp)
 	{
 		enable_one_core();
 	}
-	else if (PERCENT_OF(40, 256) < data->utilization_pp)
+	else if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_40]< data->utilization_pp)
 	{
 		/* do nothing */
 	}
-	else if (PERCENT_OF( 0, 256) < data->utilization_pp)
+	else if (0 < data->utilization_pp)
 	{
 		disable_one_core();
 	}
@@ -159,7 +176,11 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	utilization = data->utilization_gpu;
 
 	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
-		currentStep = MALI_CLOCK_637;
+		if (utilization < mali_utilization_high && currentStep < MALI_CLOCK_INDX_MAX) 
+			currentStep ++;
+		else
+			currentStep = MALI_CLOCK_637;
+
 		if (data->utilization_pp > 230) // 90%
 			enable_max_num_cores();
 		else
@@ -168,7 +189,7 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 		currentStep--;
 		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
 	} else {
-		if (data->utilization_pp < mali_dvfs_threshold[0].upthreshold)
+		if (data->utilization_pp < mali_pp_scale_threshold[0])
 			disable_one_core();
 		return;
 	}
