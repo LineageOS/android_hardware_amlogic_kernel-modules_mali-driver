@@ -29,13 +29,13 @@
 /* Configure dvfs mode */
 enum mali_scale_mode_t {
 	MALI_PP_SCALING,
-	MALI_FS_SCALING,
 	MALI_PP_FS_SCALING,
 	MALI_SCALING_DISABLE,
+	MALI_FS_SCALING,
 	MALI_SCALING_MODE_MAX
 };
 
-static int  scaling_mode = MALI_PP_FS_SCALING;
+static int  scaling_mode = MALI_PP_SCALING;
 module_param(scaling_mode, int, 0664); 
 MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
 static int last_scaling_mode;
@@ -115,7 +115,7 @@ static struct mali_gpu_device_data mali_gpu_data =
 	.fb_start = 0x84000000,
 #endif
 	.fb_size = 0x06000000,
-	.utilization_interval = 1000, /* 1000ms */
+	.utilization_interval = 1000,
 	.utilization_callback = mali_gpu_utilization_callback,
 	.pmu_switch_delay = 0xFFFF, /* do not have to be this high on FPGA, but it is good for testing to have a delay */
 };
@@ -126,7 +126,6 @@ int mali_platform_device_register(void)
 	int num_pp_cores = MALI_PP_NUMBER;
 
 	mali_clock_set(mali_dvfs_clk[mali_default_clock_step]);
-	printk("  %x   \n", mali_dvfs_clk[mali_default_clock_step]);
 
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
