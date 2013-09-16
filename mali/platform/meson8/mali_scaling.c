@@ -151,11 +151,14 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 	}
 	else if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_40]< data->utilization_pp)
 	{
+		#if 0
 		currentStep = MALI_CLOCK_425;
 		schedule_work(&wq_work);
+		#endif
 	}
 	else if (0 < data->utilization_pp)
 	{
+		#if 0
 		if (num_cores_enabled == 1) {
 			if ( mali_pp_scale_threshold[MALI_PP_THRESHOLD_30]< data->utilization_pp )
 				currentStep = MALI_CLOCK_318;
@@ -165,6 +168,9 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 		} else {
 			disable_one_core();
 		}
+		#else 
+		disable_one_core();
+		#endif
 	}
 	else
 	{
@@ -179,16 +185,19 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	u32 utilization = data->utilization_gpu;
 
 	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
+		#if 0
 		if (utilization < mali_utilization_high && currentStep < MALI_CLOCK_INDX_MAX) 
 			currentStep ++;
 		else
+		#endif
 			currentStep = MALI_CLOCK_637;
 
-		if (data->utilization_pp > MALI_PP_THRESHOLD_90) // 90%
+		if (data->utilization_pp > MALI_PP_THRESHOLD_90) { // 90%
 			enable_max_num_cores();
-		else
+		} else {
 			enable_one_core();
-	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > 0) {
+		}
+	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > 1) {
 		currentStep--;
 		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
 	} else {

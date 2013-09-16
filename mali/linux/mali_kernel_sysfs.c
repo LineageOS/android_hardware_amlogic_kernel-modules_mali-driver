@@ -53,7 +53,6 @@
 #define POWER_BUFFER_SIZE 3
 
 static struct dentry *mali_debugfs_dir = NULL;
-static struct dentry *mali_classfs_dir = NULL;
 
 typedef enum
 {
