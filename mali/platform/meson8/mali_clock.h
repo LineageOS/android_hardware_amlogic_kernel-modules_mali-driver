@@ -29,6 +29,8 @@ enum mali_clock_rate {
 
 extern unsigned int mali_default_clock_step;
 extern unsigned int mali_dvfs_clk[];
+extern unsigned int min_mali_clock_index;
+extern unsigned int max_mali_clock_index;
 
 extern int mali_clock_set(unsigned int index);
 

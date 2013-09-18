@@ -1460,6 +1460,17 @@ extern u32 get_mali_qq_for_sched(void);
 extern void set_mali_qq_for_sched(u32 pp_num);
 extern u32 get_mali_schel_mode(void);
 extern void set_mali_schel_mode(u32 mode);
+extern u32 get_max_pp_num(void);
+extern u32 set_max_pp_num(u32 num);
+extern u32 get_min_pp_num(void);
+extern u32 set_min_pp_num(u32 num);
+extern u32 get_max_mali_freq(void);
+extern u32 set_max_mali_freq(u32 idx);
+extern u32 get_min_mali_freq(void);
+extern u32 set_min_mali_freq(u32 idx);
+
+extern void enable_clock(void);
+extern void disable_clock(void);
 
 static ssize_t pp_for_sched_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
 {
@@ -1608,6 +1619,226 @@ static const struct file_operations domain_stat_fops = {
 	.owner = THIS_MODULE,
 	.read = domain_stat_read,
 };
+
+static ssize_t gate_test_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	if (val == 0) {
+		printk(" gate off the mali clock.\n");
+		disable_clock();
+	} else {
+		printk(" gate off the mali clock.\n");
+		enable_clock();
+	}
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations gate_test_fops = {
+	.owner = THIS_MODULE,
+	.write = gate_test_write
+};
+
+static ssize_t max_pp_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_max_pp_num());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t max_pp_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	ret = set_max_pp_num(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations max_pp_fops = {
+	.owner = THIS_MODULE,
+	.read = max_pp_read,
+	.write = max_pp_write
+};
+
+static ssize_t min_pp_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_min_pp_num());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t min_pp_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	ret = set_min_pp_num(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations min_pp_fops = {
+	.owner = THIS_MODULE,
+	.read = min_pp_read,
+	.write = min_pp_write
+};
+
+
+static ssize_t max_freq_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_max_mali_freq());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t max_freq_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	ret = set_max_mali_freq(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations max_freq_fops = {
+	.owner = THIS_MODULE,
+	.read = max_freq_read,
+	.write = max_freq_write
+};
+
+
+static ssize_t min_freq_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
+{
+	int r;
+	char buffer[64];
+	r = sprintf(buffer, "%d\n", get_min_mali_freq());
+
+	return simple_read_from_buffer(buf, count, offp, buffer, r);
+}
+
+static ssize_t min_freq_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
+{
+	int ret;
+	char buffer[32];
+	unsigned long val;
+
+	if (count >= sizeof(buffer))
+	{
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(&buffer[0], buf, count))
+	{
+		return -EFAULT;
+	}
+	buffer[count] = '\0';
+
+	ret = strict_strtoul(&buffer[0], 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	ret = set_min_mali_freq(val);
+
+	*offp += count;
+	return count;
+}
+
+static const struct file_operations min_freq_fops = {
+	.owner = THIS_MODULE,
+	.read = min_freq_read,
+	.write = min_freq_write
+};
+
+
 #endif /* MESON_CPU_TYPE_MESON8 */
 
 static ssize_t version_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
@@ -1834,6 +2065,12 @@ int mali_sysfs_register(const char *mali_dev_name)
 					debugfs_create_file("cur_freq", 0600, mali_misc_setting_dir, NULL, &cur_freq_fops);
 					debugfs_create_file("scale_mode", 0600, mali_misc_setting_dir, NULL, &scale_mode_fops);
 					debugfs_create_file("domain_stat", 0600, mali_misc_setting_dir, NULL, &domain_stat_fops);
+					debugfs_create_file("gate_test", 0600, mali_misc_setting_dir, NULL, &gate_test_fops);
+					debugfs_create_file("max_pp", 0600, mali_misc_setting_dir, NULL, &max_pp_fops);
+					debugfs_create_file("min_pp", 0600, mali_misc_setting_dir, NULL, &min_pp_fops);
+					debugfs_create_file("max_freq", 0600, mali_misc_setting_dir, NULL, &max_freq_fops);
+					debugfs_create_file("min_freq", 0600, mali_misc_setting_dir, NULL, &min_freq_fops);
+
 				}
 			}
 #endif /* MESON_CPU_TYPE_MESON8 */

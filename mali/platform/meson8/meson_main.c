@@ -126,7 +126,7 @@ int mali_platform_device_register(void)
 	int num_pp_cores = MALI_PP_NUMBER;
 
 	mali_clock_set(mali_dvfs_clk[mali_default_clock_step]);
-
+	//mali_clock_test();
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
 		mali_gpu_data.shared_mem_size = 512 * 1024 *1024;

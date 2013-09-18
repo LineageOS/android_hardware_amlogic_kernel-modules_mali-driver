@@ -28,6 +28,9 @@ static u32 last_utilization_pp;
 static u32 last_utilization_gp;
 static u32 last_utilization_gp_pp;
 
+unsigned int min_mali_clock = MALI_CLOCK_182;
+unsigned int max_mali_clock = MALI_CLOCK_637;
+unsigned int min_pp_num = 1;
 
 unsigned int mali_dvfs_clk[] = {
 //                FCLK_DEV7 | 3,     /* 91  Mhz */
@@ -92,14 +95,14 @@ static void enable_one_core(void)
 
 static void disable_one_core(void)
 {
-	if (1 < num_cores_enabled)
+	if (min_pp_num < num_cores_enabled)
 	{
 		--num_cores_enabled;
 		schedule_work(&wq_work);
 		MALI_DEBUG_PRINT(3, ("Core scaling: Disabling one core\n"));
 	}
 
-	MALI_DEBUG_ASSERT(              1 <= num_cores_enabled);
+	MALI_DEBUG_ASSERT(              min_pp_num <= num_cores_enabled);
 	MALI_DEBUG_ASSERT(num_cores_total >= num_cores_enabled);
 }
 
@@ -158,8 +161,7 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 	}
 	else if (0 < data->utilization_pp)
 	{
-		#if 0
-		if (num_cores_enabled == 1) {
+		if (num_cores_enabled == min_pp_num) {
 			if ( mali_pp_scale_threshold[MALI_PP_THRESHOLD_30]< data->utilization_pp )
 				currentStep = MALI_CLOCK_318;
 			else
@@ -168,9 +170,6 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 		} else {
 			disable_one_core();
 		}
-		#else 
-		disable_one_core();
-		#endif
 	}
 	else
 	{
@@ -185,19 +184,17 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	u32 utilization = data->utilization_gpu;
 
 	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
-		#if 0
-		if (utilization < mali_utilization_high && currentStep < MALI_CLOCK_INDX_MAX) 
+		if (utilization < mali_utilization_high && currentStep < max_mali_clock) 
 			currentStep ++;
 		else
-		#endif
-			currentStep = MALI_CLOCK_637;
+			currentStep = max_mali_clock;
 
 		if (data->utilization_pp > MALI_PP_THRESHOLD_90) { // 90%
 			enable_max_num_cores();
 		} else {
 			enable_one_core();
 		}
-	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > 1) {
+	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > min_mali_clock) {
 		currentStep--;
 		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
 	} else {
@@ -253,3 +250,76 @@ u32 get_mali_qq_for_sched(void)
 {
 	return num_cores_total;	
 }
+
+u32 get_max_pp_num(void)
+{
+	printk("  %d->%s \n", __LINE__, __FUNCTION__);
+	return num_cores_total;	
+}
+u32 set_max_pp_num(u32 num)
+{
+	printk("  %d->%s \n", __LINE__, __FUNCTION__);
+	if (num > MALI_PP_NUMBER || num < min_pp_num )
+		return -1;
+	num_cores_total = num;
+	if (num_cores_enabled > num_cores_total) {
+		num_cores_enabled = num_cores_total;
+		schedule_work(&wq_work);
+	}
+	
+	return 0;	
+}
+
+u32 get_min_pp_num(void)
+{
+	return min_pp_num;	
+}
+u32 set_min_pp_num(u32 num)
+{
+	if (num > num_cores_total)
+		return -1;
+	min_pp_num = num;
+	if (num_cores_enabled < min_pp_num) {
+		num_cores_enabled = min_pp_num;
+		schedule_work(&wq_work);
+	}
+	
+	return 0;	
+}
+
+u32 get_max_mali_freq(void)
+{
+	return max_mali_clock;	
+}
+u32 set_max_mali_freq(u32 idx)
+{
+	if (idx >= MALI_CLOCK_INDX_MAX || idx < min_mali_clock )
+		return -1;
+	max_mali_clock = idx;
+	if (currentStep > max_mali_clock) {
+		currentStep = max_mali_clock;
+		schedule_work(&wq_work);
+	}
+	
+	return 0;	
+}
+
+u32 get_min_mali_freq(void)
+{
+	return min_mali_clock;	
+}
+u32 set_min_mali_freq(u32 idx)
+{
+	if (idx > max_mali_clock)
+		return -1;
+	min_mali_clock = idx;
+	if (currentStep < min_mali_clock) {
+		currentStep = min_mali_clock;
+		schedule_work(&wq_work);
+	}
+	
+	return 0;	
+}
+
+
+
