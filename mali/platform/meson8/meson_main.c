@@ -301,7 +301,7 @@ static int mali_runtime_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
-	disable_clock();
+	//disable_clock();
 	return ret;
 }
 
@@ -312,7 +312,7 @@ static int mali_runtime_resume(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_runtime_resume() called\n"));
 
 	/* clock scaling. Kasin..*/
-	enable_clock();
+	//enable_clock();
 
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
