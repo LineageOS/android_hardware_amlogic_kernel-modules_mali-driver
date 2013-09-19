@@ -33,5 +33,7 @@ extern unsigned int min_mali_clock_index;
 extern unsigned int max_mali_clock_index;
 
 extern int mali_clock_set(unsigned int index);
+extern void disable_clock(void);
+extern void enable_clock(void);
 
 #endif /* _MALI_CLOCK_H_ */

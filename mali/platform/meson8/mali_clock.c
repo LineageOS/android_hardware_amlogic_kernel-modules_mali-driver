@@ -18,7 +18,7 @@ int mali_clock_set(unsigned int  clock) {
 	clrbits_le32(P_HHI_MALI_CLK_CNTL, (0x7F | (0x7 << 9)));
 	writel(clock, P_HHI_MALI_CLK_CNTL | (1 << 8)); /* set clock to 333MHZ.*/
 	setbits_le32(P_HHI_MALI_CLK_CNTL, 1 << 8);
-	//writel(0x0001c007, P_HHI_MPLL_CNTL4);
+	writel(0x0001c007, P_HHI_MPLL_CNTL4);
 }
 
 void disable_clock(void)
