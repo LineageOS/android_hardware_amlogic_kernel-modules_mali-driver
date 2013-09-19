@@ -226,6 +226,7 @@ static int mali_os_suspend(struct device *device)
 	}
 
 	/* clock scaling off. Kasin... */
+	mali_perf_set_num_pp_cores(6);
 
 
 	return ret;
@@ -238,6 +239,7 @@ static int mali_os_resume(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_os_resume() called\n"));
 
 	/* clock scaling up. Kasin.. */
+	mali_perf_set_num_pp_cores(6);
 
 
 	if (NULL != device->driver &&
@@ -301,7 +303,7 @@ static int mali_runtime_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
-	//disable_clock();
+	disable_clock();
 	return ret;
 }
 
@@ -312,7 +314,7 @@ static int mali_runtime_resume(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_runtime_resume() called\n"));
 
 	/* clock scaling. Kasin..*/
-	//enable_clock();
+	enable_clock();
 
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&

@@ -253,12 +253,10 @@ u32 get_mali_qq_for_sched(void)
 
 u32 get_max_pp_num(void)
 {
-	printk("  %d->%s \n", __LINE__, __FUNCTION__);
 	return num_cores_total;	
 }
 u32 set_max_pp_num(u32 num)
 {
-	printk("  %d->%s \n", __LINE__, __FUNCTION__);
 	if (num > MALI_PP_NUMBER || num < min_pp_num )
 		return -1;
 	num_cores_total = num;

@@ -299,6 +299,10 @@ u32 mali_l2_cache_core_get_glob_num_l2_cores(void)
 
 void mali_l2_cache_reset(struct mali_l2_cache_core *cache)
 {
+	if (cache && cache->pm_domain && cache->pm_domain->state == MALI_PM_DOMAIN_OFF) {
+		return;
+	}
+
 	/* Invalidate cache (just to keep it in a known state at startup) */
 	mali_l2_cache_send_command(cache, MALI400_L2_CACHE_REGISTER_COMMAND, MALI400_L2_CACHE_COMMAND_CLEAR_ALL);
 
