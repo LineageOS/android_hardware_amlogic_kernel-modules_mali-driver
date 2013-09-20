@@ -240,6 +240,7 @@ static int mali_os_resume(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_os_resume() called\n"));
 
 	/* clock scaling up. Kasin.. */
+
 	enable_clock();
 
 	if (NULL != device->driver &&
