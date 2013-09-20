@@ -44,7 +44,7 @@ static mali_dvfs_threshold_table mali_dvfs_threshold[]={
         { 0  		    		  , (43 * 256) / 100.0 + 0.5}, 
         { (40 * 256) / 100.0 + 0.5, (53 * 256) / 100.0 + 0.5},
         { (50 * 256) / 100.0 + 0.5, (92 * 256) / 100.0 + 0.5},
-        { (87 * 256) / 100.0 + 0.5, 256			 } 
+        { (89 * 256) / 100.0 + 0.5, 256			 }
 };
 
 enum mali_pp_scale_threshold_t {
@@ -183,7 +183,8 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	MALI_DEBUG_PRINT(3, ("  %d   \n", currentStep));
 	u32 utilization = data->utilization_gpu;
 
-	if (utilization > mali_dvfs_threshold[currentStep].upthreshold) {
+	if (utilization >= mali_dvfs_threshold[currentStep].upthreshold) {
+		//printk("  > utilization:%d  currentStep:%d. upthreshold:%d.\n", utilization, currentStep, mali_dvfs_threshold[currentStep].upthreshold );
 		if (utilization < mali_utilization_high && currentStep < max_mali_clock) 
 			currentStep ++;
 		else
@@ -194,11 +195,15 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 		} else {
 			enable_one_core();
 		}
+		schedule_work(&wq_work);
 	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > min_mali_clock) {
+		//printk(" <  utilization:%d  currentStep:%d. downthreshold:%d.\n", utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold );
 		currentStep--;
 		MALI_DEBUG_PRINT(2, ("Mali clock set %d..\n",currentStep));
+		schedule_work(&wq_work);
 	} else {
-		if (data->utilization_pp < mali_pp_scale_threshold[MALI_PP_THRESHOLD_40])
+		//printk(" else utilization:%d  currentStep:%d. downthreshold:%d.\n", utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold );
+		if (data->utilization_pp < mali_pp_scale_threshold[MALI_PP_THRESHOLD_30])
 			disable_one_core();
 		return;
 	}
@@ -253,12 +258,10 @@ u32 get_mali_qq_for_sched(void)
 
 u32 get_max_pp_num(void)
 {
-	printk("  %d->%s \n", __LINE__, __FUNCTION__);
 	return num_cores_total;	
 }
 u32 set_max_pp_num(u32 num)
 {
-	printk("  %d->%s \n", __LINE__, __FUNCTION__);
 	if (num > MALI_PP_NUMBER || num < min_pp_num )
 		return -1;
 	num_cores_total = num;

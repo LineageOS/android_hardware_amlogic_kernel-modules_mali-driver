@@ -36,8 +36,8 @@ enum mali_scale_mode_t {
 };
 
 static int  scaling_mode = MALI_PP_FS_SCALING;
-module_param(scaling_mode, int, 0664); 
-MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
+//module_param(scaling_mode, int, 0664); 
+//MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
 static int last_scaling_mode;
 
 static void mali_platform_device_release(struct device *device);
@@ -182,10 +182,12 @@ static void mali_platform_device_release(struct device *device)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
+	#if 0
 	if (last_scaling_mode != scaling_mode) {
 		reset_mali_scaling_stat();
 		last_scaling_mode = scaling_mode;
 	}
+	#endif
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
 		mali_pp_fs_scaling_update(data);
