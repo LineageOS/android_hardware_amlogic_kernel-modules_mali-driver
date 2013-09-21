@@ -32,18 +32,19 @@ comment "select them and other options for you.please refer to ARM DS-5 Document
 comment "Setting up an ARM Linux target"
 endif
 
+	#select PROFILING
+	#select FTRACE
+	#select MALI400_DEBUG
+	#select PERF_EVENTS
+	#select ENABLE_DEFAULT_TRACERS
+	#select DEBUG_MUTEXES
+	#select HIGH_RES_TIMERS
+	#select HW_PERF_EVENTS
+	#select CPU_FREQ
+
 config MALI400_PROFILING
 	bool "Enable Mali profiling"
 	depends on MALI400
-	select PROFILING
-	select FTRACE
-	select MALI400_DEBUG
-	select PERF_EVENTS
-	select ENABLE_DEFAULT_TRACERS
-	select DEBUG_MUTEXES
-	select HIGH_RES_TIMERS
-	select HW_PERF_EVENTS
-	select CPU_FREQ
 	select TRACEPOINTS
 	default n
 	---help---
