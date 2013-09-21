@@ -80,42 +80,51 @@ static void do_scaling(struct work_struct *work)
 	}
 }
 
-static void enable_one_core(void)
+static u32 enable_one_core(void)
 {
+	u32 ret = 0;
 	if (num_cores_enabled < num_cores_total)
 	{
 		++num_cores_enabled;
 		schedule_work(&wq_work);
+		ret = 1;
 		MALI_DEBUG_PRINT(3, ("Core scaling: Enabling one more core\n"));
 	}
 
 	MALI_DEBUG_ASSERT(              1 <= num_cores_enabled);
 	MALI_DEBUG_ASSERT(num_cores_total >= num_cores_enabled);
+	return ret;
 }
 
 static void disable_one_core(void)
 {
+	u32 ret = 0;
 	if (min_pp_num < num_cores_enabled)
 	{
 		--num_cores_enabled;
 		schedule_work(&wq_work);
+		ret = 1;
 		MALI_DEBUG_PRINT(3, ("Core scaling: Disabling one core\n"));
 	}
 
 	MALI_DEBUG_ASSERT(              min_pp_num <= num_cores_enabled);
 	MALI_DEBUG_ASSERT(num_cores_total >= num_cores_enabled);
+	return ret;
 }
 
 static void enable_max_num_cores(void)
 {
+	u32 ret = 0;
 	if (num_cores_enabled < num_cores_total)
 	{
 		num_cores_enabled = num_cores_total;
 		schedule_work(&wq_work);
+		ret = 1;
 		MALI_DEBUG_PRINT(3, ("Core scaling: Enabling maximum number of cores\n"));
 	}
 
 	MALI_DEBUG_ASSERT(num_cores_total == num_cores_enabled);
+	return ret;
 }
 
 void mali_core_scaling_init(int num_pp_cores, int clock_rate_index)
