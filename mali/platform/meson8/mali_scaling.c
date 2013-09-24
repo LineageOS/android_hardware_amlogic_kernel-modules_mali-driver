@@ -215,6 +215,7 @@ void reset_mali_scaling_stat(void)
 	printk(" ****** scaling mode reset to default.*****\n");
 	currentStep = max_mali_clock;
 	enable_max_num_cores();
+	schedule_work(&wq_work);
 }
 
 void mali_fs_scaling_update(struct mali_gpu_utilization_data *data)
