@@ -127,6 +127,14 @@ int mali_stream_create_fence(mali_sync_pt *pt)
 	}
 
 	/* create a fd representing the fence */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
+	fd = get_unused_fd_flags(O_CLOEXEC);
+	if (fd < 0)
+	{
+		sync_fence_put(fence);
+		goto out;
+	}
+#else
 	fd = get_unused_fd();
 	if (fd < 0)
 	{
@@ -143,6 +151,7 @@ int mali_stream_create_fence(mali_sync_pt *pt)
 	FD_SET(fd, fdt->close_on_exec);
 #endif
 	spin_unlock(&files->file_lock);
+#endif /* Linux > 3.6 */
 
 	/* bind fence to the new fd */
 	sync_fence_install(fence, fd);
