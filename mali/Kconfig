@@ -2,7 +2,6 @@ menu "Mali GPU OpenGL device driver"
 config MALI400
 	tristate "Mali-300/400/450 support"
 	depends on ARM
-	depends on m
 	default m
 	select DMA_SHARED_BUFFER
 	---help---
@@ -26,9 +25,9 @@ config MALI400_OS_MEMORY_SIZE
 	---help---
 	  The size of mali OS memory with unit of mega byte.
 
-config MALI400_PROFILING
+config MALI400_PROFILING_EXTRA_SUPPORT
 	bool "Select other items in kernel to support PROFILING."
-	depends MALI400_PROFILING
+	depends on MALI400_PROFILING
 	select PROFILING
 	select FTRACE
 	select MALI400_DEBUG
