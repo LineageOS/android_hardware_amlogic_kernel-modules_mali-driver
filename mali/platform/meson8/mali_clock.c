@@ -9,7 +9,13 @@
 #include <asm/io.h>
 #include "mali_clock.h"
 
-unsigned int mali_default_clock_step = MALI_CLOCK_318;// MALI_CLOCK_318;
+#ifdef CONFIG_MALI400_UTILIZATION
+#define CUR_MALI_CLOCK MALI_CLOCK_318
+#else
+#define CUR_MALI_CLOCK MALI_CLOCK_637
+#endif
+
+unsigned int mali_default_clock_step = CUR_MALI_CLOCK;// MALI_CLOCK_318;
 
 static DEFINE_SPINLOCK(lock);
 
