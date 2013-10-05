@@ -26,21 +26,18 @@ config MALI400_OS_MEMORY_SIZE
 	---help---
 	  The size of mali OS memory with unit of mega byte.
 
-if !PROFILING || !FTRACE
-comment "ARM mali streamline with gator is depends on CONFIG_FTRACE and PROFILING.I will"
-comment "select them and other options for you.please refer to ARM DS-5 Documentation."
-comment "Setting up an ARM Linux target"
-endif
-
-	#select PROFILING
-	#select FTRACE
-	#select MALI400_DEBUG
-	#select PERF_EVENTS
-	#select ENABLE_DEFAULT_TRACERS
-	#select DEBUG_MUTEXES
-	#select HIGH_RES_TIMERS
-	#select HW_PERF_EVENTS
-	#select CPU_FREQ
+config MALI400_PROFILING
+	bool "Select other items in kernel to support PROFILING."
+	depends MALI400_PROFILING
+	select PROFILING
+	select FTRACE
+	select MALI400_DEBUG
+	select PERF_EVENTS
+	select ENABLE_DEFAULT_TRACERS
+	select DEBUG_MUTEXES
+	select HIGH_RES_TIMERS
+	select HW_PERF_EVENTS
+	select CPU_FREQ
 
 config MALI400_PROFILING
 	bool "Enable Mali profiling"
