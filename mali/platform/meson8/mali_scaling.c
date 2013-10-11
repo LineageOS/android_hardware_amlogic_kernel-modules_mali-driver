@@ -33,18 +33,19 @@ unsigned int max_mali_clock = MALI_CLOCK_637;
 unsigned int min_pp_num = 1;
 
 unsigned int mali_dvfs_clk[] = {
-//                FCLK_DEV7 | 3,     /* 91  Mhz */
                 FCLK_DEV7 | 1,     /* 182.1 Mhz */
                 FCLK_DEV4 | 1,     /* 318.7 Mhz */
                 FCLK_DEV3 | 1,     /* 425 Mhz */
+                FCLK_DEV5 | 0,     /* 510 Mhz */
                 FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
 static mali_dvfs_threshold_table mali_dvfs_threshold[]={
         { 0  		    		  , (43 * 256) / 100.0 + 0.5}, 
         { (40 * 256) / 100.0 + 0.5, (53 * 256) / 100.0 + 0.5},
-        { (50 * 256) / 100.0 + 0.5, (92 * 256) / 100.0 + 0.5},
-        { (89 * 256) / 100.0 + 0.5, 256			 }
+        { (50 * 256) / 100.0 + 0.5, (83 * 256) / 100.0 + 0.5},
+        { (80 * 256) / 100.0 + 0.5, (93 * 256) / 100.0 + 0.5},
+        { (90 * 256) / 100.0 + 0.5, 256			 			}
 };
 
 enum mali_pp_scale_threshold_t {
@@ -63,9 +64,9 @@ static u32 mali_pp_scale_threshold [] = {
 	(90 * 256) / 100.0 + 0.5,
 };
 
-static int mali_utilization_low = (256 * 30) / 100.0 + 0.5;
-static int mali_utilization_mid = (256 * 60) / 100.0 + 0.5;
-static int mali_utilization_high = (256 * 80) / 100.0 + 0.5;
+static int mali_utilization_low	= (256 * 30) / 100.0 + 0.5;
+static int mali_utilization_mid	= (256 * 60) / 100.0 + 0.5;
+static int mali_utilization_high	= (256 * 80) / 100.0 + 0.5;
 
 static void do_scaling(struct work_struct *work)
 {
@@ -216,7 +217,6 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 			disable_one_core();
 		return;
 	}
-
 }
 
 void reset_mali_scaling_stat(void)

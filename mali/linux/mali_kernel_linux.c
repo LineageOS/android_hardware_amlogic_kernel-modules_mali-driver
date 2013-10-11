@@ -155,6 +155,16 @@ static const struct dev_pm_ops mali_dev_pm_ops =
 };
 #endif
 
+#ifdef CONFIG_USE_OF
+static const struct of_device_id amlogic_mesonstream_dt_match[]={
+	{	.compatible = "amlogic,mesonstream",
+	},
+	{},
+};
+#else
+#define amlogic_mesonstream_dt_match NULL
+#endif
+
 /* The Mali device driver struct */
 static struct platform_driver mali_platform_driver =
 {
@@ -170,6 +180,10 @@ static struct platform_driver mali_platform_driver =
 		.bus = &platform_bus_type,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
 		.pm = &mali_dev_pm_ops,
+#endif
+
+#ifdef CONFIG_USE_OF
+		.of_match_table = amlogic_mesonstream_dt_match,
 #endif
 	},
 };

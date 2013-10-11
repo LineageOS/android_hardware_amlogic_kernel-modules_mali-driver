@@ -1052,7 +1052,7 @@ static void sync_callback_work(void *arg)
 		/* Fence signaled error */
 		MALI_DEBUG_PRINT(3, ("Mali sync: Job %d abort due to sync error\n", mali_pp_job_get_id(job)));
 
-		if (job->sync_point) mali_sync_signal_pt(job->sync_point, err);
+		if (job->sync_point) mali_sync_signal_pt(job->sync_point, -EFAULT);
 
 		mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
 		mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
@@ -1230,7 +1230,7 @@ _mali_osk_errcode_t _mali_ukk_pp_start_job(void *ctx, _mali_uk_pp_start_job_s *u
 		else if (0 > err)
 		{
 			/* Sync fail */
-			if (job->sync_point) mali_sync_signal_pt(job->sync_point, err);
+			if (job->sync_point) mali_sync_signal_pt(job->sync_point, -EFAULT);
 			mali_pp_job_mark_sub_job_completed(job, MALI_FALSE); /* Flagging the job as failed. */
 			mali_pp_scheduler_return_job_to_user(job, MALI_FALSE); /* This will also delete the job object */
 			return _MALI_OSK_ERR_OK; /* User is notified via a notification, so this call is ok */

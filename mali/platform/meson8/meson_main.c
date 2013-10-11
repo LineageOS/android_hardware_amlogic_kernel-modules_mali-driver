@@ -107,7 +107,7 @@ static struct platform_device mali_gpu_device =
 static struct mali_gpu_device_data mali_gpu_data =
 {
 #ifdef CONFIG_ARCH_MESON8
-	.shared_mem_size =1204 * 1024 * 1024,
+	.shared_mem_size = 512 * 1024 * 1024,
 	.fb_start = 0x05000000,
 #elif CONFIG_MESON_LOW_PLAT_OFFSET
 	.shared_mem_size =CONFIG_MALI400_OS_MEMORY_SIZE * 1024 * 1024,
@@ -157,9 +157,6 @@ int mali_platform_device_register(void)
 
 				MALI_DEBUG_ASSERT(0 < num_pp_cores);
 				mali_core_scaling_init(num_pp_cores, mali_default_clock_step);
-
-				last_scaling_mode = scaling_mode;
-
 
 				return 0;
 			}
