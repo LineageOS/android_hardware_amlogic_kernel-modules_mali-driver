@@ -215,6 +215,7 @@ MALI_STATIC_INLINE void mali_pp_job_mark_sub_job_started(struct mali_pp_job *job
 {
 	/* Assert that we are marking the "first unstarted sub job" as started */
 	MALI_DEBUG_ASSERT(job->sub_jobs_started == sub_job);
+
 	job->sub_jobs_started++;
 }
 

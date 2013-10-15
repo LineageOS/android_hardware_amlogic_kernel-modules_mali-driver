@@ -211,7 +211,7 @@ struct sync_pt *mali_sync_timed_pt_alloc(struct sync_timeline *parent)
 }
 
 /*
- * Returns 0 if sync_pt has been committed and are ready for use, -ETIMEDOUT if
+ * Returns 0 if sync_pt has been committed and is ready for use, -ETIMEDOUT if
  * timeout already happened and the fence has been signalled.
  *
  * If an error occurs the sync point can not be used.

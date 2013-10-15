@@ -93,6 +93,7 @@ mali-y += \
 	linux/mali_kernel_linux.o \
 	common/mali_kernel_descriptor_mapping.o \
 	common/mali_session.o \
+	linux/mali_device_pause_resume.o \
 	common/mali_kernel_vsync.o \
 	linux/mali_ukk_vsync.o \
 	linux/mali_kernel_sysfs.o \
@@ -121,7 +122,6 @@ mali-y += \
 	common/mali_l2_cache.o \
 	common/mali_pm_domain.o \
 	linux/mali_osk_pm.o \
-	linux/mali_device_pause_resume.o \
 	linux/mali_pmu_power_up_down.o \
 	__malidrv_build_info.o
 

@@ -168,6 +168,7 @@ void mali_pm_domain_ref_get(struct mali_pm_domain *domain)
 	{
 		MALI_DEBUG_ASSERT(MALI_PM_DOMAIN_ON == mali_pm_domain_state_get(domain));
 	}
+
 	mali_pm_domain_unlock(domain);
 }
 
