@@ -344,7 +344,24 @@ _mali_osk_errcode_t mali_pmu_power_up_all(struct mali_pmu_core *pmu)
 	mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_INT_MASK, 0);
 	mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, pmu->switch_delay);
 
-	err = mali_pmu_send_command(pmu, PMU_REG_ADDR_MGMT_POWER_UP, pmu->active_cores_mask);
+	if (pmu->active_cores_mask & 1) {
+		err = mali_pmu_send_command(pmu, PMU_REG_ADDR_MGMT_POWER_UP, 1);
+	}
+
+	if ( err == _MALI_OSK_ERR_OK && pmu->active_cores_mask & 2) {
+		_mali_osk_time_ubusydelay(2);
+		err = mali_pmu_send_command(pmu, PMU_REG_ADDR_MGMT_POWER_UP, 2);
+	}
+
+	if ( err == _MALI_OSK_ERR_OK && pmu->active_cores_mask & 4) {
+		_mali_osk_time_ubusydelay(2);
+		err = mali_pmu_send_command(pmu, PMU_REG_ADDR_MGMT_POWER_UP, 4);
+	}
+
+	if ( err == _MALI_OSK_ERR_OK && pmu->active_cores_mask & 8) {
+		_mali_osk_time_ubusydelay(2);
+		err = mali_pmu_send_command(pmu, PMU_REG_ADDR_MGMT_POWER_UP, 8);
+	}
 
 	mali_pmu_unlock(pmu);
 	return err;

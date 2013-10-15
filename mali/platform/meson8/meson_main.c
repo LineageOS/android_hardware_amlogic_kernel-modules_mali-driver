@@ -25,6 +25,7 @@
 
 #include "mali_scaling.h"
 #include "mali_clock.h"
+#include "common/mali_pmu.h"
 
 /* Configure dvfs mode */
 enum mali_scale_mode_t {
@@ -291,6 +292,7 @@ static int mali_os_thaw(struct device *device)
 static int mali_runtime_suspend(struct device *device)
 {
 	int ret = 0;
+	struct mali_pmu_core* pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_runtime_suspend() called\n"));
 
@@ -303,6 +305,9 @@ static int mali_runtime_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
+	pmu = mali_pmu_get_global_pmu_core();
+	mali_pmu_power_down_all(pmu);
+
 	disable_clock();
 	return ret;
 }
@@ -310,11 +315,14 @@ static int mali_runtime_suspend(struct device *device)
 static int mali_runtime_resume(struct device *device)
 {
 	int ret = 0;
+	struct mali_pmu_core* pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_runtime_resume() called\n"));
 
 	/* clock scaling. Kasin..*/
 	enable_clock();
+	pmu = mali_pmu_get_global_pmu_core();
+	mali_pmu_power_up_all(pmu);
 
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
