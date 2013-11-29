@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2011-2013 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2011-2013 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #include "mali_pm.h"
@@ -49,7 +49,7 @@ void mali_pm_os_suspend(void)
 	mali_gp_scheduler_suspend();
 	mali_pp_scheduler_suspend();
 	mali_utilization_suspend();
-	mali_group_power_off();
+	mali_group_power_off(MALI_TRUE);
 	mali_power_on = MALI_FALSE;
 }
 
@@ -60,21 +60,18 @@ void mali_pm_os_resume(void)
 
 	MALI_DEBUG_PRINT(3, ("Mali PM: OS resume\n"));
 
-	if (MALI_TRUE != mali_power_on)
-	{
+	if (MALI_TRUE != mali_power_on) {
 		do_reset = MALI_TRUE;
 	}
 
-	if (NULL != pmu)
-	{
+	if (NULL != pmu) {
 		mali_pmu_reset(pmu);
 	}
 
 	mali_power_on = MALI_TRUE;
 	_mali_osk_write_mem_barrier();
 
-	if (do_reset)
-	{
+	if (do_reset) {
 		mali_pm_reset_gpu();
 		mali_group_power_on();
 	}
@@ -86,7 +83,7 @@ void mali_pm_os_resume(void)
 void mali_pm_runtime_suspend(void)
 {
 	MALI_DEBUG_PRINT(3, ("Mali PM: Runtime suspend\n"));
-	mali_group_power_off();
+	mali_group_power_off(MALI_TRUE);
 	mali_power_on = MALI_FALSE;
 }
 
@@ -97,21 +94,18 @@ void mali_pm_runtime_resume(void)
 
 	MALI_DEBUG_PRINT(3, ("Mali PM: Runtime resume\n"));
 
-	if (MALI_TRUE != mali_power_on)
-	{
+	if (MALI_TRUE != mali_power_on) {
 		do_reset = MALI_TRUE;
 	}
 
-	if (NULL != pmu)
-	{
+	if (NULL != pmu) {
 		mali_pmu_reset(pmu);
 	}
 
 	mali_power_on = MALI_TRUE;
 	_mali_osk_write_mem_barrier();
 
-	if (do_reset)
-	{
+	if (do_reset) {
 		mali_pm_reset_gpu();
 		mali_group_power_on();
 	}

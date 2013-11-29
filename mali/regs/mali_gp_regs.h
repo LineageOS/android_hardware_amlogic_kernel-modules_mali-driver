@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010, 2012-2013 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2007-2010, 2012-2013 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 #ifndef _MALIGP2_CONROL_REGS_H_
@@ -52,8 +52,7 @@ typedef enum {
  * Commands to geometry processor.
  *  @see MALIGP2_CTRL_REG_CMD
  */
-typedef enum
-{
+typedef enum {
 	MALIGP2_REG_VAL_CMD_START_VS			= (1<< 0),
 	MALIGP2_REG_VAL_CMD_START_PLBU			= (1<< 1),
 	MALIGP2_REG_VAL_CMD_UPDATE_PLBU_ALLOC	= (1<< 4),

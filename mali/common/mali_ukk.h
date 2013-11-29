@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
- * 
- * This program is free software and is provided to you under the terms of the GNU General Public License version 2
- * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- * 
- * A copy of the licence is included with the program, and can also be obtained from Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This confidential and proprietary software may be used only as
+ * authorised by a licensing agreement from ARM Limited
+ * (C) COPYRIGHT 2008-2013 ARM Limited
+ * ALL RIGHTS RESERVED
+ * The entire notice above must be reproduced on all authorised
+ * copies and copies may only be made to the extent permitted
+ * by a licensing agreement from ARM Limited.
  */
 
 /**
@@ -20,8 +20,7 @@
 #include "mali_uk_types.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /**
@@ -241,24 +240,26 @@ _mali_osk_errcode_t _mali_ukk_post_notification( _mali_uk_post_notification_s *a
  */
 _mali_osk_errcode_t _mali_ukk_get_api_version( _mali_uk_get_api_version_s *args );
 
-
-/* Make a U/K call to _mali_ukk_compositor_priority().
- * Used to set that the current process is doing graphical compositing. Gives its rendering jobs higher priority
- */
-void _mali_ukk_compositor_priority(void * session_ptr);
-
-
 /** @brief Get the user space settings applicable for calling process.
  *
  * @param args see _mali_uk_get_user_settings_s in "mali_utgard_uk_types.h"
+ * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
 _mali_osk_errcode_t _mali_ukk_get_user_settings(_mali_uk_get_user_settings_s *args);
 
 /** @brief Get a user space setting applicable for calling process.
  *
  * @param args see _mali_uk_get_user_setting_s in "mali_utgard_uk_types.h"
+ * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
 _mali_osk_errcode_t _mali_ukk_get_user_setting(_mali_uk_get_user_setting_s *args);
+
+/* @brief Grant or deny high priority scheduling for this session.
+ *
+ * @param args see _mali_uk_request_high_priority_s in "mali_utgard_uk_types.h"
+ * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
+ */
+_mali_osk_errcode_t _mali_ukk_request_high_priority(_mali_uk_request_high_priority_s *args);
 
 /** @} */ /* end group _mali_uk_core */
 
@@ -277,37 +278,6 @@ _mali_osk_errcode_t _mali_ukk_get_user_setting(_mali_uk_get_user_setting_s *args
  * - Allocate/deallocate MALI memory
  *
  * @{ */
-
-/**
- * @brief Initialize the Mali-MMU Memory system
- *
- * For Mali-MMU builds of the drivers, this function must be called before any
- * other functions in the \ref _mali_uk_memory group are called.
- *
- * @note This function is for Mali-MMU builds \b only. It should not be called
- * when the drivers are built without Mali-MMU support.
- *
- * @param args see \ref _mali_uk_init_mem_s in mali_utgard_uk_types.h
- * @return _MALI_OSK_ERR_OK on success, otherwise a suitable
- * _mali_osk_errcode_t on failure.
- */
-_mali_osk_errcode_t _mali_ukk_init_mem( _mali_uk_init_mem_s *args );
-
-/**
- * @brief Terminate the MMU Memory system
- *
- * For Mali-MMU builds of the drivers, this function must be called when
- * functions in the \ref _mali_uk_memory group will no longer be called. This
- * function must be called before the application terminates.
- *
- * @note This function is for Mali-MMU builds \b only. It should not be called
- * when the drivers are built without Mali-MMU support.
- *
- * @param args see \ref _mali_uk_term_mem_s in mali_utgard_uk_types.h
- * @return _MALI_OSK_ERR_OK on success, otherwise a suitable
- * _mali_osk_errcode_t on failure.
- */
-_mali_osk_errcode_t _mali_ukk_term_mem( _mali_uk_term_mem_s *args );
 
 /** @brief Map Mali Memory into the current user process
  *
@@ -462,11 +432,22 @@ _mali_osk_errcode_t _mali_ukk_va_to_mali_pa( _mali_uk_va_to_mali_pa_s * args );
  *
  * Job completion can be awaited with _mali_ukk_wait_for_notification().
  *
- * @oaram ctx user-kernel context (mali_session)
+ * @param ctx user-kernel context (mali_session)
  * @param uargs see _mali_uk_pp_start_job_s in "mali_utgard_uk_types.h". Use _mali_osk_copy_from_user to retrieve data!
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
-_mali_osk_errcode_t _mali_ukk_pp_start_job( void *ctx, _mali_uk_pp_start_job_s *uargs, int *fence );
+_mali_osk_errcode_t _mali_ukk_pp_start_job( void *ctx, _mali_uk_pp_start_job_s *uargs );
+
+/**
+ * @brief Issue a request to start new jobs on both Vertex Processor and Fragment Processor.
+ *
+ * @note Will call into @ref _mali_ukk_pp_start_job and @ref _mali_ukk_gp_start_job.
+ *
+ * @param ctx user-kernel context (mali_session)
+ * @param uargs see _mali_uk_pp_and_gp_start_job_s in "mali_utgard_uk_types.h". Use _mali_osk_copy_from_user to retrieve data!
+ * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
+ */
+_mali_osk_errcode_t _mali_ukk_pp_and_gp_start_job( void *ctx, _mali_uk_pp_and_gp_start_job_s *uargs );
 
 /** @brief Returns the number of Fragment Processors in the system
  *
@@ -516,7 +497,7 @@ void _mali_ukk_pp_job_disable_wb(_mali_uk_pp_disable_wb_s *args);
  *
  * Job completion can be awaited with _mali_ukk_wait_for_notification().
  *
- * @oaram ctx user-kernel context (mali_session)
+ * @param ctx user-kernel context (mali_session)
  * @param uargs see _mali_uk_gp_start_job_s in "mali_utgard_uk_types.h". Use _mali_osk_copy_from_user to retrieve data!
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
