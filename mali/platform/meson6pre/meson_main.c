@@ -150,13 +150,9 @@ void mali_utilization_handler(unsigned int utilization_num)
 
 static struct mali_gpu_device_data mali_gpu_data =
 {
-	.shared_mem_size =CONFIG_MALI400_OS_MEMORY_SIZE * 1024 * 1024,
-#ifdef CONFIG_MESON_LOW_PLAT_OFFSET
-    .fb_start = 0x24000000,
-#else
-	.fb_start = 0x84000000,
-#endif
-	.fb_size = 0x06000000,
+	.shared_mem_size = 512 * 1024 * 1024,
+	.fb_start = 0,
+	.fb_size = 0,
     .utilization_interval = 1000,
     .utilization_callback = mali_utilization_handler,
 };
