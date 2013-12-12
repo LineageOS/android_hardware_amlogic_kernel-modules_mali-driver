@@ -138,7 +138,8 @@ mali-y += \
 ifeq ($(TARGET_PLATFORM),meson6pre)
 MALI_PLATFORM_FILES:= platform/meson6pre/mali_fix.c \
 			platform/meson6pre/mali_platform.c \
-			platform/meson6pre/meson_main.c
+			platform/meson6pre/meson_main.c \
+			platform/meson6pre/mali_device_type.c
 endif
 
 ifeq ($(TARGET_PLATFORM),meson8)

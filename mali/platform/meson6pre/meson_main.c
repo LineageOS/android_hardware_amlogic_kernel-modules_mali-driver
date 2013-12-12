@@ -10,37 +10,24 @@
 
 #include <linux/platform_device.h>
 #include <linux/version.h>
-#include <linux/pm.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/pm.h>
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
+#include <linux/dma-mapping.h>
+#include <linux/moduleparam.h>
 
 #include <linux/kernel.h>
 #include <asm/io.h>
 #include <mach/am_regs.h>
-#include <linux/module.h>
 #include "mali_platform.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-extern struct platform_device meson_device_pd[];
-#else
-extern struct platform_device meson_device_pd[];
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0) */
-
 static void mali_platform_device_release(struct device *device);
-static int mali_os_suspend(struct device *device);
-static int mali_os_resume(struct device *device);
-static int mali_os_freeze(struct device *device);
-static int mali_os_thaw(struct device *device);
-#ifdef CONFIG_PM_RUNTIME
-static int mali_runtime_suspend(struct device *device);
-static int mali_runtime_resume(struct device *device);
-static int mali_runtime_idle(struct device *device);
-#endif
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TV
 
@@ -108,41 +95,6 @@ static struct resource meson_mali_resources[] =
 };
 #endif
 
-static struct dev_pm_ops mali_gpu_device_type_pm_ops =
-{
-	.suspend = mali_os_suspend,
-	.resume = mali_os_resume,
-	.freeze = mali_os_freeze,
-	.thaw = mali_os_thaw,
-#ifdef CONFIG_PM_RUNTIME
-	.runtime_suspend = mali_runtime_suspend,
-	.runtime_resume = mali_runtime_resume,
-	.runtime_idle = mali_runtime_idle,
-#endif
-};
-
-static struct device_type mali_gpu_device_device_type =
-{
-	.pm = &mali_gpu_device_type_pm_ops,
-};
-
-static struct platform_device mali_gpu_device =
-{
-	.name = MALI_GPU_NAME_UTGARD,
-	.id = 0,
-
-	.dev.parent = NULL,
-
-	.dev.release = mali_platform_device_release,
-	/*
-	 * We temporarily make use of a device type so that we can control the Mali power
-	 * from within the mali.ko (since the default platform bus implementation will not do that).
-	 * Ideally .dev.pm_domain should be used instead, as this is the new framework designed
-	 * to control the power of devices.
-	 */
-	.dev.type = &mali_gpu_device_device_type, /* We should probably use the pm_domain instead of type on newer kernels */
-};
-
 void mali_utilization_handler(unsigned int utilization_num)
 {
 
@@ -153,9 +105,85 @@ static struct mali_gpu_device_data mali_gpu_data =
 	.shared_mem_size = 512 * 1024 * 1024,
 	.fb_start = 0,
 	.fb_size = 0,
+#ifdef CONFIG_MALI400_UTILIZATION
     .utilization_interval = 1000,
     .utilization_callback = mali_utilization_handler,
+#endif
+    .max_job_runtime = 60000, /* 60 seconds */
 };
+
+extern struct device_type mali_gpu_device_device_type;
+static struct platform_device mali_gpu_device =
+{
+	.name = MALI_GPU_NAME_UTGARD,
+	.id = 0,
+	.dev.release = mali_platform_device_release,
+	.dev.coherent_dma_mask = DMA_BIT_MASK(32),
+	.dev.platform_data = &mali_gpu_data,
+	.dev.type = &mali_gpu_device_device_type, /* We should probably use the pm_domain instead of type on newer kernels */
+};
+
+int mali_pdev_pre_init(struct platform_device* ptr_plt_dev)
+{
+	if (mali_gpu_data.shared_mem_size < 10) {
+		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
+		mali_gpu_data.shared_mem_size = 1024 * 1024 *1024;
+	}
+
+	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
+	ptr_plt_dev->num_resources = ARRAY_SIZE(meson_mali_resources);
+	ptr_plt_dev->resource = &meson_mali_resources;
+
+	return  0;
+}
+
+void mali_pdev_post_init(struct platform_device* pdev)
+{
+	mali_platform_init();
+#ifdef CONFIG_PM_RUNTIME
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
+	pm_runtime_set_autosuspend_delay(&(pdev->dev), 1000);
+	pm_runtime_use_autosuspend(&(pdev->dev));
+#endif
+	pm_runtime_enable(&(pdev->dev));
+#endif
+}
+
+int mali_pdev_dts_init(struct platform_device* mali_gpu_device)
+{
+	struct device_node     *cfg_node = mali_gpu_device->dev.of_node;
+    struct device_node     *child;
+    u32 prop_value;
+    int err;
+	struct resource *res;
+    u64 *base;
+    u64 size;
+    
+    res = platform_get_resource(mali_gpu_device, IORESOURCE_MEM, 0);
+    if (res) {
+		base = (u64*)res->start;
+		size = res->end - res->start + 1;
+		if (size > 0) {
+			MALI_DEBUG_PRINT(2, ("dedicated memory size:%dM\n", size / (1024*1024)));
+			mali_gpu_data.dedicated_mem_start = base;
+    		mali_gpu_data.dedicated_mem_size = size;
+		}
+	}
+	
+    for_each_child_of_node(cfg_node, child) {
+    	err = of_property_read_u32(child, "shared_memory", &prop_value);
+    	if (err == 0) {
+    		MALI_DEBUG_PRINT(2, ("shared_memory configurate  %d\n", prop_value));
+    		mali_gpu_data.shared_mem_size = prop_value * 1024 * 1024;
+    	}
+    }
+
+def_start:
+	err = mali_pdev_pre_init(mali_gpu_device);
+	if (err == 0)
+		mali_pdev_post_init(mali_gpu_device);
+	return err;
+}
 
 int mali_platform_device_register(void)
 {
@@ -165,43 +193,12 @@ int mali_platform_device_register(void)
 	static_pp_mmu_cnt = 1;
 #	endif
 
-	if (mali_gpu_data.shared_mem_size < 10) {
-		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
-		mali_gpu_data.shared_mem_size = 512 * 1024 *1024;
-	}
-
-	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
-
-	/* Detect present Mali GPU and connect the correct resources to the device */
-	
-	MALI_DEBUG_PRINT(4, ("Registering Mali-450 MP8 device\n"));
-	err = platform_device_add_resources(&mali_gpu_device, meson_mali_resources, sizeof(meson_mali_resources) / sizeof(meson_mali_resources[0]));
-
-	if (0 == err)
-	{
-		err = platform_device_add_data(&mali_gpu_device, &mali_gpu_data, sizeof(mali_gpu_data));
+	err = mali_pdev_pre_init(&mali_gpu_device);
+	if (err == 0) {
+		err = platform_device_register(&mali_gpu_device);
 		if (0 == err)
-		{
-			/* Register the platform device */
-			err = platform_device_register(&mali_gpu_device);
-			if (0 == err)
-			{
-				mali_platform_init();
-#ifdef CONFIG_PM_RUNTIME
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
-				pm_runtime_set_autosuspend_delay(&(mali_gpu_device.dev), 1000);
-				pm_runtime_use_autosuspend(&(mali_gpu_device.dev));
-#endif
-				pm_runtime_enable(&(mali_gpu_device.dev));
-#endif
-
-				return 0;
-			}
-		}
-
-		platform_device_unregister(&mali_gpu_device);
+			mali_pdev_post_init(&mali_gpu_device);
 	}
-
 	return err;
 }
 
@@ -219,135 +216,4 @@ static void mali_platform_device_release(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_release() called\n"));
 }
 
-static int mali_os_suspend(struct device *device)
-{
-	int ret = 0;
 
-	MALI_DEBUG_PRINT(4, ("mali_os_suspend() called\n"));
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->suspend)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->suspend(device);
-	}
-
-	mali_platform_power_mode_change(MALI_POWER_MODE_DEEP_SLEEP);
-
-	return ret;
-}
-
-static int mali_os_resume(struct device *device)
-{
-	int ret = 0;
-
-	MALI_DEBUG_PRINT(4, ("mali_os_resume() called\n"));
-
-	mali_platform_power_mode_change(MALI_POWER_MODE_ON);
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->resume)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->resume(device);
-	}
-
-	return ret;
-}
-
-static int mali_os_freeze(struct device *device)
-{
-	int ret = 0;
-
-	MALI_DEBUG_PRINT(4, ("mali_os_freeze() called\n"));
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->freeze)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->freeze(device);
-	}
-
-	return ret;
-}
-
-static int mali_os_thaw(struct device *device)
-{
-	int ret = 0;
-
-	MALI_DEBUG_PRINT(4, ("mali_os_thaw() called\n"));
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->thaw)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->thaw(device);
-	}
-
-	return ret;
-}
-
-#ifdef CONFIG_PM_RUNTIME
-static int mali_runtime_suspend(struct device *device)
-{
-	int ret = 0;
-
-	MALI_DEBUG_PRINT(4, ("mali_runtime_suspend() called\n"));
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->runtime_suspend)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->runtime_suspend(device);
-	}
-
-	mali_platform_power_mode_change(MALI_POWER_MODE_LIGHT_SLEEP);
-
-	return ret;
-}
-
-static int mali_runtime_resume(struct device *device)
-{
-	int ret = 0;
-
-	MALI_DEBUG_PRINT(4, ("mali_runtime_resume() called\n"));
-
-	mali_platform_power_mode_change(MALI_POWER_MODE_ON);
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->runtime_resume)
-	{
-		/* Need to notify Mali driver about this event */
-		ret = device->driver->pm->runtime_resume(device);
-	}
-
-	return ret;
-}
-
-static int mali_runtime_idle(struct device *device)
-{
-	MALI_DEBUG_PRINT(4, ("mali_runtime_idle() called\n"));
-
-	if (NULL != device->driver &&
-	    NULL != device->driver->pm &&
-	    NULL != device->driver->pm->runtime_idle)
-	{
-		/* Need to notify Mali driver about this event */
-		int ret = device->driver->pm->runtime_idle(device);
-		if (0 != ret)
-		{
-			return ret;
-		}
-	}
-
-	pm_runtime_suspend(device);
-
-	return 0;
-}
-#endif
