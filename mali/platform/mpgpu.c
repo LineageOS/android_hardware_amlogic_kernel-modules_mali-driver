@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
+
 static ssize_t mpgpu_show(struct class *class,
     struct class_attribute *attr, char *buf)
 {
@@ -37,46 +38,52 @@ static ssize_t mpgpu_store(struct class *class,
 
 static CLASS_ATTR(mpgpucmd, 0644, mpgpu_show, mpgpu_store);
 
-static  struct  class_attribute   *mali_attr[]={
-	&class_attr_mpgpucmd,
-	
-};
-
 static struct class mpgpu_class = {
 	.name = "mpgpu",
 };
 
-static int __init mpgpu_class_init(void)
+int mpgpu_class_init(void)
 {
 	int error;
-	int i;
 	
 	error = class_register(&mpgpu_class);
 	if (error) {
 		printk(KERN_ERR "%s: class_register failed\n", __func__);
 		return error;
 	}
-	for(i=0;i<ARRAY_SIZE(mali_attr);i++) {
-		error = class_create_file(&mpgpu_class,mali_attr[i]);
-		if (error < 0)
-			goto err;
+	error = class_create_file(&mpgpu_class, &class_attr_mpgpucmd);
+	if (error) {
+		printk(KERN_ERR "%s: class_create_file failed\n", __func__);
+		class_unregister(&mpgpu_class);
 	}
 
-	return 0;
-err:
-	printk(KERN_ERR "MALI: %dst class failed\n",i);
-	class_unregister(&mpgpu_class);
+	return error;
+
 }
-static void __exit mpgpu_class_exit(void)
+
+void  mpgpu_class_exit(void)
 {
 	class_unregister(&mpgpu_class);
 }
 
-fs_initcall(mpgpu_class_init);
-module_exit(mpgpu_class_exit);
+
+static int __init mpgpu_init(void)
+{
+	return mpgpu_class_init();
+}
+
+static void __exit mpgpu_exit(void)
+{
+	mpgpu_class_exit();
+}
+
+#ifndef MODULE
+fs_initcall(mpgpu_init);
+module_exit(mpgpu_exit);
 
 MODULE_DESCRIPTION("AMLOGIC  mpgpu driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("aml-sh <kasin.li@amlogic.com>");
+#endif
 
 
