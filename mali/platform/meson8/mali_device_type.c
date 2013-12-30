@@ -19,16 +19,27 @@
 #include "mali_scaling.h"
 #include "mali_clock.h"
 
-static int mali_os_suspend(struct device *device)
+int mali_cri_pmu_on_off(u64 param)
 {
-	int ret = 0;
 	struct mali_pmu_core *pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_os_suspend() called\n"));
 	pmu = mali_pmu_get_global_pmu_core();
+	if (param == 0)
+		mali_pmu_power_down_all(pmu);
+	else 
+		mali_pmu_power_up_all(pmu);
+	return 0;
+}
 
-	try_open_clock();
 
+static int mali_os_suspend(struct device *device)
+{
+	int ret = 0;
+
+	MALI_DEBUG_PRINT(4, ("mali_os_suspend() called\n"));
+
+	enable_clock();
 	flush_scaling_job();
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
@@ -39,7 +50,7 @@ static int mali_os_suspend(struct device *device)
 	}
 
 	/* clock scaling off. Kasin... */
-	mali_pmu_power_down_all(pmu);
+	mali_clock_critical(mali_cri_pmu_on_off, 0);
 	disable_clock();
 
 	return ret;
@@ -48,14 +59,12 @@ static int mali_os_suspend(struct device *device)
 static int mali_os_resume(struct device *device)
 {
 	int ret = 0;
-	struct mali_pmu_core *pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_os_resume() called\n"));
-	pmu = mali_pmu_get_global_pmu_core();
 
 	/* clock scaling up. Kasin.. */
 	enable_clock();
-	mali_pmu_power_up_all(pmu);
+	mali_clock_critical(mali_cri_pmu_on_off, 1);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->resume)
@@ -105,9 +114,7 @@ static int mali_os_thaw(struct device *device)
 static int mali_runtime_suspend(struct device *device)
 {
 	int ret = 0;
-	struct mali_pmu_core *pmu;
 
-	pmu = mali_pmu_get_global_pmu_core();
 	MALI_DEBUG_PRINT(4, ("mali_runtime_suspend() called\n"));
 
 #ifdef CONFIG_MALI400_PROFILING
@@ -126,10 +133,7 @@ static int mali_runtime_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
-	if (get_clock_state()) {
-		mali_pmu_power_down_all(pmu);
-	} else
-		printk("fkclk test..\n");
+	mali_clock_critical(mali_cri_pmu_on_off, 0);
 	//disable_clock();
 	return ret;
 }
@@ -137,15 +141,13 @@ static int mali_runtime_suspend(struct device *device)
 static int mali_runtime_resume(struct device *device)
 {
 	int ret = 0;
-	struct mali_pmu_core *pmu;
 
-	pmu = mali_pmu_get_global_pmu_core();
-	MALI_DEBUG_PRINT(4, ("mali_runtime_resume() called\n"));
+	MALI_DEBUG_PRINT(4, ("mali_run	time_resume() called\n"));
 
 	/* clock scaling. Kasin..*/
 	//enable_clock();
 
-	mali_pmu_power_up_all(pmu);
+	mali_clock_critical(mali_cri_pmu_on_off, 1);
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |

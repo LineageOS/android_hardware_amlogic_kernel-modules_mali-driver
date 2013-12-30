@@ -20,17 +20,13 @@ enum mali_clock_rate {
 
 extern unsigned int min_mali_clock_index;
 extern unsigned int max_mali_clock_index;
+typedef int (*critical_t)(u64 param);
+int mali_clock_critical(critical_t critical, u64 param);
 
 int mali_clock_init(u32 def_clk_idx);
-void mali_clock_term(void);
-void mali_clock_lock(void);
-void mali_clock_unlock(void);
-
 int mali_clock_set(unsigned int index);
 void disable_clock(void);
 void enable_clock(void);
-
-void try_open_clock(void);
 
 u32 get_clock_state(void);
 u32 get_mali_freq(u32 idx);

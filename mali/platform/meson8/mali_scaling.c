@@ -93,8 +93,8 @@ uint32_t* get_mali_dvfs_tbl_addr(void)
 }
 extern int try_exclu_cpu_exe2(exl_call_func_t func, void * p_arg);
 static void do_scaling(struct work_struct *work)
-{int err = 0;
-	//int err = mali_perf_set_num_pp_cores(num_cores_enabled);
+{
+	int err = mali_perf_set_num_pp_cores(num_cores_enabled);
 	MALI_DEBUG_ASSERT(0 == err);
 	MALI_IGNORE(err);
 	if (mali_dvfs_threshold[currentStep].freq_index != mali_dvfs_threshold[lastStep].freq_index) {
@@ -142,7 +142,7 @@ static u32 disable_one_core(void)
 		MALI_DEBUG_PRINT(3, ("Core scaling: Disabling one core\n"));
 	}
 
-	MALI_DEBUG_ASSERT(              min_pp_num <= num_cores_enabled);
+	MALI_DEBUG_ASSERT(min_pp_num <= num_cores_enabled);
 	MALI_DEBUG_ASSERT(num_cores_total >= num_cores_enabled);
 	return ret;
 }
@@ -165,7 +165,7 @@ void mali_core_scaling_init(void)
 {
 	INIT_WORK(&wq_work, do_scaling);
 
-	num_cores_total   = 4;
+	num_cores_total   = MALI_PP_NUMBER;
 	num_cores_enabled = num_cores_total;
 	
 	currentStep = get_mali_default_clock_idx();
@@ -235,7 +235,7 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	if (loading_complete > (2<<16) &&
 			currentStep > freq_for_mem_limit) {
 		currentStep --;
-		MALI_DEBUG_PRINT(2, (" active time vs command complete:%d\n", loading_complete));
+		MALI_DEBUG_PRINT(3, (" active time vs command complete:%d\n", loading_complete));
 		goto exit;
 	}
 
@@ -250,16 +250,16 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 		} else {
 			enable_one_core();
 		}
-		MALI_DEBUG_PRINT(2, ("  > utilization:%d  currentStep:%d.pp:%d. upthreshold:%d.\n",
+		MALI_DEBUG_PRINT(3, ("  > utilization:%d  currentStep:%d.pp:%d. upthreshold:%d.\n",
 					utilization, currentStep, num_cores_enabled, mali_dvfs_threshold[currentStep].upthreshold ));
 	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > min_mali_clock) {
 		currentStep--;
-		MALI_DEBUG_PRINT(2, (" <  utilization:%d  currentStep:%d. downthreshold:%d.\n",
+		MALI_DEBUG_PRINT(3, (" <  utilization:%d  currentStep:%d. downthreshold:%d.\n",
 					utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold ));
 	} else {
 		if (data->utilization_pp < mali_pp_scale_threshold[MALI_PP_THRESHOLD_30])
 			ret = disable_one_core();
-		MALI_DEBUG_PRINT(2, (" <  utilization:%d  currentStep:%d. downthreshold:%d.pp:%d\n",
+		MALI_DEBUG_PRINT(3, (" <  utilization:%d  currentStep:%d. downthreshold:%d.pp:%d\n",
 					utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold, num_cores_enabled));
 	}
 
@@ -372,7 +372,6 @@ void set_mali_freq_idx(u32 idx)
 
 void set_mali_qq_for_sched(u32 pp_num)
 {
-	num_cores_total   = pp_num;
 	num_cores_enabled = pp_num;
 	schedule_work(&wq_work);
 }
@@ -448,6 +447,15 @@ u32 set_min_mali_freq(u32 idx)
 	}
 	
 	return 0;	
+}
+
+void mali_plat_preheat(void)
+{
+	//printk(" aml mali test*************\n");
+	int ret;
+	ret = enable_max_num_cores();
+	if (ret)
+		schedule_work(&wq_work);
 }
 
 u32 get_current_frequency(void) {

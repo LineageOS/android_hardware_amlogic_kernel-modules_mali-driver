@@ -104,8 +104,6 @@ static struct platform_device mali_gpu_device =
 
 int mali_pdev_pre_init(struct platform_device* ptr_plt_dev)
 {
-	int num_pp_cores = MALI_PP_NUMBER;
-
 	if (mali_gpu_data.shared_mem_size < 10) {
 		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
 		mali_gpu_data.shared_mem_size = 1024 * 1024 *1024;
@@ -113,7 +111,7 @@ int mali_pdev_pre_init(struct platform_device* ptr_plt_dev)
 
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources_m450);
-	ptr_plt_dev->resource = &mali_gpu_resources_m450;
+	ptr_plt_dev->resource = mali_gpu_resources_m450;
 	
 	return mali_clock_init(MALI_CLOCK_318);
 }
@@ -194,8 +192,6 @@ int mali_platform_device_register(void)
 void mali_platform_device_unregister(void)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_unregister() called\n"));
-	mali_core_scaling_term();
-	mali_clock_term();
 	platform_device_unregister(&mali_gpu_device);
 
 	platform_device_put(&mali_gpu_device);

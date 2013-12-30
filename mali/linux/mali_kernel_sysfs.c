@@ -1314,46 +1314,6 @@ static const struct file_operations domain_stat_fops = {
 	.read = domain_stat_read,
 };
 
-static ssize_t gate_test_write(struct file *filp, const char __user *buf, size_t count, loff_t *offp)
-{
-	int ret;
-	char buffer[32];
-	unsigned long val;
-
-	if (count >= sizeof(buffer))
-	{
-		return -ENOMEM;
-	}
-
-	if (copy_from_user(&buffer[0], buf, count))
-	{
-		return -EFAULT;
-	}
-	buffer[count] = '\0';
-
-	ret = strict_strtoul(&buffer[0], 10, &val);
-	if (0 != ret)
-	{
-		return -EINVAL;
-	}
-
-	if (val == 0) {
-		printk(" gate off the mali clock.\n");
-		disable_clock();
-	} else {
-		printk(" gate off the mali clock.\n");
-		enable_clock();
-	}
-
-	*offp += count;
-	return count;
-}
-
-static const struct file_operations gate_test_fops = {
-	.owner = THIS_MODULE,
-	.write = gate_test_write
-};
-
 static ssize_t max_pp_read(struct file *filp, char __user *buf, size_t count, loff_t *offp)
 {
 	int r;
@@ -1754,7 +1714,6 @@ int mali_sysfs_register(const char *mali_dev_name)
 					debugfs_create_file("cur_freq", 0600, mali_misc_setting_dir, NULL, &cur_freq_fops);
 					debugfs_create_file("scale_mode", 0600, mali_misc_setting_dir, NULL, &scale_mode_fops);
 					debugfs_create_file("domain_stat", 0600, mali_misc_setting_dir, NULL, &domain_stat_fops);
-					debugfs_create_file("gate_test", 0600, mali_misc_setting_dir, NULL, &gate_test_fops);
 					debugfs_create_file("max_pp", 0600, mali_misc_setting_dir, NULL, &max_pp_fops);
 					debugfs_create_file("min_pp", 0600, mali_misc_setting_dir, NULL, &min_pp_fops);
 					debugfs_create_file("max_freq", 0600, mali_misc_setting_dir, NULL, &max_freq_fops);

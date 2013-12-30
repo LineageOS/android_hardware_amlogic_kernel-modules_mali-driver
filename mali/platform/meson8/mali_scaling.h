@@ -16,6 +16,8 @@
 #ifndef __ARM_CORE_SCALING_H__
 #define __ARM_CORE_SCALING_H__
 
+#define MALI_PP_NUMBER 6
+
 struct mali_gpu_utilization_data;
 
 typedef struct mali_dvfs_threshold_table {
@@ -56,5 +58,6 @@ void set_turbo_mode(u32 mode);
 u32 set_mali_dvfs_tbl_size(u32 size);
 u32 get_max_dvfs_tbl_size(void);
 uint32_t* get_mali_dvfs_tbl_addr(void);
+void mali_plat_preheat(void);
 
 #endif /* __ARM_CORE_SCALING_H__ */
