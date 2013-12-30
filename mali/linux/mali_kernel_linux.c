@@ -337,6 +337,8 @@ void mali_init_cpu_time_counters_on_all_cpus(int print_only)
 }
 #endif
 
+extern int mpgpu_class_init(void);
+extern void mpgpu_class_exit(void);
 
 int mali_module_init(void)
 {
@@ -385,6 +387,10 @@ int mali_module_init(void)
 
 	MALI_PRINT(("Mali device driver loaded\n"));
 
+#ifdef MODULE
+ mpgpu_class_init();
+#endif
+
 	return 0; /* Success */
 }
 
@@ -404,7 +410,9 @@ void mali_module_exit(void)
 	MALI_DEBUG_PRINT(2, ("mali_module_exit() unregistering device\n"));
 	mali_platform_device_unregister();
 #endif
-
+#ifdef MODULE
+ mpgpu_class_exit();
+#endif
 	MALI_PRINT(("Mali device driver unloaded\n"));
 }
 
