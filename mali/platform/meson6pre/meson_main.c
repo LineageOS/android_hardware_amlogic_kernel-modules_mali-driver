@@ -217,3 +217,11 @@ static void mali_platform_device_release(struct device *device)
 }
 
 
+int mpgpu_class_init(void)
+{
+  return 0;
+}
+void mpgpu_class_exit(void)
+{
+
+}
