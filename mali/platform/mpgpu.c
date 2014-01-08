@@ -9,6 +9,8 @@
  *
  *******************************************************************/
 /* Standard Linux headers */
+#include <linux/platform_device.h>
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -18,25 +20,160 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
+#include <asm/io.h>
 
-static ssize_t mpgpu_show(struct class *class,
-    struct class_attribute *attr, char *buf)
+#include <linux/mali/mali_utgard.h>
+#include <common/mali_kernel_common.h>
+#include <common/mali_pmu.h>
+#include "meson_main.h"
+
+static ssize_t domain_stat_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%x\n", mali_pmu_get_status());
+}
+
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+static ssize_t mpgpu_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
 {
     return 0;
 }
 
 #define PREHEAT_CMD "preheat"
 
-void mali_plat_preheat(void);
-static ssize_t mpgpu_store(struct class *class,
-    struct class_attribute *attr, const char *buf, size_t count)
+static ssize_t mpgpu_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
 {
 	if(!strncmp(buf,PREHEAT_CMD,strlen(PREHEAT_CMD)))
 		mali_plat_preheat();
 	return count;
 }
 
-static CLASS_ATTR(mpgpucmd, 0644, mpgpu_show, mpgpu_store);
+static ssize_t scale_mode_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", get_mali_schel_mode());
+}
+
+static ssize_t scale_mode_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	set_mali_schel_mode(val);
+
+	return count;
+}
+
+static ssize_t max_pp_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", get_max_pp_num());
+}
+
+static ssize_t max_pp_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	ret = set_max_pp_num(val);
+
+	return count;
+}
+
+static ssize_t min_pp_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+
+	return sprintf(buf, "%d\n", get_min_pp_num());
+}
+
+static ssize_t min_pp_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	ret = set_min_pp_num(val);
+
+	return count;
+}
+
+static ssize_t max_freq_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", get_max_mali_freq());
+}
+
+static ssize_t max_freq_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	ret = set_max_mali_freq(val);
+
+	return count;
+}
+
+static ssize_t min_freq_read(struct class *class, 
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", get_min_mali_freq());
+}
+
+static ssize_t min_freq_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	ret = set_min_mali_freq(val);
+	
+	return count;
+}
+#endif
+
+
+static struct class_attribute mali_class_attrs[] = {
+	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
+#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+	__ATTR(mpgpucmd,	0644, mpgpu_read,	mpgpu_write),
+	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),
+	__ATTR(min_freq,	0644, min_freq_read,  	min_freq_write),
+	__ATTR(max_freq,	0644, max_freq_read,	max_freq_write),
+	__ATTR(min_pp,		0644, min_pp_read,	min_pp_write),
+	__ATTR(max_pp,		0644, max_pp_read,	max_pp_write),
+#endif
+};
 
 static struct class mpgpu_class = {
 	.name = "mpgpu",
@@ -44,21 +181,22 @@ static struct class mpgpu_class = {
 
 int mpgpu_class_init(void)
 {
-	int error;
+	int ret = 0;
+	int i;
+	int attr_num =  ARRAY_SIZE(mali_class_attrs);
 	
-	error = class_register(&mpgpu_class);
-	if (error) {
+	ret = class_register(&mpgpu_class);
+	if (ret) {
 		printk(KERN_ERR "%s: class_register failed\n", __func__);
-		return error;
+		return ret;
 	}
-	error = class_create_file(&mpgpu_class, &class_attr_mpgpucmd);
-	if (error) {
-		printk(KERN_ERR "%s: class_create_file failed\n", __func__);
-		class_unregister(&mpgpu_class);
+	for (i = 0; i< attr_num; i++) {
+		ret = class_create_file(&mpgpu_class, &mali_class_attrs[i]);
+		if (ret) {
+			printk(KERN_ERR "%d ST: class item failed to register\n", i);
+		}	
 	}
-
-	return error;
-
+	return ret;
 }
 
 void  mpgpu_class_exit(void)
@@ -66,7 +204,7 @@ void  mpgpu_class_exit(void)
 	class_unregister(&mpgpu_class);
 }
 
-
+#if 0
 static int __init mpgpu_init(void)
 {
 	return mpgpu_class_init();
@@ -77,7 +215,6 @@ static void __exit mpgpu_exit(void)
 	mpgpu_class_exit();
 }
 
-#ifndef MODULE
 fs_initcall(mpgpu_init);
 module_exit(mpgpu_exit);
 

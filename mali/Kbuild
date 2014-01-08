@@ -1,18 +1,21 @@
 #
-# This confidential and proprietary software may be used only as
-# authorised by a licensing agreement from ARM Limited
-# (C) COPYRIGHT 2007-2011 ARM Limited
-# ALL RIGHTS RESERVED
-# The entire notice above must be reproduced on all authorised
-# copies and copies may only be made to the extent permitted
-# by a licensing agreement from ARM Limited.
+# Copyright (C) 2010-2011 ARM Limited. All rights reserved.
+# 
+# This program is free software and is provided to you under the terms of the GNU General Public License version 2
+# as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
+# 
+# A copy of the licence is included with the program, and can also be obtained from Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
 # This file is called by the Linux build system.
 ############## Kasin Added, for platform. ################
-TARGET_PLATFORM:=meson6pre
+TARGET_PLATFORM:=meson_m400
 ifeq ($(CONFIG_ARCH_MESON8),y)
-TARGET_PLATFORM:= meson8
+TARGET_PLATFORM:= meson_m450
+endif
+ifeq ($(CONFIG_ARCH_MESON6TVD),y)
+TARGET_PLATFORM:= meson_m450
 endif
 ##################### end Kasin Added. ###################
 
@@ -42,24 +45,31 @@ endif
 
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
+############## Kasin Added, for platform. ################
 ifeq ($(CONFIG_MALI400_DEBUG),y)
 	BUILD ?= debug
 else
 	BUILD ?= release
 endif
+##################### end Kasin Added. ###################
 
+############## Kasin Added, useless now. ################
 ifeq ($(USING_UMP),1)
 	UMP_SYMVERS_FILE = ../ump/Module.symvers
 	KBUILD_EXTRA_SYMBOLS = $(srctree)/$(src)/$(UMP_SYMVERS_FILE)
 endif
+##################### end Kasin Added. ###################
 
 MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP ?= 0
 MALI_PP_SCHEDULER_KEEP_SUB_JOB_STARTS_ALIGNED ?= 0
 MALI_PP_SCHEDULER_FORCE_NO_JOB_OVERLAP_BETWEEN_APPS ?= 0
 MALI_UPPER_HALF_SCHEDULING ?= 1
 
+############## Kasin Added, useless now. ################
 # Get path to driver source from Linux build system
 DRIVER_DIR=$(src)
+##################### end Kasin Added. ###################
+
 MALI_ENABLE_CPU_CYCLES ?= 0
 
 # For customer releases the Linux Device Drivers will be provided as ARM proprietary and GPL releases:
@@ -135,19 +145,26 @@ mali-y += \
 	__malidrv_build_info.o
 
 ############## Kasin Added, for platform. ################
-ifeq ($(TARGET_PLATFORM),meson6pre)
-MALI_PLATFORM_FILES:= platform/meson6pre/mali_fix.c \
-			platform/meson6pre/mali_platform.c \
-			platform/meson6pre/meson_main.c \
-			platform/meson6pre/mali_device_type.c
+mali-y += \
+	platform/meson_main.o \
+	platform/mali_pm_device.o \
+	platform/mali_clock.o \
+	platform/mpgpu.o \
+	
+
+ifeq ($(TARGET_PLATFORM),meson_m400)
+MALI_PLATFORM_FILES:= \
+	platform/meson_m400/mali_fix.o \
+	platform/meson_m400/mali_platform.o \
+	platform/meson_m400/platform_mx.o
 endif
 
-ifeq ($(TARGET_PLATFORM),meson8)
-MALI_PLATFORM_FILES:= platform/meson8/mali_scaling.c \
-			platform/meson8/meson_main.c \
-			platform/meson8/mali_clock.c \
-			platform/meson8/mali_device_type.c \
-			platform/mpgpu.c
+ifeq ($(TARGET_PLATFORM),meson_m450)
+MALI_PLATFORM_FILES:= \
+	platform/meson_m450/platform_m8.o \
+	platform/meson_m450/platform_m6tvd.o \
+	platform/meson_m450/scaling_m8.o \
+
 endif
 ##################### end Kasin Added. ###################
 
