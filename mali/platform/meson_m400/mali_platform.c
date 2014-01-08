@@ -136,7 +136,7 @@ int mali_meson_is_revb(void)
 		mali_revb_flag = 1;
 	else if (mali_revb_flag == 0)
 	    panic("rev-a! you should neet earlier version of mali_driver.!\n");
-    
+
     return mali_revb_flag;
 }
 
@@ -155,7 +155,7 @@ static void mali_meson_poweron(int first_poweron)
 			return;
 		}
 	}
-	
+
 	MALI_DEBUG_PRINT(2, ("mali_meson_poweron: Mali APB bus accessing\n"));
 	if (READ_MALI_REG(MALI_PP_PP_VERSION) != MALI_PP_PP_VERSION_MAGIC) {
 	MALI_DEBUG_PRINT(3, ("mali_meson_poweron: Mali APB bus access failed\n"));
@@ -293,7 +293,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	unsigned ddr_pll_setting, sys_pll_setting;
 	unsigned cpu_freq, ddr_freq;
 	int mali_flag;
-    
+
 	MALI_DEBUG_PRINT(3, ( "mali_platform_power_mode_change power_mode=%d\n", power_mode));
 
 	switch (power_mode) {

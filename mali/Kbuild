@@ -150,7 +150,7 @@ mali-y += \
 	platform/mali_pm_device.o \
 	platform/mali_clock.o \
 	platform/mpgpu.o \
-	
+
 
 ifeq ($(TARGET_PLATFORM),meson_m400)
 MALI_PLATFORM_FILES:= \

@@ -34,7 +34,7 @@ static ssize_t domain_stat_read(struct class *class,
 }
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
-static ssize_t mpgpu_read(struct class *class, 
+static ssize_t mpgpu_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
     return 0;
@@ -50,7 +50,7 @@ static ssize_t mpgpu_write(struct class *class,
 	return count;
 }
 
-static ssize_t scale_mode_read(struct class *class, 
+static ssize_t scale_mode_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", get_mali_schel_mode());
@@ -72,7 +72,7 @@ static ssize_t scale_mode_write(struct class *class,
 	return count;
 }
 
-static ssize_t max_pp_read(struct class *class, 
+static ssize_t max_pp_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", get_max_pp_num());
@@ -94,7 +94,7 @@ static ssize_t max_pp_write(struct class *class,
 	return count;
 }
 
-static ssize_t min_pp_read(struct class *class, 
+static ssize_t min_pp_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 
@@ -117,7 +117,7 @@ static ssize_t min_pp_write(struct class *class,
 	return count;
 }
 
-static ssize_t max_freq_read(struct class *class, 
+static ssize_t max_freq_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", get_max_mali_freq());
@@ -139,7 +139,7 @@ static ssize_t max_freq_write(struct class *class,
 	return count;
 }
 
-static ssize_t min_freq_read(struct class *class, 
+static ssize_t min_freq_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", get_min_mali_freq());
@@ -157,7 +157,7 @@ static ssize_t min_freq_write(struct class *class,
 		return -EINVAL;
 	}
 	ret = set_min_mali_freq(val);
-	
+
 	return count;
 }
 #endif
@@ -194,7 +194,7 @@ int mpgpu_class_init(void)
 		ret = class_create_file(&mpgpu_class, &mali_class_attrs[i]);
 		if (ret) {
 			printk(KERN_ERR "%d ST: class item failed to register\n", i);
-		}	
+		}
 	}
 	return ret;
 }

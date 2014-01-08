@@ -22,7 +22,7 @@ int mali_clock_critical(critical_t critical, u64 param)
 {
 	int ret = 0;
 	unsigned long flags;
-	
+
 	spin_lock_irqsave(&lock, flags);
 	ret = critical(param);
 	spin_unlock_irqrestore(&lock, flags);
@@ -39,7 +39,7 @@ static int critical_clock_set(u64 param)
 	return 0;
 }
 
-int mali_clock_set(unsigned int  clock) 
+int mali_clock_set(unsigned int clock)
 {
 	return mali_clock_critical(critical_clock_set, (u64)clock);
 }

@@ -174,7 +174,7 @@ void mali_core_scaling_init(int pp, int clock_idx)
 
 	num_cores_total   = pp;
 	num_cores_enabled = num_cores_total;
-	
+
 	currentStep = clock_idx;
 	lastStep = currentStep;
 	/* NOTE: Mali is not fully initialized at this point. */
@@ -287,7 +287,7 @@ void reset_mali_scaling_stat(void)
 
 u32 get_max_pp_num(void)
 {
-	return num_cores_total;	
+	return num_cores_total;
 }
 u32 set_max_pp_num(u32 num)
 {
@@ -298,13 +298,13 @@ u32 set_max_pp_num(u32 num)
 		num_cores_enabled = num_cores_total;
 		schedule_work(&wq_work);
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 u32 get_min_pp_num(void)
 {
-	return min_pp_num;	
+	return min_pp_num;
 }
 u32 set_min_pp_num(u32 num)
 {
@@ -315,13 +315,13 @@ u32 set_min_pp_num(u32 num)
 		num_cores_enabled = min_pp_num;
 		schedule_work(&wq_work);
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 u32 get_max_mali_freq(void)
 {
-	return max_mali_clock;	
+	return max_mali_clock;
 }
 u32 set_max_mali_freq(u32 idx)
 {
@@ -332,13 +332,13 @@ u32 set_max_mali_freq(u32 idx)
 		currentStep = max_mali_clock;
 		schedule_work(&wq_work);
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 u32 get_min_mali_freq(void)
 {
-	return min_mali_clock;	
+	return min_mali_clock;
 }
 u32 set_min_mali_freq(u32 idx)
 {
@@ -349,8 +349,8 @@ u32 set_min_mali_freq(u32 idx)
 		currentStep = min_mali_clock;
 		schedule_work(&wq_work);
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 void mali_plat_preheat(void)
@@ -362,7 +362,7 @@ void mali_plat_preheat(void)
 		schedule_work(&wq_work);
 }
 
-void set_turbo_mode(u32 mode) 
+void set_turbo_mode(u32 mode)
 {
 	mali_turbo_mode = mode;
 }

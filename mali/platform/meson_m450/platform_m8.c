@@ -1,6 +1,6 @@
 /*
  * platform.c
- * 
+ *
  * clock source setting and resource config
  *
  *  Created on: Dec 4, 2013
@@ -27,8 +27,8 @@
 #include "meson_main.h"
 
 /**
- *    For Meson 8. 
- * 
+ *    For Meson 8.
+ *
  */
  
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
@@ -63,25 +63,25 @@ u32 mali_dvfs_clk_sample[] = {
 static struct resource mali_gpu_resources[] =
 {
 	MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU, 
-				INT_MALI_PP0, INT_MALI_PP0_MMU, 
-				INT_MALI_PP1, INT_MALI_PP1_MMU, 
-				INT_MALI_PP2, INT_MALI_PP2_MMU, 
-				INT_MALI_PP4, INT_MALI_PP4_MMU, 
+				INT_MALI_PP0, INT_MALI_PP0_MMU,
+				INT_MALI_PP1, INT_MALI_PP1_MMU,
+				INT_MALI_PP2, INT_MALI_PP2_MMU,
+				INT_MALI_PP4, INT_MALI_PP4_MMU,
 				INT_MALI_PP5, INT_MALI_PP5_MMU,
-				INT_MALI_PP6, INT_MALI_PP6_MMU, 
+				INT_MALI_PP6, INT_MALI_PP6_MMU,
 				INT_MALI_PP)
 };
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
-{	
-	
+{
+
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
-	
+
 	/* for mali platform data. */
 	pdev->utilization_interval = 500,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
-	
+
 	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
 	ptr_plt_dev->resource = mali_gpu_resources;
@@ -107,7 +107,7 @@ static int mali_cri_pmu_on_off(u64 param)
 	pmu = mali_pmu_get_global_pmu_core();
 	if (param == 0)
 		mali_pmu_power_down_all(pmu);
-	else 
+	else
 		mali_pmu_power_up_all(pmu);
 	return 0;
 }
@@ -156,7 +156,7 @@ int mali_light_resume(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
-	return ret;	
+	return ret;
 }
 
 int mali_deep_suspend(struct device *device)

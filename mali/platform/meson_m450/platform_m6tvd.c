@@ -27,7 +27,7 @@
 #include "meson_main.h"
 
 /**
- *    For Meson 6tvd. 
+ *    For Meson 6tvd.
  * 
  */
 
@@ -39,7 +39,7 @@ u32 mali_default_clock_idx = 3;
 u32 mali_up_clock_idx = 3;
 
 /* fclk is 2Ghz. */
-#define FCLK_DEV5 (7 << 9)		/*	400   Mhz  */	
+#define FCLK_DEV5 (7 << 9)		/*	400   Mhz  */
 #define FCLK_DEV3 (6 << 9)		/*	666   Mhz  */
 #define FCLK_DEV2 (5 << 9)		/*	1000  Mhz  */
 #define FCLK_DEV7 (4 << 9)		/*	285   Mhz  */
@@ -64,14 +64,14 @@ u32 mali_dvfs_clk_sample[] = {
 
 static struct resource mali_gpu_resources[] =
 {
-MALI_GPU_RESOURCES_MALI450_MP2_PMU(0xC9140000, INT_MALI_GP, INT_MALI_GP_MMU, 
-				MALI_USER_PP0, INT_MALI_PP_MMU, 
-				INT_MALI_PP1, INT_MALI_PP_MMU1, 
+MALI_GPU_RESOURCES_MALI450_MP2_PMU(0xC9140000, INT_MALI_GP, INT_MALI_GP_MMU,
+				MALI_USER_PP0, INT_MALI_PP_MMU,
+				INT_MALI_PP1, INT_MALI_PP_MMU1,
 				INT_MALI_PP)
 };
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
-{	
+{
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
 	ptr_plt_dev->resource = mali_gpu_resources;
 	return mali_clock_init(mali_default_clock_idx);
@@ -95,7 +95,7 @@ static int mali_cri_pmu_on_off(u64 param)
 	pmu = mali_pmu_get_global_pmu_core();
 	if (param == 0)
 		mali_pmu_power_down_all(pmu);
-	else 
+	else
 		mali_pmu_power_up_all(pmu);
 	return 0;
 }
@@ -144,7 +144,7 @@ int mali_light_resume(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
-	return ret;	
+	return ret;
 }
 
 int mali_deep_suspend(struct device *device)

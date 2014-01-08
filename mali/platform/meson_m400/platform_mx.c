@@ -29,7 +29,7 @@
 #include "mali_platform.h"
 
 /**
- *    For Meson 6tvd. 
+ *    For Meson 6tvd.
  * 
  */
 
@@ -51,17 +51,17 @@
 #ifndef CONFIG_MALI400_4_PP
 static struct resource meson_mali_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI400_MP2(0xd0060000, 
-			INT_MALI_GP, INT_MALI_GP_MMU, 
-			INT_MALI_PP, INT_MALI_PP_MMU, 
+	MALI_GPU_RESOURCES_MALI400_MP2(0xd0060000,
+			INT_MALI_GP, INT_MALI_GP_MMU,
+			INT_MALI_PP, INT_MALI_PP_MMU,
 			INT_MALI_PP2, INT_MALI_PP2_MMU)
 };
 #else
 static struct resource meson_mali_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI400_MP4(0xd0060000, 
-			INT_MALI_GP, INT_MALI_GP_MMU, 
-			INT_MALI_PP, INT_MALI_PP_MMU, 
+	MALI_GPU_RESOURCES_MALI400_MP4(0xd0060000,
+			INT_MALI_GP, INT_MALI_GP_MMU,
+			INT_MALI_PP, INT_MALI_PP_MMU,
 			INT_MALI_PP2, INT_MALI_PP2_MMU,
 			INT_MALI_PP3, INT_MALI_PP3_MMU,
 			INT_MALI_PP4, INT_MALI_PP4_MMU
@@ -82,8 +82,8 @@ int static_pp_mmu_cnt;
 static struct resource meson_mali_resources[] =
 {
 	MALI_GPU_RESOURCES_MALI400_MP2(0xd0060000, 
-			INT_MALI_GP, INT_MALI_GP_MMU, 
-			INT_MALI_PP, INT_MALI_PP2_MMU, 
+			INT_MALI_GP, INT_MALI_GP_MMU,
+			INT_MALI_PP, INT_MALI_PP2_MMU,
 			INT_MALI_PP_MMU, INT_MALI_PP2_MMU)
 };
 
@@ -96,7 +96,7 @@ static struct resource meson_mali_resources[] =
 
 static struct resource meson_mali_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI400_MP1(0xd0060000, 
+	MALI_GPU_RESOURCES_MALI400_MP1(0xd0060000,
 			INT_MALI_GP, INT_MALI_GP_MMU, INT_MALI_PP, INT_MALI_PP_MMU)
 };
 #endif /* MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV */
@@ -111,8 +111,8 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 	/* for mali platform data. */
 	pdev->utilization_interval = 1000,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
-	
-	/* for resource data. */	
+
+	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
 	ptr_plt_dev->resource = mali_gpu_resources;
 	return 0;
@@ -159,13 +159,13 @@ int mali_light_resume(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
-	return ret;	
+	return ret;
 }
 
 int mali_deep_suspend(struct device *device)
 {
 	int ret = 0;
-	
+
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->suspend)
@@ -181,7 +181,7 @@ int mali_deep_suspend(struct device *device)
 int mali_deep_resume(struct device *device)
 {
 	int ret = 0;
-	
+
 	mali_platform_power_mode_change(MALI_POWER_MODE_ON);
 
 	if (NULL != device->driver &&
