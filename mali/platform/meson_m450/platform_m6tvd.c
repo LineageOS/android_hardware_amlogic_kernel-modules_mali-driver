@@ -34,7 +34,7 @@
 #ifdef MESON_CPU_TYPE_MESON6TVD
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD
 
-u32 mali_clock_max_index = 3;
+u32 mali_clock_turbo_index = 3;
 u32 mali_default_clock_idx = 3;
 u32 mali_up_clock_idx = 3;
 

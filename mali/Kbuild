@@ -35,13 +35,7 @@ endif
 
 OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
 
-############## Kasin Added, for platform. ################
-ifeq ($(CONFIG_MALI400_UTILIZATION),y)
-	USING_GPU_UTILIZATION ?= 1
-else
-	USING_GPU_UTILIZATION ?= 0
-endif
-##################### end Kasin Added. ###################
+USING_GPU_UTILIZATION ?= 1
 
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0

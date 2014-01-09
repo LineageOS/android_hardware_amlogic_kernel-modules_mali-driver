@@ -387,9 +387,7 @@ int mali_module_init(void)
 
 	MALI_PRINT(("Mali device driver loaded\n"));
 
-#ifdef MODULE
- mpgpu_class_init();
-#endif
+	mpgpu_class_init();
 
 	return 0; /* Success */
 }
@@ -410,9 +408,9 @@ void mali_module_exit(void)
 	MALI_DEBUG_PRINT(2, ("mali_module_exit() unregistering device\n"));
 	mali_platform_device_unregister();
 #endif
-#ifdef MODULE
- mpgpu_class_exit();
-#endif
+
+	mpgpu_class_exit();
+
 	MALI_PRINT(("Mali device driver unloaded\n"));
 }
 

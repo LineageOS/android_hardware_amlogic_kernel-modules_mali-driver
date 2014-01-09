@@ -37,7 +37,7 @@ unsigned int min_pp_num = 1;
 
 /* Configure dvfs mode */
 enum mali_scale_mode_t {
-	MALI_PP_SCALING,
+	MALI_PP_SCALING = 0,
 	MALI_PP_FS_SCALING,
 	MALI_SCALING_DISABLE,
 	MALI_TURBO_MODE,
@@ -228,7 +228,7 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	u32 utilization = data->utilization_gpu;
 	//(data->utilization_pp < data->utilization_gp)?data->utilization_gp:data->utilization_pp;
 	u32 loading_complete = (1<<16);//mali_utilization_bw_get_period();
-	u32 mali_up_limit = mali_turbo_mode ? mali_clock_max_index : max_mali_clock;
+	u32 mali_up_limit = mali_turbo_mode ? mali_clock_turbo_index : max_mali_clock;
 
 	if (loading_complete > (2<<16) &&
 			currentStep > min_mali_clock) {
@@ -275,10 +275,10 @@ exit:
 #endif
 }
 
-void reset_mali_scaling_stat(void)
+static void reset_mali_scaling_stat(void)
 {
 	if (mali_turbo_mode)
-		currentStep = mali_clock_max_index;
+		currentStep = mali_clock_turbo_index;
 	else
 		currentStep = max_mali_clock;
 	enable_max_num_cores();
@@ -325,7 +325,7 @@ u32 get_max_mali_freq(void)
 }
 u32 set_max_mali_freq(u32 idx)
 {
-	if (idx >= mali_clock_max_index || idx < min_mali_clock )
+	if (idx >= mali_clock_turbo_index || idx < min_mali_clock )
 		return -1;
 	max_mali_clock = idx;
 	if (currentStep > max_mali_clock) {
@@ -362,26 +362,21 @@ void mali_plat_preheat(void)
 		schedule_work(&wq_work);
 }
 
-void set_turbo_mode(u32 mode)
-{
-	mali_turbo_mode = mode;
-}
-
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
 		reseted_for_turbo = 0;
-		set_turbo_mode(0);
+		mali_turbo_mode = 0;
 		mali_pp_fs_scaling_update(data);
 		break;
 	case MALI_PP_SCALING:
 		reseted_for_turbo = 0;
-		set_turbo_mode(0);
+		mali_turbo_mode = 0;
 		mali_pp_scaling_update(data);
 		break;
 	case MALI_TURBO_MODE:
-		set_turbo_mode(1);
+		mali_turbo_mode = 1;
 		//mali_pp_fs_scaling_update(data);
 		if (reseted_for_turbo == 0) {
 			reseted_for_turbo = 1;
@@ -389,7 +384,7 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 		}
 		break;
 	default:
-		set_turbo_mode(0);
+		mali_turbo_mode = 0;
 		reseted_for_turbo = 0;
 	}
 }

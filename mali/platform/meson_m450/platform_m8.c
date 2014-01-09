@@ -32,7 +32,7 @@
  */
  
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
-u32 mali_clock_max_index = 4;
+u32 mali_clock_turbo_index = 4;
 u32 mali_default_clock_idx = 0;
 u32 mali_up_clock_idx = 3;
 

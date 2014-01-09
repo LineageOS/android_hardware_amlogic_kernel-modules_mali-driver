@@ -20,7 +20,7 @@
 extern struct device_type mali_pm_device;
 extern u32 mali_dvfs_clk[];
 extern u32 mali_dvfs_clk_sample[];
-extern u32 mali_clock_max_index;
+extern u32 mali_clock_turbo_index;
 extern u32 mali_default_clock_idx;
 extern u32 mali_up_clock_idx;
 
