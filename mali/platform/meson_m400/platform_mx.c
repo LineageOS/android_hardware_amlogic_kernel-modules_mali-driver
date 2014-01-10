@@ -36,6 +36,16 @@
 #if MESON_CPU_TYPE <= MESON_CPU_TYPE_MESON6TV
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV
+#undef INT_MALI_GP
+#undef INT_MALI_GP_MMU
+#undef INT_MALI_PP
+#undef INT_MALI_PP2
+#undef INT_MALI_PP3
+#undef INT_MALI_PP4
+#undef INT_MALI_PP_MMU
+#undef INT_MALI_PP2_MMU
+#undef INT_MALI_PP3_MMU
+#undef INT_MALI_PP4_MMU
 
 #define INT_MALI_GP      (48+32)
 #define INT_MALI_GP_MMU  (49+32)
@@ -73,6 +83,13 @@ static struct resource meson_mali_resources[] =
 
 int static_pp_mmu_cnt;
 
+#undef INT_MALI_GP
+#undef INT_MALI_GP_MMU
+#undef INT_MALI_PP
+#undef INT_MALI_PP2
+#undef INT_MALI_PP_MMU
+#undef INT_MALI_PP2_MMU
+
 #define INT_MALI_GP      (48+32)
 #define INT_MALI_GP_MMU  (49+32)
 #define INT_MALI_PP      (50+32)
@@ -88,6 +105,11 @@ static struct resource meson_mali_resources[] =
 };
 
 #else  /* MESON_CPU_TYPE == MESON_CPU_TYPE_MESON3 */
+
+#undef INT_MALI_GP
+#undef INT_MALI_GP_MMU
+#undef INT_MALI_PP
+#undef INT_MALI_PP_MMU
 
 #define INT_MALI_GP	48
 #define INT_MALI_GP_MMU 49
@@ -109,12 +131,13 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
 	/* for mali platform data. */
+	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 	pdev->utilization_interval = 1000,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
-	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
-	ptr_plt_dev->resource = mali_gpu_resources;
+	ptr_plt_dev->num_resources = ARRAY_SIZE(meson_mali_resources);
+	ptr_plt_dev->resource = meson_mali_resources;
 	return 0;
 }
 

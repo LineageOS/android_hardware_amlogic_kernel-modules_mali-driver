@@ -20,7 +20,7 @@
 #include <mach/am_regs.h>
 #include <linux/module.h>
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-#include "meson6pre/mali_fix.h"
+#include "meson_m400/mali_fix.h"
 #endif
 
 

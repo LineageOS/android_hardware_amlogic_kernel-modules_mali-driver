@@ -76,7 +76,7 @@ static void timer_callback(ulong data)
 				mali_pp1_mmu_int_count++;
 				MALI_DEBUG_PRINT(3, ("Mali MMU: core0 page fault emit \n"));
 				mali_mmu_int_process_state[0] = MMU_INT_HIT;
-				__raw_writel(1, P_ISA_TIMERC);
+				__raw_writel(1, (volatile void *)P_ISA_TIMERC);
 			}
 		}
 
@@ -86,7 +86,7 @@ static void timer_callback(ulong data)
 				mali_pp2_mmu_int_count++;
 				MALI_DEBUG_PRINT(3, ("Mali MMU: core1 page fault emit \n"));
 				mali_mmu_int_process_state[1] = MMU_INT_HIT;
-				__raw_writel(1, P_ISA_TIMERC);
+				__raw_writel(1, (volatile void *)P_ISA_TIMERC);
 			}
 		}
 	}

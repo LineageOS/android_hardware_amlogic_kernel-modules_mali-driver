@@ -15,14 +15,14 @@
 
 #if defined(IO_APB2_BUS_PHY_BASE)
 #define WRITE_MALI_REG(reg, val) \
-    __raw_writel(val, reg - IO_APB2_BUS_PHY_BASE + IO_APB2_BUS_BASE)
+    __raw_writel(val, (volatile void *)(reg - IO_APB2_BUS_PHY_BASE + IO_APB2_BUS_BASE))
 #define READ_MALI_REG(reg) \
-    __raw_readl(reg - IO_APB2_BUS_PHY_BASE + IO_APB2_BUS_BASE)
+    __raw_readl((volatile void *)(reg - IO_APB2_BUS_PHY_BASE + IO_APB2_BUS_BASE))
 #else
 #define WRITE_MALI_REG(reg, val) \
-    __raw_writel(val, reg - IO_APB_BUS_PHY_BASE + IO_APB_BUS_BASE)
+    __raw_writel(val, (volatile void *)(reg - IO_APB_BUS_PHY_BASE + IO_APB_BUS_BASE))
 #define READ_MALI_REG(reg) \
-    __raw_readl(reg - IO_APB_BUS_PHY_BASE + IO_APB_BUS_BASE)
+    __raw_readl((volatile void *)(reg - IO_APB_BUS_PHY_BASE + IO_APB_BUS_BASE))
 #endif
 
 #define MALI_APB_GP_VSCL_START        0xd0060000
