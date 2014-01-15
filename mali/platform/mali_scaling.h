@@ -71,4 +71,7 @@ void set_mali_schel_mode(u32 mode);
 
 /* preheat of the GPU. */
 void mali_plat_preheat(void);
+
+/* for frequency reporter in DS-5 streamline. */
+u32 get_current_frequency(void);
 #endif /* __ARM_CORE_SCALING_H__ */

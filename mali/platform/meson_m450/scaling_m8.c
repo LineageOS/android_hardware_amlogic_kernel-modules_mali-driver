@@ -114,7 +114,7 @@ static void do_scaling(struct work_struct *work)
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
 					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					get_mali_freq(),
+					get_current_frequency(),
 					0,	0,	0,	0);
 #endif
 }
@@ -270,7 +270,7 @@ exit:
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 						MALI_PROFILING_EVENT_CHANNEL_GPU |
 						MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-						get_mali_freq(),
+						get_current_frequency(),
 						0,	0,	0,	0);
 #endif
 }
@@ -400,6 +400,11 @@ void set_mali_schel_mode(u32 mode)
 	if (mode >= MALI_SCALING_MODE_MAX)return;
 	scaling_mode = mode;
 	reset_mali_scaling_stat();
+}
+
+u32 get_current_frequency(void)
+{
+	return get_mali_freq(currentStep);
 }
 
 

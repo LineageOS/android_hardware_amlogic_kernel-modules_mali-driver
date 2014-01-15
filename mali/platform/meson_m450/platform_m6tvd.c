@@ -134,7 +134,7 @@ int mali_light_resume(struct device *device)
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
 					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					get_current_frequency(), 0,	0,	0,	0);
+					0, 0,	0,	0,	0);
 #endif
 
 	if (NULL != device->driver &&
