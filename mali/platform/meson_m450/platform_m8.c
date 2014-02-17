@@ -30,7 +30,7 @@
  *    For Meson 8.
  *
  */
- 
+
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
 u32 mali_clock_turbo_index = 4;
 u32 mali_default_clock_idx = 0;
@@ -62,7 +62,7 @@ u32 mali_dvfs_clk_sample[] = {
 
 static struct resource mali_gpu_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU, 
+	MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU,
 				INT_MALI_PP0, INT_MALI_PP0_MMU,
 				INT_MALI_PP1, INT_MALI_PP1_MMU,
 				INT_MALI_PP2, INT_MALI_PP2_MMU,
@@ -71,6 +71,20 @@ static struct resource mali_gpu_resources[] =
 				INT_MALI_PP6, INT_MALI_PP6_MMU,
 				INT_MALI_PP)
 };
+
+#ifdef CONFIG_AM_VDEC_H264_4K2K
+static void mali_4k2k_enter(void)
+{
+	set_max_pp_num(1);
+}
+
+static void mali_4k2k_exit(void)
+{
+	set_max_pp_num(6);
+}
+
+void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
+#endif /* CONFIG_AM_VDEC_H264_4K2K */
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
@@ -91,6 +105,9 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 {
 	mali_core_scaling_init(MALI_PP_NUMBER, mali_default_clock_idx);
+#ifdef CONFIG_AM_VDEC_H264_4K2K
+	vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
+#endif /* CONFIG_AM_VDEC_H264_4K2K */
 	return 0;
 }
 
