@@ -267,7 +267,8 @@ _mali_osk_errcode_t mali_platform_init(void)
 			mali_init_flag = 1;
 		}
 		MALI_SUCCESS;
-	}
+	} else 
+		panic("linux kernel should > 3.0\n");
 
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6
     MALI_PRINT_ERROR(("Failed to lookup mali clock"));
@@ -300,51 +301,12 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 	case MALI_POWER_MODE_LIGHT_SLEEP:
 	case MALI_POWER_MODE_DEEP_SLEEP:
 		/* Turn off mali clock gating */
-		if (mali_clk) {
-			mali_clk->disable(mali_clk);
-		} else {
-			spin_lock_irqsave(&lock, flags);
-			CLEAR_CBUS_REG_MASK(HHI_MALI_CLK_CNTL, 1 << 8);
-			spin_unlock_irqrestore(&lock, flags);
-		}
+		mali_clk->disable(mali_clk);
 		break;
 
         case MALI_POWER_MODE_ON:
 		/* Turn on MALI clock gating */
-		if (mali_clk) {
-			mali_clk->enable(mali_clk);
-		}
-		else {
-			spin_lock_irqsave(&lock, flags);
-			CLEAR_CBUS_REG_MASK(HHI_MALI_CLK_CNTL, 1 << 8);
-
-			sys_pll_setting = READ_MPEG_REG(HHI_SYS_PLL_CNTL);
-			cpu_freq = ((sys_pll_setting&0x1ff)*24)>>(sys_pll_setting>>16); // assume 24M xtal
-			cpu_divider = READ_MPEG_REG_BITS(HHI_SYS_CPU_CLK_CNTL, 2, 2);
-			if (cpu_divider == 3)
-				cpu_divider = 2; // now fix at /4
-				cpu_freq >>= cpu_divider;
-
-				ddr_pll_setting = READ_MPEG_REG(HHI_DDR_PLL_CNTL);
-				ddr_freq = ((ddr_pll_setting&0x1ff)*24)>>((ddr_pll_setting>>16)&3);
-
-				mali_divider = 1;
-				while ((mali_divider * cpu_freq < ddr_freq) || (264 * mali_divider < ddr_freq)) // assume mali max 264M
-					mali_divider++;
-				mali_flag = ((mali_divider-1) != (READ_MPEG_REG(HHI_MALI_CLK_CNTL)&0x7f));
-				if (mali_flag){
-					WRITE_CBUS_REG(HHI_MALI_CLK_CNTL,
-							(3 << 9)    |                   // select ddr pll as clock source
-							((mali_divider-1) << 0)); // ddr clk / divider
-					READ_CBUS_REG(HHI_MALI_CLK_CNTL); // delay
-				}
-				SET_CBUS_REG_MASK(HHI_MALI_CLK_CNTL, 1 << 8);
-				spin_unlock_irqrestore(&lock, flags);
-
-				if (mali_flag)
-					MALI_DEBUG_PRINT(3, ("(CTS_MALI_CLK) = %d/%d = %dMHz --- when mali gate on\n", ddr_freq, mali_divider, ddr_freq/mali_divider));
-
-		}
+		mali_clk->enable(mali_clk);
 		mali_meson_poweron(0);
 		break;
 	}

@@ -10,12 +10,18 @@
 
 # This file is called by the Linux build system.
 ############## Kasin Added, for platform. ################
-TARGET_PLATFORM:=meson_m400
-ifeq ($(CONFIG_ARCH_MESON8),y)
-TARGET_PLATFORM:= meson_m450
+TARGET_PLATFORM:=meson_m450
+ifeq ($(CONFIG_ARCH_MESON1),y)
+TARGET_PLATFORM:= meson_m400
 endif
-ifeq ($(CONFIG_ARCH_MESON6TVD),y)
-TARGET_PLATFORM:= meson_m450
+ifeq ($(CONFIG_ARCH_MESON3),y)
+TARGET_PLATFORM:= meson_m400
+endif
+ifeq ($(CONFIG_ARCH_MESON6),y)
+TARGET_PLATFORM:= meson_m400
+endif
+ifeq ($(CONFIG_ARCH_MESON6TV),y)
+TARGET_PLATFORM:= meson_m400
 endif
 ##################### end Kasin Added. ###################
 
@@ -145,7 +151,6 @@ mali-y += \
 	platform/mali_clock.o \
 	platform/mpgpu.o \
 
-
 ifeq ($(TARGET_PLATFORM),meson_m400)
 MALI_PLATFORM_FILES:= \
 	platform/meson_m400/mali_fix.o \
@@ -154,11 +159,18 @@ MALI_PLATFORM_FILES:= \
 endif
 
 ifeq ($(TARGET_PLATFORM),meson_m450)
-MALI_PLATFORM_FILES:= \
+ccflags-y += -DCONFIG_MALI450=y
+mali-$(CONFIG_ARCH_MESON8) += \
 	platform/meson_m450/platform_m8.o \
-	platform/meson_m450/platform_m6tvd.o \
-	platform/meson_m450/scaling_m8.o \
+	platform/meson_m450/scaling_m8.o 
 
+mali-$(CONFIG_ARCH_MESON6TVD) += \
+	platform/meson_m450/platform_m6tvd.o \
+	
+	
+mali-$(CONFIG_ARCH_MESON8B) += \
+	platform/meson_m450/platform_m8b.o \
+	platform/meson_m450/scaling_m8b.o 
 endif
 ##################### end Kasin Added. ###################
 
