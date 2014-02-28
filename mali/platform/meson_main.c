@@ -131,7 +131,7 @@ int mali_platform_device_register(void)
 void mali_platform_device_unregister(void)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_unregister() called\n"));
-
+	mali_core_scaling_term();
 	platform_device_unregister(&mali_gpu_device);
 	platform_device_put(&mali_gpu_device);
 }
