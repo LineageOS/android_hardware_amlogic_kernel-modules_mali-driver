@@ -14,7 +14,6 @@
  */
 #include <linux/workqueue.h>
 #include <linux/mali/mali_utgard.h>
-#include <mach/smp.h>
 #include "mali_kernel_common.h"
 #include "common/mali_osk_profiling.h"
 #include "common/mali_kernel_utilization.h"

@@ -26,7 +26,7 @@
 
 #include "meson_main.h"
 
-/**
+/*
  *    For Meson 8.
  *
  */
