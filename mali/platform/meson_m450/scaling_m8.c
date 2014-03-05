@@ -263,8 +263,9 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
 						(currentStep > min_mali_clock)) {
 		decided_fs_idx--;
 	} else if (num_cores_enabled > 1) {
-		ld_left = data->utilization_pp * mali_dvfs_clk_sample[num_cores_enabled];
-		ld_right = mali_dvfs_threshold[currentStep].upthreshold * mali_dvfs_clk_sample[num_cores_enabled - 1];
+		ld_left = data->utilization_pp * num_cores_enabled;
+		ld_right = (mali_dvfs_threshold[currentStep].upthreshold - data->utilization_gp) *
+				(num_cores_enabled - 1);
 
 		if (ld_left < ld_right)
 			*pp_change_flag = -1;
