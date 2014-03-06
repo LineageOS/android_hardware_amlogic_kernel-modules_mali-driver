@@ -51,6 +51,7 @@ ifeq ($(wildcard $(TOP_KBUILD_SRC)$(src)/linux/license/gpl/*),)
 ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/linux/license/proprietary
 else
 ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/linux/license/gpl
+ccflags-y += -I$(TOP_KBUILD_SRC)$(src)/../mali/linux/license/gpl
 endif
 
 
