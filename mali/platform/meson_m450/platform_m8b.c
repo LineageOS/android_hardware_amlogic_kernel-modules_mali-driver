@@ -36,10 +36,10 @@ u32 mali_default_clock_idx = 3;
 u32 mali_up_clock_idx = 3;
 
 /* fclk is 2550Mhz. */
-#define FCLK_DEV3 (1 << 9)		/*	850   Mhz  */
-#define FCLK_DEV4 (0 << 9)		/*	637.5 Mhz  */
-#define FCLK_DEV5 (2 << 9)		/*	510   Mhz  */
-#define FCLK_DEV7 (3 << 9)		/*	364.3 Mhz  */
+#define FCLK_DEV3 (6 << 9)		/*	850   Mhz  */
+#define FCLK_DEV4 (5 << 9)		/*	637.5 Mhz  */
+#define FCLK_DEV5 (7 << 9)		/*	510   Mhz  */
+#define FCLK_DEV7 (4 << 9)		/*	364.3 Mhz  */
 
 u32 mali_dvfs_clk[] = {
 	FCLK_DEV7 | 1,     /* 182.1 Mhz */

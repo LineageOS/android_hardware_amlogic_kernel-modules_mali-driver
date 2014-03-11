@@ -45,7 +45,7 @@ enum mali_scale_mode_t {
 
 static int reseted_for_turbo = 0;
 
-static int  scaling_mode = MALI_PP_FS_SCALING;
+static int  scaling_mode = MALI_SCALING_DISABLE;
 module_param(scaling_mode, int, 0664);
 MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
 
