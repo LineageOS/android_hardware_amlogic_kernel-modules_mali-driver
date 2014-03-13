@@ -19,6 +19,7 @@
 #include <mach/io.h>
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
+#include <linux/gpu_cooling.h>
 
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
@@ -57,6 +58,31 @@ u32 mali_dvfs_clk_sample[] = {
 	510,     /* 510 Mhz */
 	637,     /* 637.5 Mhz */
 };
+
+int get_mali_freq_level(int freq)
+{
+	int i = 0, level = -1;
+	if(freq < 0)
+		return level;
+	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]) - 1;
+	if(freq <= mali_dvfs_clk_sample[0])
+		level = mali_freq_num-1;
+	if(freq >= mali_dvfs_clk_sample[mali_freq_num - 1])
+		level = 0;
+	for(i=0; i<mali_freq_num - 1 ;i++) {
+		if(freq >= mali_dvfs_clk_sample[i] && freq<=mali_dvfs_clk_sample[i+1]) {
+			level = i;
+			level = mali_freq_num-level-1;
+		}
+	}
+	return level;
+}
+
+unsigned int get_mali_max_level(void)
+{
+	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]);
+	return mali_freq_num - 1;
+}
 
 #define MALI_PP_NUMBER 6
 
@@ -104,6 +130,25 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 {
+#ifdef CONFIG_GPU_THERMAL
+	int err;
+	struct gpufreq_cooling_device *gcdev = NULL;
+	gcdev = gpufreq_cooling_alloc();
+	if(IS_ERR(gcdev))
+		printk("malloc gpu cooling buffer error!!\n");
+	else if(!gcdev)
+		printk("system does not enable thermal driver\n");
+	else {
+		gcdev->get_gpu_freq_level = get_mali_freq_level;
+		gcdev->get_gpu_max_level = get_mali_max_level;
+		gcdev->set_gpu_freq_idx = set_max_mali_freq;
+		gcdev->get_gpu_current_max_level = get_max_mali_freq;
+		err = gpufreq_cooling_register(gcdev);
+		if(err < 0)
+			printk("register GPU  cooling error\n");
+		printk("gpu cooling register okay with err=%d\n",err);
+	}
+#endif
 	mali_core_scaling_init(MALI_PP_NUMBER, mali_default_clock_idx);
 #ifdef CONFIG_AM_VDEC_H264_4K2K
 	vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
