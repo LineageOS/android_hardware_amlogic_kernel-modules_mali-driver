@@ -30,7 +30,13 @@
 static ssize_t domain_stat_read(struct class *class, 
 			struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%x\n", mali_pmu_get_status());
+	unsigned int val;
+#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TV
+	val = mali_pmu_get_status();
+#else
+	val = 0;
+#endif
+	return sprintf(buf, "%x\n", val);
 }
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
