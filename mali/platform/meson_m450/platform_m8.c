@@ -156,7 +156,7 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 	else if(!gccdev)
 		printk("system does not enable thermal driver\n");
 	else {
-		gccdev->max_gpu_core_num=get_max_pp_num();
+		gccdev->max_gpu_core_num=MALI_PP_NUMBER;
 		gccdev->set_max_pp_num=set_max_pp_num;
 		err=gpucore_cooling_register(gccdev);
 		if(err < 0)
