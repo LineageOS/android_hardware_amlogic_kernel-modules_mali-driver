@@ -20,7 +20,7 @@
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
 #include <linux/gpu_cooling.h>
-
+#include <linux/gpucore_cooling.h>
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
 #include <common/mali_pmu.h>
@@ -147,6 +147,21 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 		if(err < 0)
 			printk("register GPU  cooling error\n");
 		printk("gpu cooling register okay with err=%d\n",err);
+	}
+	
+	struct gpucore_cooling_device *gccdev=NULL;
+	gccdev=gpucore_cooling_alloc();
+	if(IS_ERR(gccdev))
+		printk("malloc gpu core cooling buffer error!!\n");
+	else if(!gccdev)
+		printk("system does not enable thermal driver\n");
+	else {
+		gccdev->max_gpu_core_num=MALI_PP_NUMBER;
+		gccdev->set_max_pp_num=set_max_pp_num;
+		err=gpucore_cooling_register(gccdev);
+		if(err < 0)
+			printk("register GPU  cooling error\n");
+		printk("gpu core cooling register okay with err=%d\n",err);
 	}
 #endif
 	mali_core_scaling_init(MALI_PP_NUMBER, mali_default_clock_idx);
