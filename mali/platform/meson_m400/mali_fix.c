@@ -31,6 +31,10 @@
 
 #include <mach/am_regs.h>
 #include <mach/clock.h>
+#include <linux/io.h>
+#include <mach/io.h>
+#include <plat/io.h>
+#include <asm/io.h>
 
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
@@ -69,7 +73,7 @@ static void timer_callback(ulong data)
 	/* lock mali_clock_gating when access Mali registers */
 	mali_flags = mali_clock_gating_lock();
 
-	if (READ_CBUS_REG(HHI_MALI_CLK_CNTL) & 0x100) {
+	if (readl((u32 *)P_HHI_MALI_CLK_CNTL) & 0x100) {
 		/* polling for PP1 MMU interrupt */
 		if (mali_mmu_int_process_state[0] == MMU_INT_NONE) {
 			if (READ_MALI_MMU1_REG(MALI_MMU_REGISTER_INT_STATUS) != 0) {

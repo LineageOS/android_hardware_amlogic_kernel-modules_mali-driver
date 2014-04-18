@@ -19,22 +19,20 @@
 #include <mach/io.h>
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
-#include <linux/gpu_cooling.h>
-#include <linux/gpucore_cooling.h>
+
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
 #include <common/mali_pmu.h>
 
 #include "meson_main.h"
 
-/*
+/**
  *    For Meson 8.
  *
  */
-
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+ 
 u32 mali_clock_turbo_index = 4;
-u32 mali_default_clock_idx = 0;
+u32 mali_default_clock_idx = 3;
 u32 mali_up_clock_idx = 3;
 
 /* fclk is 2550Mhz. */
@@ -59,58 +57,15 @@ u32 mali_dvfs_clk_sample[] = {
 	637,     /* 637.5 Mhz */
 };
 
-int get_mali_freq_level(int freq)
-{
-	int i = 0, level = -1;
-	if(freq < 0)
-		return level;
-	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]) - 1;
-	if(freq <= mali_dvfs_clk_sample[0])
-		level = mali_freq_num-1;
-	if(freq >= mali_dvfs_clk_sample[mali_freq_num - 1])
-		level = 0;
-	for(i=0; i<mali_freq_num - 1 ;i++) {
-		if(freq >= mali_dvfs_clk_sample[i] && freq<=mali_dvfs_clk_sample[i+1]) {
-			level = i;
-			level = mali_freq_num-level-1;
-		}
-	}
-	return level;
-}
-
-unsigned int get_mali_max_level(void)
-{
-	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]);
-	return mali_freq_num - 1;
-}
-
-#define MALI_PP_NUMBER 6
+#define MALI_PP_NUMBER 2
 
 static struct resource mali_gpu_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU,
+	MALI_GPU_RESOURCES_MALI450_MP2_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU, 
 				INT_MALI_PP0, INT_MALI_PP0_MMU,
 				INT_MALI_PP1, INT_MALI_PP1_MMU,
-				INT_MALI_PP2, INT_MALI_PP2_MMU,
-				INT_MALI_PP4, INT_MALI_PP4_MMU,
-				INT_MALI_PP5, INT_MALI_PP5_MMU,
-				INT_MALI_PP6, INT_MALI_PP6_MMU,
 				INT_MALI_PP)
 };
-
-#ifdef CONFIG_AM_VDEC_H264_4K2K
-static void mali_4k2k_enter(void)
-{
-	set_max_pp_num(1);
-}
-
-static void mali_4k2k_exit(void)
-{
-	set_max_pp_num(6);
-}
-
-void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
-#endif /* CONFIG_AM_VDEC_H264_4K2K */
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
@@ -119,8 +74,8 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
 	/* for mali platform data. */
-	pdev->utilization_interval = 500,
-	pdev->utilization_callback = mali_gpu_utilization_callback,
+	//pdev->utilization_interval = 500,
+	//pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
@@ -130,44 +85,7 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 {
-#ifdef CONFIG_GPU_THERMAL
-	int err;
-	struct gpufreq_cooling_device *gcdev = NULL;
-	gcdev = gpufreq_cooling_alloc();
-	if(IS_ERR(gcdev))
-		printk("malloc gpu cooling buffer error!!\n");
-	else if(!gcdev)
-		printk("system does not enable thermal driver\n");
-	else {
-		gcdev->get_gpu_freq_level = get_mali_freq_level;
-		gcdev->get_gpu_max_level = get_mali_max_level;
-		gcdev->set_gpu_freq_idx = set_max_mali_freq;
-		gcdev->get_gpu_current_max_level = get_max_mali_freq;
-		err = gpufreq_cooling_register(gcdev);
-		if(err < 0)
-			printk("register GPU  cooling error\n");
-		printk("gpu cooling register okay with err=%d\n",err);
-	}
-	
-	struct gpucore_cooling_device *gccdev=NULL;
-	gccdev=gpucore_cooling_alloc();
-	if(IS_ERR(gccdev))
-		printk("malloc gpu core cooling buffer error!!\n");
-	else if(!gccdev)
-		printk("system does not enable thermal driver\n");
-	else {
-		gccdev->max_gpu_core_num=MALI_PP_NUMBER;
-		gccdev->set_max_pp_num=set_max_pp_num;
-		err=gpucore_cooling_register(gccdev);
-		if(err < 0)
-			printk("register GPU  cooling error\n");
-		printk("gpu core cooling register okay with err=%d\n",err);
-	}
-#endif
 	mali_core_scaling_init(MALI_PP_NUMBER, mali_default_clock_idx);
-#ifdef CONFIG_AM_VDEC_H264_4K2K
-	vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
-#endif /* CONFIG_AM_VDEC_H264_4K2K */
 	return 0;
 }
 
@@ -271,5 +189,4 @@ int mali_deep_resume(struct device *device)
 	return ret;
 
 }
-#endif /* MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8 */
 

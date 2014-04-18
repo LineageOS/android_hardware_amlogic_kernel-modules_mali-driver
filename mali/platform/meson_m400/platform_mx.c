@@ -239,4 +239,9 @@ int mali_deep_resume(struct device *device)
 	return ret;
 
 }
+
+void mali_core_scaling_term(void)
+{
+
+}
 #endif /* MESON_CPU_TYPE <= MESON_CPU_TYPE_MESON6 */

@@ -11,13 +11,6 @@ config MALI400
 	  To compile this driver as a module, choose M here: the module will be
 	  called mali.
 
-config MALI450
-	bool "Enable Mali-450 support"
-	depends on MALI400
-	default y if ARCH_MESON8 || ARCH_MESON6TVD
-	---help---
-	  This enables support for Mali-450 specific features.
-
 config MALI400_DEBUG
 	bool "Enable debug in Mali driver"
 	depends on MALI400
