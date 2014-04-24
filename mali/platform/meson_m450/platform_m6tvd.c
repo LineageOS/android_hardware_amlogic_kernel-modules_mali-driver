@@ -87,7 +87,27 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 	return 0;
 }
 
-static int mali_cri_pmu_on_off(u64 param)
+u32 set_mali_dvfs_tbl_size(u32 size)
+{
+	return 0;
+}
+
+u32 get_max_dvfs_tbl_size(void)
+{
+	return 0;
+}
+
+uint32_t* get_mali_dvfs_tbl_addr(void)
+{
+	return NULL;
+}
+
+void mali_core_scaling_term(void)
+{
+
+}
+
+static int mali_cri_pmu_on_off(size_t param)
 {
 	struct mali_pmu_core *pmu;
 

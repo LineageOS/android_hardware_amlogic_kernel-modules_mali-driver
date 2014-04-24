@@ -18,7 +18,7 @@ int mali_clock_init(u32 def_clk_idx)
 	return 0;
 }
 
-int mali_clock_critical(critical_t critical, u64 param)
+int mali_clock_critical(critical_t critical, size_t param)
 {
 	int ret = 0;
 	unsigned long flags;
@@ -29,7 +29,7 @@ int mali_clock_critical(critical_t critical, u64 param)
 	return ret;
 }
 
-static int critical_clock_set(u64 param)
+static int critical_clock_set(size_t param)
 {
 	unsigned int idx = param;
 	clrbits_le32((u32)P_HHI_MALI_CLK_CNTL, 1 << 8);
@@ -41,7 +41,7 @@ static int critical_clock_set(u64 param)
 
 int mali_clock_set(unsigned int clock)
 {
-	return mali_clock_critical(critical_clock_set, (u64)clock);
+	return mali_clock_critical(critical_clock_set, (size_t)clock);
 }
 
 void disable_clock(void)

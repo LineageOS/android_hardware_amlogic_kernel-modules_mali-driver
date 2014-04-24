@@ -94,7 +94,7 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 	return 0;
 }
 
-static int mali_cri_pmu_on_off(u64 param)
+static int mali_cri_pmu_on_off(size_t param)
 {
 	struct mali_pmu_core *pmu;
 
