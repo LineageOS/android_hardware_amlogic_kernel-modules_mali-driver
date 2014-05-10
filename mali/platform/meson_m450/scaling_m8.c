@@ -390,4 +390,3 @@ u32 get_current_frequency(void)
 	return get_mali_freq(currentStep);
 }
 
-

@@ -31,7 +31,7 @@ static ssize_t domain_stat_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	unsigned int val;
-#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TV
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	val = mali_pmu_get_status();
 #else
 	val = 0;
@@ -39,7 +39,7 @@ static ssize_t domain_stat_read(struct class *class,
 	return sprintf(buf, "%x\n", val);
 }
 
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TVD
 static ssize_t mpgpu_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
@@ -171,7 +171,7 @@ static ssize_t min_freq_write(struct class *class,
 
 static struct class_attribute mali_class_attrs[] = {
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	__ATTR(mpgpucmd,	0644, mpgpu_read,	mpgpu_write),
 	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),
 	__ATTR(min_freq,	0644, min_freq_read,  	min_freq_write),

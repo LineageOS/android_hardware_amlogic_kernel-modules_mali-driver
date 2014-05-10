@@ -19,7 +19,7 @@
 #include "common/mali_kernel_utilization.h"
 #include "common/mali_pp_scheduler.h"
 
-#include "meson_main.h"
+#include <meson_main.h>
 
 #define MALI_TABLE_SIZE 6
 
@@ -28,7 +28,6 @@ static int num_cores_enabled;
 static int currentStep;
 static int lastStep;
 static struct work_struct wq_work;
-static u32 mali_turbo_mode = 0;
 
 unsigned int min_mali_clock = 0;
 unsigned int max_mali_clock = 3;
@@ -43,11 +42,8 @@ enum mali_scale_mode_t {
 	MALI_SCALING_MODE_MAX
 };
 
-static int reseted_for_turbo = 0;
 
-static int  scaling_mode = MALI_SCALING_DISABLE;
-module_param(scaling_mode, int, 0664);
-MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
+static int  scaling_mode = MALI_PP_FS_SCALING;
 
 enum mali_pp_scale_threshold_t {
 	MALI_PP_THRESHOLD_20,
@@ -113,7 +109,7 @@ static void do_scaling(struct work_struct *work)
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
 					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					get_mali_freq(),
+					get_current_frequency(),
 					0,	0,	0,	0);
 #endif
 }
@@ -227,7 +223,7 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	u32 utilization = data->utilization_gpu;
 	//(data->utilization_pp < data->utilization_gp)?data->utilization_gp:data->utilization_pp;
 	u32 loading_complete = (1<<16);//mali_utilization_bw_get_period();
-	u32 mali_up_limit = mali_turbo_mode ? mali_clock_turbo_index : max_mali_clock;
+	u32 mali_up_limit = (scaling_mode == MALI_TURBO_MODE) ? mali_clock_turbo_index : max_mali_clock;
 
 	if (loading_complete > (2<<16) &&
 			currentStep > min_mali_clock) {
@@ -269,14 +265,14 @@ exit:
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 						MALI_PROFILING_EVENT_CHANNEL_GPU |
 						MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-						get_mali_freq(),
+						get_current_frequency(),
 						0,	0,	0,	0);
 #endif
 }
 
 static void reset_mali_scaling_stat(void)
 {
-	if (mali_turbo_mode)
+	if (scaling_mode == MALI_TURBO_MODE)
 		currentStep = mali_clock_turbo_index;
 	else
 		currentStep = max_mali_clock;
@@ -365,26 +361,13 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_fs_scaling_update(data);
 		break;
 	case MALI_PP_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_scaling_update(data);
 		break;
-	case MALI_TURBO_MODE:
-		mali_turbo_mode = 1;
-		//mali_pp_fs_scaling_update(data);
-		if (reseted_for_turbo == 0) {
-			reseted_for_turbo = 1;
-			reset_mali_scaling_stat();
-		}
-		break;
 	default:
-		mali_turbo_mode = 0;
-		reseted_for_turbo = 0;
+		break;
 	}
 }
 
@@ -401,4 +384,7 @@ void set_mali_schel_mode(u32 mode)
 	reset_mali_scaling_stat();
 }
 
-
+u32 get_current_frequency(void)
+{
+	return get_mali_freq(currentStep);
+}
