@@ -244,7 +244,7 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
 	u32 ld_left, ld_right;
 
 	utilization = data->utilization_gpu;
-	mali_up_limit = scaling_mode ? mali_clock_turbo_index : max_mali_clock;
+	mali_up_limit = scaling_mode ==  MALI_TURBO_MODE? mali_clock_turbo_index : max_mali_clock;
 	decided_fs_idx = currentStep;
 	*pp_change_flag = 0;
 
