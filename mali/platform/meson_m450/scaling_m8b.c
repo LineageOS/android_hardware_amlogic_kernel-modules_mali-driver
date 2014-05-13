@@ -303,7 +303,9 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 	}
 
 	if (ret == 1) {
+#ifdef DEBUG
 		trace_utilization(data);
+#endif
 		schedule_work(&wq_work);
 	}
 #ifdef CONFIG_MALI400_PROFILING
