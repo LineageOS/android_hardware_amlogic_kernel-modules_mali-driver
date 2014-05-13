@@ -19,7 +19,7 @@
 #include "common/mali_kernel_utilization.h"
 #include "common/mali_pp_scheduler.h"
 
-#include "meson_main.h"
+#include <meson_main.h>
 
 #define MALI_TABLE_SIZE 6
 
@@ -28,7 +28,6 @@ static int num_cores_enabled;
 static int currentStep;
 static int lastStep;
 static struct work_struct wq_work;
-static u32 mali_turbo_mode = 0;
 
 unsigned int min_mali_clock = 0;
 unsigned int max_mali_clock = 3;
@@ -43,23 +42,19 @@ enum mali_scale_mode_t {
 	MALI_SCALING_MODE_MAX
 };
 
-static int reseted_for_turbo = 0;
+static int  scaling_mode = MALI_PP_FS_SCALING;
 
-static int  scaling_mode = MALI_SCALING_DISABLE;
-module_param(scaling_mode, int, 0664);
-MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
-
-enum mali_pp_scale_threshold_t {
-	MALI_PP_THRESHOLD_20,
-	MALI_PP_THRESHOLD_30,
-	MALI_PP_THRESHOLD_40,
-	MALI_PP_THRESHOLD_50,
-	MALI_PP_THRESHOLD_60,
-	MALI_PP_THRESHOLD_80,
-	MALI_PP_THRESHOLD_90,
-	MALI_PP_THRESHOLD_MAX,
+enum enum_threshold_t {
+	THRESHOLD_20,
+	THRESHOLD_30,
+	THRESHOLD_40,
+	THRESHOLD_50,
+	THRESHOLD_60,
+	THRESHOLD_80,
+	THRESHOLD_90,
+	THRESHOLD_MAX,
 };
-static u32 mali_pp_scale_threshold [] = {
+static u32 mali_threshold [] = {
 	51,  /* 20% */
 	77,  /* 30% */
 	102, /* 40% */
@@ -68,7 +63,6 @@ static u32 mali_pp_scale_threshold [] = {
 	205, /* 80% */
 	230, /* 90% */
 };
-
 
 static u32 mali_dvfs_table_size = MALI_TABLE_SIZE;
 
@@ -113,7 +107,7 @@ static void do_scaling(struct work_struct *work)
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
 					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					get_mali_freq(),
+					get_current_frequency(),
 					0,	0,	0,	0);
 #endif
 }
@@ -194,15 +188,15 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 	/* NOTE: this function is normally called directly from the utilization callback which is in
 	 * timer context. */
 
-	if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_90] < data->utilization_pp)
+	if (mali_threshold[THRESHOLD_90] < data->utilization_pp)
 	{
 		ret = enable_max_num_cores();
 	}
-	else if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_50]< data->utilization_pp)
+	else if (mali_threshold[THRESHOLD_50]< data->utilization_pp)
 	{
 		ret = enable_one_core();
 	}
-	else if (mali_pp_scale_threshold[MALI_PP_THRESHOLD_40]< data->utilization_pp)
+	else if (mali_threshold[THRESHOLD_40]< data->utilization_pp)
 	{
 		#if 0
 		currentStep = MALI_CLOCK_425;
@@ -221,62 +215,110 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 		schedule_work(&wq_work);
 }
 
-void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
+void trace_utilization(struct mali_gpu_utilization_data *data)
 {
-	u32 ret = 0;
-	u32 utilization = data->utilization_gpu;
-	//(data->utilization_pp < data->utilization_gp)?data->utilization_gp:data->utilization_pp;
-	u32 loading_complete = (1<<16);//mali_utilization_bw_get_period();
-	u32 mali_up_limit = mali_turbo_mode ? mali_clock_turbo_index : max_mali_clock;
+	char direction;
+	if (currentStep > lastStep)
+		direction = '>';
+	else if ((currentStep > min_mali_clock) && (currentStep < lastStep))
+		direction = '<';
+	else
+		direction = '~';
 
-	if (loading_complete > (2<<16) &&
-			currentStep > min_mali_clock) {
-		currentStep --;
-		MALI_DEBUG_PRINT(3, (" active time vs command complete:%d\n", loading_complete));
-		goto exit;
-	}
+	MALI_DEBUG_PRINT(2, ("%c [%d-->%d]@%d{%d - %d}. pp:%d\n",
+				direction,
+				lastStep,
+				currentStep,
+				data->utilization_gpu,
+				mali_dvfs_threshold[lastStep].downthreshold,
+				mali_dvfs_threshold[lastStep].upthreshold,
+				num_cores_enabled));
+}
+
+static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int* next_fs_idx,
+								int* pp_change_flag)
+{
+	u32 utilization, mali_up_limit, decided_fs_idx;
+	u32 ld_left, ld_right;
+
+	utilization = data->utilization_gpu;
+	mali_up_limit = scaling_mode ==  MALI_TURBO_MODE? mali_clock_turbo_index : max_mali_clock;
+	decided_fs_idx = currentStep;
+	*pp_change_flag = 0;
 
 	if (utilization >= mali_dvfs_threshold[currentStep].upthreshold) {
-		if (utilization < mali_pp_scale_threshold[MALI_PP_THRESHOLD_80] && currentStep < mali_up_limit)
-			currentStep ++;
+		if (utilization < mali_threshold[THRESHOLD_80] && currentStep < mali_up_limit)
+			decided_fs_idx++;
 		else
-			currentStep = mali_up_limit;
+			decided_fs_idx = mali_up_limit;
 
-		if (data->utilization_pp > MALI_PP_THRESHOLD_80) {
-			enable_max_num_cores();
-		} else {
-			enable_one_core();
-		}
-		MALI_DEBUG_PRINT(3, ("  > utilization:%d  currentStep:%d.pp:%d. upthreshold:%d.\n",
-					utilization, currentStep, num_cores_enabled, mali_dvfs_threshold[currentStep].upthreshold ));
-	} else if (utilization < mali_dvfs_threshold[currentStep].downthreshold && currentStep > min_mali_clock) {
-		currentStep--;
-		MALI_DEBUG_PRINT(3, (" <  utilization:%d  currentStep:%d. downthreshold:%d.\n",
-					utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold ));
-	} else {
-		if (data->utilization_pp < mali_pp_scale_threshold[MALI_PP_THRESHOLD_30])
-			ret = disable_one_core();
-		MALI_DEBUG_PRINT(3, (" <  utilization:%d  currentStep:%d. downthreshold:%d.pp:%d\n",
-					utilization, currentStep,mali_dvfs_threshold[currentStep].downthreshold, num_cores_enabled));
+		*pp_change_flag = 1;
+	} else if ((utilization < mali_dvfs_threshold[currentStep].downthreshold) &&
+						(currentStep > min_mali_clock)) {
+		decided_fs_idx--;
+	} else if (num_cores_enabled > 1) {
+		ld_left = data->utilization_pp * num_cores_enabled;
+		ld_right = (mali_dvfs_threshold[currentStep].upthreshold) * (num_cores_enabled - 1);
+
+		if (ld_left < ld_right)
+			*pp_change_flag = -1;
+	}
+	*next_fs_idx = decided_fs_idx;
+}
+
+void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
+{
+	static int stay_count = 0;
+	int ret = 0;
+	int pp_change_flag = 0;
+	u32 next_idx = 0;
+
+	mali_decide_next_status(data, &next_idx, &pp_change_flag);
+
+	if (pp_change_flag == 1)
+		ret = enable_max_num_cores();
+
+	if (next_idx > currentStep) {
+		ret = 1;
+		currentStep = next_idx;
+		stay_count = mali_dvfs_threshold[currentStep].keep_count;
+		/* if (ret ) printk("__scaling__%d__\n", __LINE__); */
 	}
 
-exit:
-	if ((num_cores_enabled != num_cores_total) ||
-			(mali_dvfs_threshold[currentStep].freq_index != mali_dvfs_threshold[lastStep].freq_index))
+	if((next_idx < currentStep) || (pp_change_flag == -1)) {
+		if (stay_count  == 0) {
+			stay_count = mali_dvfs_threshold[currentStep].keep_count;
+			ret = 1;
+
+			if (pp_change_flag == -1)
+				ret = disable_one_core();
+
+			if (next_idx < currentStep)
+				currentStep = next_idx;
+		} else {
+			stay_count--;
+		}
+	}
+
+	if (ret == 1) {
+#ifdef DEBUG
+		trace_utilization(data);
+#endif
 		schedule_work(&wq_work);
+	}
 #ifdef CONFIG_MALI400_PROFILING
 	else
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 						MALI_PROFILING_EVENT_CHANNEL_GPU |
 						MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-						get_mali_freq(),
+						get_current_frequency(),
 						0,	0,	0,	0);
 #endif
 }
 
 static void reset_mali_scaling_stat(void)
 {
-	if (mali_turbo_mode)
+	if (scaling_mode == MALI_TURBO_MODE)
 		currentStep = mali_clock_turbo_index;
 	else
 		currentStep = max_mali_clock;
@@ -365,26 +407,13 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_fs_scaling_update(data);
 		break;
 	case MALI_PP_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_scaling_update(data);
 		break;
-	case MALI_TURBO_MODE:
-		mali_turbo_mode = 1;
-		//mali_pp_fs_scaling_update(data);
-		if (reseted_for_turbo == 0) {
-			reseted_for_turbo = 1;
-			reset_mali_scaling_stat();
-		}
-		break;
 	default:
-		mali_turbo_mode = 0;
-		reseted_for_turbo = 0;
+		break;
 	}
 }
 
@@ -401,4 +430,7 @@ void set_mali_schel_mode(u32 mode)
 	reset_mali_scaling_stat();
 }
 
-
+u32 get_current_frequency(void)
+{
+	return get_mali_freq(currentStep);
+}

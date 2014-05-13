@@ -140,3 +140,7 @@ static void mali_platform_device_release(struct device *device)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_release() called\n"));
 }
+
+static int  dbg_parm = 0;
+module_param(dbg_parm, int, 0664);
+MODULE_PARM_DESC(dbg_parm, "Internal debug");

@@ -28,7 +28,6 @@ static int num_cores_enabled;
 static int currentStep;
 static int lastStep;
 static struct work_struct wq_work;
-static u32 mali_turbo_mode = 0;
 
 unsigned int min_mali_clock = 0;
 unsigned int max_mali_clock = 3;
@@ -43,11 +42,8 @@ enum mali_scale_mode_t {
 	MALI_SCALING_MODE_MAX
 };
 
-static int reseted_for_turbo = 0;
 
 static int  scaling_mode = MALI_PP_FS_SCALING;
-module_param(scaling_mode, int, 0664);
-MODULE_PARM_DESC(scaling_mode, "0 disable, 1 pp, 2 fs, 4 double");
 
 enum enum_threshold_t {
 	THRESHOLD_20,
@@ -323,7 +319,7 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 
 static void reset_mali_scaling_stat(void)
 {
-	if (mali_turbo_mode)
+	if (scaling_mode == MALI_TURBO_MODE)
 		currentStep = mali_clock_turbo_index;
 	else
 		currentStep = max_mali_clock;
@@ -412,26 +408,13 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_fs_scaling_update(data);
 		break;
 	case MALI_PP_SCALING:
-		reseted_for_turbo = 0;
-		mali_turbo_mode = 0;
 		mali_pp_scaling_update(data);
 		break;
-	case MALI_TURBO_MODE:
-		mali_turbo_mode = 1;
-		//mali_pp_fs_scaling_update(data);
-		if (reseted_for_turbo == 0) {
-			reseted_for_turbo = 1;
-			reset_mali_scaling_stat();
-		}
-		break;
 	default:
-		mali_turbo_mode = 0;
-		reseted_for_turbo = 0;
+		break;
 	}
 }
 
@@ -452,5 +435,4 @@ u32 get_current_frequency(void)
 {
 	return get_mali_freq(currentStep);
 }
-
 

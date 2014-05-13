@@ -59,6 +59,11 @@ u32 mali_dvfs_clk_sample[] = {
 	637,     /* 637.5 Mhz */
 };
 
+u32 get_mali_tbl_size(void)
+{
+	return sizeof(mali_dvfs_clk) / sizeof(u32);
+}
+
 int get_mali_freq_level(int freq)
 {
 	int i = 0, level = -1;
