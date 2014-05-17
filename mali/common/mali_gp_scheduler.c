@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -126,8 +126,8 @@ cleanup:
 
 void mali_gp_scheduler_terminate(void)
 {
-	MALI_DEBUG_ASSERT(   MALI_GP_SLOT_STATE_IDLE     == slot.state
-	                     || MALI_GP_SLOT_STATE_DISABLED == slot.state);
+	MALI_DEBUG_ASSERT(MALI_GP_SLOT_STATE_IDLE     == slot.state
+			  || MALI_GP_SLOT_STATE_DISABLED == slot.state);
 	MALI_DEBUG_ASSERT_POINTER(slot.group);
 	mali_group_delete(slot.group);
 
@@ -180,7 +180,7 @@ static void mali_gp_scheduler_schedule_internal_and_unlock(void)
 		mali_gp_scheduler_unlock();
 		mali_group_unlock(slot.group);
 		MALI_DEBUG_PRINT(4, ("Mali GP scheduler: Nothing to schedule (paused=%u, idle slots=%u)\n",
-		                     pause_count, MALI_GP_SLOT_STATE_IDLE == slot.state ? 1 : 0));
+				     pause_count, MALI_GP_SLOT_STATE_IDLE == slot.state ? 1 : 0));
 #if defined(CONFIG_GPU_TRACEPOINTS) && defined(CONFIG_TRACEPOINTS)
 		trace_gpu_sched_switch(mali_gp_get_hw_core_desc(group->gp_core), sched_clock(), 0, 0, 0);
 #endif
@@ -287,8 +287,8 @@ void mali_gp_scheduler_job_done(struct mali_group *group, struct mali_gp_job *jo
 
 void mali_gp_scheduler_oom(struct mali_group *group, struct mali_gp_job *job)
 {
-	_mali_uk_gp_job_suspended_s * jobres;
-	_mali_osk_notification_t * notification;
+	_mali_uk_gp_job_suspended_s *jobres;
+	_mali_osk_notification_t *notification;
 
 	mali_gp_scheduler_lock();
 
@@ -337,7 +337,8 @@ mali_timeline_point mali_gp_scheduler_submit_job(struct mali_session_data *sessi
 	MALI_DEBUG_ASSERT_POINTER(session);
 	MALI_DEBUG_ASSERT_POINTER(job);
 
-	mali_gp_scheduler_job_queued();
+	/* We hold a PM reference for every job we hold queued (and running) */
+	_mali_osk_pm_dev_ref_add();
 
 	/* Add job to Timeline system. */
 	point = mali_timeline_system_add_tracker(session->timeline_system, &job->tracker, MALI_TIMELINE_GP);
@@ -355,7 +356,7 @@ _mali_osk_errcode_t _mali_ukk_gp_start_job(void *ctx, _mali_uk_gp_start_job_s *u
 	MALI_DEBUG_ASSERT_POINTER(uargs);
 	MALI_DEBUG_ASSERT_POINTER(ctx);
 
-	session = (struct mali_session_data*)ctx;
+	session = (struct mali_session_data *)ctx;
 
 	job = mali_gp_job_create(session, uargs, mali_scheduler_get_new_id(), NULL);
 	if (NULL == job) {
@@ -395,7 +396,7 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
 {
 	struct mali_session_data *session;
 	struct mali_gp_job *resumed_job;
-	_mali_osk_notification_t *new_notification = 0;
+	_mali_osk_notification_t *new_notification = NULL;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
 
@@ -403,7 +404,7 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
 		return _MALI_OSK_ERR_INVALID_ARGS;
 	}
 
-	session = (struct mali_session_data*)args->ctx;
+	session = (struct mali_session_data *)args->ctx;
 	if (NULL == session) {
 		return _MALI_OSK_ERR_FAULT;
 	}
@@ -570,8 +571,8 @@ void mali_gp_scheduler_disable_group(struct mali_group *group)
 	mali_group_lock(group);
 	mali_gp_scheduler_lock();
 
-	MALI_DEBUG_ASSERT(   MALI_GROUP_STATE_IDLE     == group->state
-	                     || MALI_GROUP_STATE_DISABLED == group->state);
+	MALI_DEBUG_ASSERT(MALI_GROUP_STATE_IDLE     == group->state
+			  || MALI_GROUP_STATE_DISABLED == group->state);
 
 	if (MALI_GROUP_STATE_DISABLED == group->state) {
 		MALI_DEBUG_ASSERT(MALI_GP_SLOT_STATE_DISABLED == slot.state);
@@ -626,6 +627,8 @@ static mali_scheduler_mask mali_gp_scheduler_queue_job(struct mali_gp_job *job)
 		schedule_mask |= MALI_SCHEDULER_MASK_GP;
 	}
 
+	mali_gp_scheduler_job_queued();
+
 #if defined(CONFIG_GPU_TRACEPOINTS) && defined(CONFIG_TRACEPOINTS)
 	trace_gpu_job_enqueue(mali_gp_job_get_tid(job), mali_gp_job_get_id(job), "GP");
 #endif
@@ -661,7 +664,9 @@ mali_scheduler_mask mali_gp_scheduler_activate_job(struct mali_gp_job *job)
 		mali_timeline_tracker_release(&job->tracker);
 		mali_gp_job_signal_pp_tracker(job, MALI_FALSE);
 		mali_gp_job_delete(job);
-		mali_gp_scheduler_job_completed();
+
+		/* Release the PM ref taken in mali_gp_scheduler_submit_job */
+		_mali_osk_pm_dev_ref_dec();
 
 		/* Since we are aborting we ignore the scheduler mask. */
 		return MALI_SCHEDULER_MASK_EMPTY;
@@ -677,9 +682,6 @@ mali_scheduler_mask mali_gp_scheduler_activate_job(struct mali_gp_job *job)
 
 static void mali_gp_scheduler_job_queued(void)
 {
-	/* We hold a PM reference for every job we hold queued (and running) */
-	_mali_osk_pm_dev_ref_add();
-
 	if (mali_utilization_enabled()) {
 		/*
 		 * We cheat a little bit by counting the PP as busy from the time a GP job is queued.

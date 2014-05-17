@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2011-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -119,7 +119,7 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 		}
 
 		/* Prepare DMA command buffer to start job, if it is virtual. */
-		if (mali_pp_job_is_virtual(job)) {
+		if (mali_pp_job_is_virtual_group_job(job)) {
 			struct mali_pp_core *core;
 			_mali_osk_errcode_t err =  mali_dma_get_cmd_buf(&job->dma_cmd_buf);
 
@@ -131,7 +131,7 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 			core = mali_pp_scheduler_get_virtual_pp();
 			MALI_DEBUG_ASSERT_POINTER(core);
 
-			mali_pp_job_dma_cmd_prepare(core, job, 0, MALI_FALSE, &job->dma_cmd_buf);
+			mali_pp_job_dma_cmd_prepare(core, job, 0, &job->dma_cmd_buf);
 		}
 
 		if (_MALI_OSK_ERR_OK != mali_pp_job_check(job)) {
@@ -177,7 +177,7 @@ void mali_pp_job_delete(struct mali_pp_job *job)
 u32 mali_pp_job_get_perf_counter_src0(struct mali_pp_job *job, u32 sub_job)
 {
 	/* Virtual jobs always use the global job counter (or if there are per sub job counters at all) */
-	if (mali_pp_job_is_virtual(job) || 0 == job->perf_counter_per_sub_job_count) {
+	if (mali_pp_job_is_virtual_group_job(job) || 0 == job->perf_counter_per_sub_job_count) {
 		return job->uargs.perf_counter_src0;
 	}
 
@@ -193,7 +193,7 @@ u32 mali_pp_job_get_perf_counter_src0(struct mali_pp_job *job, u32 sub_job)
 u32 mali_pp_job_get_perf_counter_src1(struct mali_pp_job *job, u32 sub_job)
 {
 	/* Virtual jobs always use the global job counter (or if there are per sub job counters at all) */
-	if (mali_pp_job_is_virtual(job) || 0 == job->perf_counter_per_sub_job_count) {
+	if (mali_pp_job_is_virtual_group_job(job) || 0 == job->perf_counter_per_sub_job_count) {
 		/* Virtual jobs always use the global job counter */
 		return job->uargs.perf_counter_src1;
 	}

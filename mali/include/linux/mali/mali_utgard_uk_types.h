@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -133,6 +133,7 @@ typedef enum {
 	_MALI_UK_PROFILING_CLEAR,             /**< __mali_uku_profiling_clear() */
 	_MALI_UK_PROFILING_GET_CONFIG,        /**< __mali_uku_profiling_get_config() */
 	_MALI_UK_PROFILING_REPORT_SW_COUNTERS,/**< __mali_uku_profiling_report_sw_counters() */
+	_MALI_UK_PROFILING_MEMORY_USAGE_GET,  /**< __mali_uku_profiling_memory_usage_get() */
 
 	/** VSYNC reporting fuctions */
 	_MALI_UK_VSYNC_EVENT_REPORT      = 0, /**< _mali_ukk_vsync_event_report() */
@@ -201,19 +202,19 @@ typedef enum _mali_core_type {
  */
 typedef enum _mali_bus_usage {
 
-	_MALI_PP_READABLE   = (1<<0),  /** Readable by the Fragment Processor */
-	_MALI_PP_WRITEABLE  = (1<<1),  /** Writeable by the Fragment Processor */
-	_MALI_GP_READABLE   = (1<<2),  /** Readable by the Vertex Processor */
-	_MALI_GP_WRITEABLE  = (1<<3),  /** Writeable by the Vertex Processor */
-	_MALI_CPU_READABLE  = (1<<4),  /** Readable by the CPU */
-	_MALI_CPU_WRITEABLE = (1<<5),  /** Writeable by the CPU */
-	_MALI_GP_L2_ALLOC   = (1<<6),  /** GP allocate mali L2 cache lines*/
+	_MALI_PP_READABLE   = (1 << 0), /** Readable by the Fragment Processor */
+	_MALI_PP_WRITEABLE  = (1 << 1), /** Writeable by the Fragment Processor */
+	_MALI_GP_READABLE   = (1 << 2), /** Readable by the Vertex Processor */
+	_MALI_GP_WRITEABLE  = (1 << 3), /** Writeable by the Vertex Processor */
+	_MALI_CPU_READABLE  = (1 << 4), /** Readable by the CPU */
+	_MALI_CPU_WRITEABLE = (1 << 5), /** Writeable by the CPU */
+	_MALI_GP_L2_ALLOC   = (1 << 6), /** GP allocate mali L2 cache lines*/
 	_MALI_MMU_READABLE  = _MALI_PP_READABLE | _MALI_GP_READABLE,   /** Readable by the MMU (including all cores behind it) */
 	_MALI_MMU_WRITEABLE = _MALI_PP_WRITEABLE | _MALI_GP_WRITEABLE, /** Writeable by the MMU (including all cores behind it) */
 } _mali_bus_usage;
 
 typedef enum mali_memory_cache_settings {
-	MALI_CACHE_STANDARD 			= 0,
+	MALI_CACHE_STANDARD                     = 0,
 	MALI_CACHE_GP_READ_ALLOCATE     = 1,
 } mali_memory_cache_settings ;
 
@@ -248,7 +249,7 @@ typedef struct _mali_mem_info {
 	_mali_bus_usage flags;        /**< Capabilitiy flags of the memory */
 	u32 maximum_order_supported;  /**< log2 supported size */
 	u32 identifier;               /* mali_memory_cache_settings cache_settings; */
-	struct _mali_mem_info * next; /**< Next List Link */
+	struct _mali_mem_info *next;  /**< Next List Link */
 } _mali_mem_info;
 
 /** @} */ /* end group _mali_uk_core */
@@ -303,16 +304,16 @@ typedef enum {
 /** @brief Status indicating the result of the execution of a Vertex or Fragment processor job  */
 
 typedef enum {
-	_MALI_UK_JOB_STATUS_END_SUCCESS         = 1<<(16+0),
-	_MALI_UK_JOB_STATUS_END_OOM             = 1<<(16+1),
-	_MALI_UK_JOB_STATUS_END_ABORT           = 1<<(16+2),
-	_MALI_UK_JOB_STATUS_END_TIMEOUT_SW      = 1<<(16+3),
-	_MALI_UK_JOB_STATUS_END_HANG            = 1<<(16+4),
-	_MALI_UK_JOB_STATUS_END_SEG_FAULT       = 1<<(16+5),
-	_MALI_UK_JOB_STATUS_END_ILLEGAL_JOB     = 1<<(16+6),
-	_MALI_UK_JOB_STATUS_END_UNKNOWN_ERR     = 1<<(16+7),
-	_MALI_UK_JOB_STATUS_END_SHUTDOWN        = 1<<(16+8),
-	_MALI_UK_JOB_STATUS_END_SYSTEM_UNUSABLE = 1<<(16+9)
+	_MALI_UK_JOB_STATUS_END_SUCCESS         = 1 << (16 + 0),
+	_MALI_UK_JOB_STATUS_END_OOM             = 1 << (16 + 1),
+	_MALI_UK_JOB_STATUS_END_ABORT           = 1 << (16 + 2),
+	_MALI_UK_JOB_STATUS_END_TIMEOUT_SW      = 1 << (16 + 3),
+	_MALI_UK_JOB_STATUS_END_HANG            = 1 << (16 + 4),
+	_MALI_UK_JOB_STATUS_END_SEG_FAULT       = 1 << (16 + 5),
+	_MALI_UK_JOB_STATUS_END_ILLEGAL_JOB     = 1 << (16 + 6),
+	_MALI_UK_JOB_STATUS_END_UNKNOWN_ERR     = 1 << (16 + 7),
+	_MALI_UK_JOB_STATUS_END_SHUTDOWN        = 1 << (16 + 8),
+	_MALI_UK_JOB_STATUS_END_SYSTEM_UNUSABLE = 1 << (16 + 9)
 } _mali_uk_job_status;
 
 #define MALIGP2_NUM_REGS_FRAME (6)
@@ -476,7 +477,7 @@ typedef struct {
 	u32 wb1_registers[_MALI_PP_MAX_WB_REGISTERS];
 	u32 wb2_registers[_MALI_PP_MAX_WB_REGISTERS];
 	u32 dlbu_registers[_MALI_DLBU_MAX_REGISTERS]; /**< [in] Dynamic load balancing unit registers */
-	u32 num_cores;                      /**< [in] Number of cores to set up (valid range: 1-4) */
+	u32 num_cores;                      /**< [in] Number of cores to set up (valid range: 1-8(M450) or 4(M400)) */
 	u32 perf_counter_flag;              /**< [in] bitmask indicating which performance counters to enable, see \ref _MALI_PERFORMANCE_COUNTER_FLAG_SRC0_ENABLE and related macro definitions */
 	u32 perf_counter_src0;              /**< [in] source id for performance counter 0 (see ARM DDI0415A, Table 3-60) */
 	u32 perf_counter_src1;              /**< [in] source id for performance counter 1 (see ARM DDI0415A, Table 3-60) */
@@ -577,20 +578,20 @@ typedef struct {
 typedef enum {
 	/** core notifications */
 
-	_MALI_NOTIFICATION_CORE_SHUTDOWN_IN_PROGRESS =  (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x20,
-	_MALI_NOTIFICATION_APPLICATION_QUIT =           (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x40,
-	_MALI_NOTIFICATION_SETTINGS_CHANGED =           (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x80,
-	_MALI_NOTIFICATION_SOFT_ACTIVATED =             (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x100,
+	_MALI_NOTIFICATION_CORE_SHUTDOWN_IN_PROGRESS = (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x20,
+	_MALI_NOTIFICATION_APPLICATION_QUIT = (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x40,
+	_MALI_NOTIFICATION_SETTINGS_CHANGED = (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x80,
+	_MALI_NOTIFICATION_SOFT_ACTIVATED = (_MALI_UK_CORE_SUBSYSTEM << 16) | 0x100,
 
 	/** Fragment Processor notifications */
 
-	_MALI_NOTIFICATION_PP_FINISHED =                (_MALI_UK_PP_SUBSYSTEM << 16) | 0x10,
-	_MALI_NOTIFICATION_PP_NUM_CORE_CHANGE =         (_MALI_UK_PP_SUBSYSTEM << 16) | 0x20,
+	_MALI_NOTIFICATION_PP_FINISHED = (_MALI_UK_PP_SUBSYSTEM << 16) | 0x10,
+	_MALI_NOTIFICATION_PP_NUM_CORE_CHANGE = (_MALI_UK_PP_SUBSYSTEM << 16) | 0x20,
 
 	/** Vertex Processor notifications */
 
-	_MALI_NOTIFICATION_GP_FINISHED =                (_MALI_UK_GP_SUBSYSTEM << 16) | 0x10,
-	_MALI_NOTIFICATION_GP_STALLED =                 (_MALI_UK_GP_SUBSYSTEM << 16) | 0x20,
+	_MALI_NOTIFICATION_GP_FINISHED = (_MALI_UK_GP_SUBSYSTEM << 16) | 0x10,
+	_MALI_NOTIFICATION_GP_STALLED = (_MALI_UK_GP_SUBSYSTEM << 16) | 0x20,
 
 } _mali_uk_notification_type;
 
@@ -623,19 +624,19 @@ typedef enum {
 /* See mali_user_settings_db.c */
 extern const char *_mali_uk_user_setting_descriptions[];
 #define _MALI_UK_USER_SETTING_DESCRIPTIONS \
-{                                           \
-	"sw_events_enable",                 \
-	"colorbuffer_capture_enable",       \
-	"depthbuffer_capture_enable",       \
-	"stencilbuffer_capture_enable",     \
-	"per_tile_counters_enable",         \
-	"buffer_capture_compositor",        \
-	"buffer_capture_window",            \
-	"buffer_capture_other",             \
-	"buffer_capture_n_frames",          \
-	"buffer_capture_resize_factor",     \
-	"sw_counters_enable",               \
-};
+	{                                           \
+		"sw_events_enable",                 \
+		"colorbuffer_capture_enable",       \
+		"depthbuffer_capture_enable",       \
+		"stencilbuffer_capture_enable",     \
+		"per_tile_counters_enable",         \
+		"buffer_capture_compositor",        \
+		"buffer_capture_window",            \
+		"buffer_capture_other",             \
+		"buffer_capture_n_frames",          \
+		"buffer_capture_resize_factor",     \
+		"sw_counters_enable",               \
+	};
 
 /** @brief struct to hold the value to a particular setting as seen in the kernel space
  */
@@ -998,6 +999,11 @@ typedef struct {
 	void *ctx;                      /**< [in,out] user-kernel context (trashed on output) */
 } _mali_uk_profiling_clear_s;
 
+typedef struct {
+	void *ctx;                     /**< [in,out] user-kernel context (trashed on output) */
+	u32 memory_usage;              /**< [out] total memory usage */
+} _mali_uk_profiling_memory_usage_get_s;
+
 /** @} */ /* end group _mali_uk_gp */
 
 
@@ -1091,7 +1097,7 @@ typedef struct {
  */
 typedef struct {
 	void *ctx;                      /**< [in,out] user-kernel context (trashed on output) */
-	u32* counters;                  /**< [in] The array of counter values */
+	u32 *counters;                  /**< [in] The array of counter values */
 	u32  num_counters;              /**< [in] The number of elements in counters array */
 } _mali_uk_sw_counters_report_s;
 

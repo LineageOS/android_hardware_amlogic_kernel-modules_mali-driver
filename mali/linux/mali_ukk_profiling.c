@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -123,6 +123,28 @@ int profiling_clear_wrapper(struct mali_session_data *session_data, _mali_uk_pro
 	return 0;
 }
 
+int profiling_memory_usage_get_wrapper(struct mali_session_data *session_data, _mali_uk_profiling_memory_usage_get_s __user *uargs)
+{
+	_mali_osk_errcode_t err;
+	_mali_uk_profiling_memory_usage_get_s kargs;
+
+	MALI_CHECK_NON_NULL(uargs, -EINVAL);
+	MALI_CHECK_NON_NULL(session_data, -EINVAL);
+
+	kargs.ctx = session_data;
+	err = _mali_ukk_profiling_memory_usage_get(&kargs);
+	if (_MALI_OSK_ERR_OK != err) {
+		return map_errcode(err);
+	}
+
+	kargs.ctx = NULL; /* prevent kernel address to be returned to user space */
+	if (0 != copy_to_user(uargs, &kargs, sizeof(_mali_uk_profiling_memory_usage_get_s))) {
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 int profiling_report_sw_counters_wrapper(struct mali_session_data *session_data, _mali_uk_sw_counters_report_s __user *uargs)
 {
 	_mali_uk_sw_counters_report_s kargs;
@@ -141,7 +163,7 @@ int profiling_report_sw_counters_wrapper(struct mali_session_data *session_data,
 		return -EINVAL;
 	}
 
-	counter_buffer = (u32*)kmalloc(sizeof(u32) * kargs.num_counters, GFP_KERNEL);
+	counter_buffer = (u32 *)kmalloc(sizeof(u32) * kargs.num_counters, GFP_KERNEL);
 	if (NULL == counter_buffer) {
 		return -ENOMEM;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -19,15 +19,17 @@
 #include <linux/module.h>
 #include "mali_osk.h"
 
-void _mali_osk_dbgmsg( const char *fmt, ... )
+#if !defined(CONFIG_MALI_QUIET)
+void _mali_osk_dbgmsg(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
 	vprintk(fmt, args);
 	va_end(args);
 }
+#endif /* !defined(CONFIG_MALI_QUIET) */
 
-u32 _mali_osk_snprintf( char *buf, u32 size, const char *fmt, ... )
+u32 _mali_osk_snprintf(char *buf, u32 size, const char *fmt, ...)
 {
 	int res;
 	va_list args;

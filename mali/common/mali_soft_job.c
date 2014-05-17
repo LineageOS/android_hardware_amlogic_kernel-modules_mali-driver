@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2013-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -87,7 +87,7 @@ void mali_soft_job_system_destroy(struct mali_soft_job_system *system)
 	MALI_DEBUG_ASSERT_POINTER(system);
 
 	/* All jobs should be free at this point. */
-	MALI_DEBUG_CODE( {
+	MALI_DEBUG_CODE({
 		u32 i;
 		struct mali_soft_job *job;
 
@@ -373,7 +373,7 @@ mali_scheduler_mask mali_soft_job_system_timeout_job(struct mali_soft_job *job)
 	mali_soft_job_system_lock(job->system);
 
 	MALI_DEBUG_ASSERT(MALI_SOFT_JOB_STATE_STARTED  == job->state ||
-	                  MALI_SOFT_JOB_STATE_SIGNALED == job->state);
+			  MALI_SOFT_JOB_STATE_SIGNALED == job->state);
 
 	if (unlikely(job->system->session->is_aborting)) {
 		/* The session is aborting.  This job will be released and destroyed by @ref
@@ -424,8 +424,8 @@ void mali_soft_job_system_abort(struct mali_soft_job_system *system)
 		job = &(system->jobs[i]);
 
 		MALI_DEBUG_ASSERT(MALI_SOFT_JOB_STATE_FREE      == job->state ||
-		                  MALI_SOFT_JOB_STATE_STARTED   == job->state ||
-		                  MALI_SOFT_JOB_STATE_TIMED_OUT == job->state);
+				  MALI_SOFT_JOB_STATE_STARTED   == job->state ||
+				  MALI_SOFT_JOB_STATE_TIMED_OUT == job->state);
 
 		if (MALI_SOFT_JOB_STATE_STARTED == job->state) {
 			/* If the job has been activated, we have to release the tracker and destroy
@@ -450,7 +450,7 @@ void mali_soft_job_system_abort(struct mali_soft_job_system *system)
 	/* Release and destroy jobs. */
 	_MALI_OSK_LIST_FOREACHENTRY(job, tmp, &jobs, struct mali_soft_job, system_list) {
 		MALI_DEBUG_ASSERT(MALI_SOFT_JOB_STATE_SIGNALED  == job->state ||
-		                  MALI_SOFT_JOB_STATE_TIMED_OUT == job->state);
+				  MALI_SOFT_JOB_STATE_TIMED_OUT == job->state);
 
 		if (MALI_SOFT_JOB_STATE_SIGNALED == job->state) {
 			mali_timeline_tracker_release(&job->tracker);

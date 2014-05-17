@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2013 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2014 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -25,7 +25,7 @@ struct mali_dlbu_core;
 _mali_osk_errcode_t mali_dlbu_initialize(void);
 void mali_dlbu_terminate(void);
 
-struct mali_dlbu_core *mali_dlbu_create(const _mali_osk_resource_t * resource);
+struct mali_dlbu_core *mali_dlbu_create(const _mali_osk_resource_t *resource);
 void mali_dlbu_delete(struct mali_dlbu_core *dlbu);
 
 _mali_osk_errcode_t mali_dlbu_reset(struct mali_dlbu_core *dlbu);
