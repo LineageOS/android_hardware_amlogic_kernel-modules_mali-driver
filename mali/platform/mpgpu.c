@@ -31,6 +31,7 @@ static ssize_t domain_stat_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	unsigned int val;
+
 #if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TV
 	val = mali_pmu_get_status();
 #else
@@ -39,7 +40,7 @@ static ssize_t domain_stat_read(struct class *class,
 	return sprintf(buf, "%x\n", val);
 }
 
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TVD
 static ssize_t mpgpu_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
@@ -166,18 +167,42 @@ static ssize_t min_freq_write(struct class *class,
 
 	return count;
 }
+
+static ssize_t read_extr_src(struct class *class,
+			struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "usage echo 0(restore), 1(set fix src), xxx user mode\n");
+}
+
+static ssize_t write_extr_src(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+
+	set_str_src(val);
+
+	return count;
+}
 #endif
 
 
 static struct class_attribute mali_class_attrs[] = {
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	__ATTR(mpgpucmd,	0644, mpgpu_read,	mpgpu_write),
 	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),
 	__ATTR(min_freq,	0644, min_freq_read,  	min_freq_write),
 	__ATTR(max_freq,	0644, max_freq_read,	max_freq_write),
 	__ATTR(min_pp,		0644, min_pp_read,	min_pp_write),
 	__ATTR(max_pp,		0644, max_pp_read,	max_pp_write),
+	__ATTR(extr_src,	0644, read_extr_src,	write_extr_src),
 #endif
 };
 

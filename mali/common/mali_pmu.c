@@ -213,7 +213,7 @@ static _mali_osk_errcode_t mali_pmu_power_down_internal(struct mali_pmu_core *pm
 	stat = mali_hw_core_register_read(&pmu->hw_core, PMU_REG_ADDR_MGMT_STATUS);
 	stat &= pmu->registered_cores_mask;
 
-	MALI_DEBUG_ASSERT(mask == (stat & mask));
+	//MALI_DEBUG_ASSERT(mask == (stat & mask));
 #endif
 
 	return _MALI_OSK_ERR_OK;
