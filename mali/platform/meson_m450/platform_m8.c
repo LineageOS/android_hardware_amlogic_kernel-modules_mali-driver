@@ -139,6 +139,7 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 	int err;
 	struct gpufreq_cooling_device *gcdev = NULL;
 	gcdev = gpufreq_cooling_alloc();
+    register_gpu_freq_info(get_current_frequency);
 	if(IS_ERR(gcdev))
 		printk("malloc gpu cooling buffer error!!\n");
 	else if(!gcdev)
