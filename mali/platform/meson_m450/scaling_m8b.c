@@ -23,6 +23,14 @@
 
 #define MALI_TABLE_SIZE 6
 
+#define LOG_MALI_SCALING 0
+#define LOG_SCALING_CHANGE 0
+#if LOG_SCALING_CHANGE
+# define TRACE_STAY() MALI_DEBUG_PRINT(2, ("[SCALING]stay_count:%d\n", stay_count));
+#else
+# define TRACE_STAY()
+#endif
+
 static int num_cores_total;
 static int num_cores_enabled;
 static int currentStep;
@@ -41,7 +49,6 @@ enum mali_scale_mode_t {
 	MALI_TURBO_MODE,
 	MALI_SCALING_MODE_MAX
 };
-
 
 static int  scaling_mode = MALI_PP_FS_SCALING;
 
@@ -65,16 +72,15 @@ static u32 mali_threshold [] = {
 	230, /* 90% */
 };
 
-
 static u32 mali_dvfs_table_size = MALI_TABLE_SIZE;
 
 static struct mali_dvfs_threshold_table mali_dvfs_threshold[MALI_TABLE_SIZE]={
-		{ 0, 0, 2, 0  , 200}, /* for 182.1  */
-		{ 1, 1, 2, 152, 205}, /* for 318.7  */
-		{ 2, 2, 2, 180, 212}, /* for 425.0  */
-		{ 3, 3, 2, 205, 236}, /* for 510.0  */
-		{ 4, 4, 2, 230, 256},  /* for 637.5  */
-		{ 0, 0, 2,   0,   0}
+		{ 0, 0, 5, 0  , 180}, /* for 255  */
+		{ 1, 1, 5, 152, 205}, /* for 364  */
+		{ 2, 2, 5, 180, 212}, /* for 425  */
+		{ 3, 3, 5, 205, 236}, /* for 510  */
+		{ 4, 4, 5, 230, 256}, /* for 637  */
+		{ 0, 0, 5,   0,   0}
 };
 
 u32 set_mali_dvfs_tbl_size(u32 size)
@@ -217,25 +223,30 @@ void mali_pp_scaling_update(struct mali_gpu_utilization_data *data)
 		schedule_work(&wq_work);
 }
 
-void trace_utilization(struct mali_gpu_utilization_data *data)
+#if LOG_MALI_SCALING
+void trace_utilization(struct mali_gpu_utilization_data *data, u32 current_idx,
+			u32 next, u32 count)
 {
 	char direction;
-	if (currentStep > lastStep)
+	if (next > current_idx)
 		direction = '>';
-	else if ((currentStep > min_mali_clock) && (currentStep < lastStep))
+	else if ((current_idx > min_mali_clock) && (current_idx < next))
 		direction = '<';
 	else
 		direction = '~';
-
-	MALI_DEBUG_PRINT(2, ("%c [%d-->%d]@%d{%d - %d}. pp:%d\n",
-				direction,
-				lastStep,
-				currentStep,
-				data->utilization_gpu,
-				mali_dvfs_threshold[lastStep].downthreshold,
-				mali_dvfs_threshold[lastStep].upthreshold,
-				num_cores_enabled));
+	
+	if (count == 0) {
+		MALI_DEBUG_PRINT(2, ("[SCALING]%c (%1d-->%1d)@%d{%3d - %3d}. pp:%d\n",
+					direction,
+					current_idx,
+					next,
+					data->utilization_gpu,
+					mali_dvfs_threshold[lastStep].downthreshold,
+					mali_dvfs_threshold[lastStep].upthreshold,
+					num_cores_enabled));
+	}
 }
+#endif
 
 static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int* next_fs_idx,
 								int* pp_change_flag)
@@ -262,7 +273,7 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
 		ld_left = data->utilization_pp * num_cores_enabled;
 		ld_right = (mali_dvfs_threshold[currentStep].upthreshold) * (num_cores_enabled - 1);
 
-		if (ld_left < ld_right)
+		if ((ld_left < ld_right) && (num_cores_enabled > min_pp_num))
 			*pp_change_flag = -1;
 	}
 	*next_fs_idx = decided_fs_idx;
@@ -284,28 +295,32 @@ void mali_pp_fs_scaling_update(struct mali_gpu_utilization_data *data)
 		ret = 1;
 		currentStep = next_idx;
 		stay_count = mali_dvfs_threshold[currentStep].keep_count;
-		/* if (ret ) printk("__scaling__%d__\n", __LINE__); */
 	}
 
-	if((next_idx < currentStep) || (pp_change_flag == -1)) {
+#if LOG_MALI_SCALING
+	trace_utilization(data, currentStep, next_idx, stay_count);
+#endif
+
+	if((next_idx <= currentStep) || (pp_change_flag == -1)) {
 		if (stay_count  == 0) {
-			stay_count = mali_dvfs_threshold[currentStep].keep_count;
-			ret = 1;
-
-			if (pp_change_flag == -1)
+			if (pp_change_flag == -1) {
 				ret = disable_one_core();
+				stay_count = mali_dvfs_threshold[currentStep].keep_count;
+			}
 
-			if (next_idx < currentStep)
+			if (next_idx < currentStep) {
+				ret = 1;
 				currentStep = next_idx;
+				stay_count = mali_dvfs_threshold[next_idx].keep_count;
+			}
 		} else {
 			stay_count--;
 		}
 	}
 
-	if (ret == 1) {
-		trace_utilization(data);
+	TRACE_STAY()
+	if (ret == 1)
 		schedule_work(&wq_work);
-	}
 #ifdef CONFIG_MALI400_PROFILING
 	else
 		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
@@ -396,10 +411,16 @@ u32 set_min_mali_freq(u32 idx)
 
 void mali_plat_preheat(void)
 {
-	//printk(" aml mali test*************\n");
-	int ret;
-	ret = enable_max_num_cores();
-	if (ret)
+	int ret1, ret2 = 0;
+#if 0
+	printk(" aml mali test*************\n");
+#endif
+	if (currentStep < mali_default_clock_idx) {
+		ret2 = 1;
+		currentStep = mali_default_clock_idx;
+	}
+	ret1 = enable_max_num_cores();
+	if (ret1 || ret2)
 		schedule_work(&wq_work);
 }
 

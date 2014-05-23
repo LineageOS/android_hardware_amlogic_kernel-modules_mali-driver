@@ -32,7 +32,7 @@
  */
  
 u32 mali_clock_turbo_index = 4;
-u32 mali_default_clock_idx = 3;
+u32 mali_default_clock_idx = 1;
 u32 mali_up_clock_idx = 3;
 
 /* fclk is 2550Mhz. */
@@ -42,20 +42,25 @@ u32 mali_up_clock_idx = 3;
 #define FCLK_DEV7 (4 << 9)		/*	364.3 Mhz  */
 
 u32 mali_dvfs_clk[] = {
-	FCLK_DEV7 | 1,     /* 182.1 Mhz */
-	FCLK_DEV4 | 1,     /* 318.7 Mhz */
+	FCLK_DEV5 | 1,     /* 255 Mhz */
+	FCLK_DEV7 | 0,     /* 364 Mhz */
 	FCLK_DEV3 | 1,     /* 425 Mhz */
 	FCLK_DEV5 | 0,     /* 510 Mhz */
 	FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
 u32 mali_dvfs_clk_sample[] = {
-	182,     /* 182.1 Mhz */
-	319,     /* 318.7 Mhz */
+	255,     /* 182.1 Mhz */
+	364,     /* 318.7 Mhz */
 	425,     /* 425 Mhz */
 	510,     /* 510 Mhz */
 	637,     /* 637.5 Mhz */
 };
+
+u32 get_mali_tbl_size(void)
+{
+	return sizeof(mali_dvfs_clk) / sizeof(u32);
+}
 
 #define MALI_PP_NUMBER 2
 
@@ -70,11 +75,10 @@ static struct resource mali_gpu_resources[] =
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
-
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
 	/* for mali platform data. */
-	pdev->utilization_interval = 500,
+	pdev->utilization_interval = 200,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
@@ -94,22 +98,12 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 	return 0;
 }
 
-static int mali_cri_pmu_on_off(size_t param)
-{
-	struct mali_pmu_core *pmu;
-
-	MALI_DEBUG_PRINT(4, ("mali_os_suspend() called\n"));
-	pmu = mali_pmu_get_global_pmu_core();
-	if (param == 0)
-		mali_pmu_power_down_all(pmu);
-	else
-		mali_pmu_power_up_all(pmu);
-	return 0;
-}
-
 int mali_light_suspend(struct device *device)
 {
 	int ret = 0;
+	struct mali_pmu_core *pmu;
+
+	pmu = mali_pmu_get_global_pmu_core();
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -125,7 +119,7 @@ int mali_light_suspend(struct device *device)
 	}
 
 	/* clock scaling. Kasin..*/
-	mali_clock_critical(mali_cri_pmu_on_off, 0);
+	mali_pmu_power_down_all(pmu);
 	//disable_clock();
 	return ret;
 }
@@ -133,10 +127,10 @@ int mali_light_suspend(struct device *device)
 int mali_light_resume(struct device *device)
 {
 	int ret = 0;
-	/* clock scaling. Kasin..*/
-	//enable_clock();
+	struct mali_pmu_core *pmu;
 
-	mali_clock_critical(mali_cri_pmu_on_off, 1);
+	pmu = mali_pmu_get_global_pmu_core();
+	mali_pmu_power_up_all(pmu);
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 					MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -157,6 +151,9 @@ int mali_light_resume(struct device *device)
 int mali_deep_suspend(struct device *device)
 {
 	int ret = 0;
+	struct mali_pmu_core *pmu;
+
+	pmu = mali_pmu_get_global_pmu_core();
 	enable_clock();
 	flush_scaling_job();
 	if (NULL != device->driver &&
@@ -168,7 +165,7 @@ int mali_deep_suspend(struct device *device)
 	}
 
 	/* clock scaling off. Kasin... */
-	mali_clock_critical(mali_cri_pmu_on_off, 0);
+	mali_pmu_power_down_all(pmu);
 	disable_clock();
 	return ret;
 }
@@ -176,9 +173,11 @@ int mali_deep_suspend(struct device *device)
 int mali_deep_resume(struct device *device)
 {
 	int ret = 0;
-	/* clock scaling up. Kasin.. */
+	struct mali_pmu_core *pmu;
+
+	pmu = mali_pmu_get_global_pmu_core();
 	enable_clock();
-	mali_clock_critical(mali_cri_pmu_on_off, 1);
+	mali_pmu_power_up_all(pmu);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->resume)
@@ -187,6 +186,5 @@ int mali_deep_resume(struct device *device)
 		ret = device->driver->pm->resume(device);
 	}
 	return ret;
-
 }
 
