@@ -158,18 +158,17 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 	return 0;
 }
 
-int mali_light_suspend(struct device *device)
+static int mali_cri_light_suspend(size_t param)
 {
-	int ret = 0;
+	int ret;
+	struct device *device;
 	struct mali_pmu_core *pmu;
 
+	ret = 0;
+	mali_pm_statue = 0;
+	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
-#ifdef CONFIG_MALI400_PROFILING
-	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
-					MALI_PROFILING_EVENT_CHANNEL_GPU |
-					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					0, 0,	0,	0,	0);
-#endif
+
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->runtime_suspend)
@@ -177,27 +176,21 @@ int mali_light_suspend(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_suspend(device);
 	}
-
-	/* clock scaling. Kasin..*/
 	mali_pmu_power_down_all(pmu);
-	//disable_clock();
 	return ret;
 }
 
-int mali_light_resume(struct device *device)
+static int mali_cri_light_resume(size_t param)
 {
-	int ret = 0;
+	int ret;
+	struct device *device;
 	struct mali_pmu_core *pmu;
 
+	ret = 0;
+	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
-	mali_pmu_power_up_all(pmu);
-#ifdef CONFIG_MALI400_PROFILING
-	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
-					MALI_PROFILING_EVENT_CHANNEL_GPU |
-					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					get_current_frequency(), 0,	0,	0,	0);
-#endif
 
+	mali_pmu_power_up_all(pmu);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->runtime_resume)
@@ -205,17 +198,20 @@ int mali_light_resume(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
+	mali_pm_statue = 1;
 	return ret;
 }
 
-int mali_deep_suspend(struct device *device)
+static int mali_cri_deep_suspend(size_t param)
 {
-	int ret = 0;
+	int ret;
+	struct device *device;
 	struct mali_pmu_core *pmu;
 
+	ret = 0;
+	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
-	enable_clock();
-	flush_scaling_job();
+
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->suspend)
@@ -223,20 +219,20 @@ int mali_deep_suspend(struct device *device)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->suspend(device);
 	}
-
-	/* clock scaling off. Kasin... */
 	mali_pmu_power_down_all(pmu);
-	disable_clock();
 	return ret;
 }
 
-int mali_deep_resume(struct device *device)
+static int mali_cri_deep_resume(size_t param)
 {
-	int ret = 0;
+	int ret;
+	struct device *device;
 	struct mali_pmu_core *pmu;
 
+	ret = 0;
+	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
-	enable_clock();
+
 	mali_pmu_power_up_all(pmu);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
@@ -246,5 +242,59 @@ int mali_deep_resume(struct device *device)
 		ret = device->driver->pm->resume(device);
 	}
 	return ret;
+
+}
+
+int mali_light_suspend(struct device *device)
+{
+	int ret = 0;
+#ifdef CONFIG_MALI400_PROFILING
+	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
+					MALI_PROFILING_EVENT_CHANNEL_GPU |
+					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
+					0, 0,	0,	0,	0);
+#endif
+
+	/* clock scaling. Kasin..*/
+	ret = mali_clock_critical(mali_cri_light_suspend, (size_t)device);
+	disable_clock();
+	return ret;
+}
+
+int mali_light_resume(struct device *device)
+{
+	int ret = 0;
+	enable_clock();
+	ret = mali_clock_critical(mali_cri_light_resume, (size_t)device);
+#ifdef CONFIG_MALI400_PROFILING
+	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
+					MALI_PROFILING_EVENT_CHANNEL_GPU |
+					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
+					get_current_frequency(), 0,	0,	0,	0);
+#endif
+	return ret;
+}
+
+int mali_deep_suspend(struct device *device)
+{
+	int ret = 0;
+	enable_clock();
+	flush_scaling_job();
+
+	/* clock scaling off. Kasin... */
+	ret = mali_clock_critical(mali_cri_deep_suspend, (size_t)device);
+	disable_clock();
+	return ret;
+}
+
+int mali_deep_resume(struct device *device)
+{
+	int ret = 0;
+
+	/* clock scaling up. Kasin.. */
+	enable_clock();
+	ret = mali_clock_critical(mali_cri_deep_resume, (size_t)device);
+	return ret;
+
 }
 

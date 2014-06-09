@@ -75,7 +75,6 @@ void disable_clock(void)
 	spin_lock_irqsave(&lock, flags);
 	clrbits_le32((u32)P_HHI_MALI_CLK_CNTL, 1 << 8);
 	spin_unlock_irqrestore(&lock, flags);
-	printk("## mali clock off----\n");
 }
 
 void enable_clock(void)
@@ -86,7 +85,6 @@ void enable_clock(void)
 	setbits_le32((u32)P_HHI_MALI_CLK_CNTL, 1 << 8);
 	ret = readl((u32 *)P_HHI_MALI_CLK_CNTL) & (1 << 8);
 	spin_unlock_irqrestore(&lock, flags);
-	printk("## mali clock on :%x++++\n", ret);
 }
 
 u32 get_mali_freq(u32 idx)

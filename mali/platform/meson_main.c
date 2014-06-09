@@ -28,7 +28,7 @@
 #include "common/mali_osk_profiling.h"
 
 static void mali_platform_device_release(struct device *device);
-
+int mali_pm_statue = 1;
 static struct mali_gpu_device_data mali_gpu_data =
 {
 	.shared_mem_size = 1024 * 1024 * 1024,

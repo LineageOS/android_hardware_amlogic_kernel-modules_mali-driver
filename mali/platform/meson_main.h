@@ -26,6 +26,7 @@ extern u32 mali_up_clock_idx;
 extern u32 set_max_mali_freq(u32 idx);
 extern u32 get_max_mali_freq(void);
 extern u32 get_mali_tbl_size(void);
+extern int mali_pm_statue;
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev);
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev);

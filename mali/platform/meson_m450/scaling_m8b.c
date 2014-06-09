@@ -103,6 +103,11 @@ uint32_t* get_mali_dvfs_tbl_addr(void)
 static void do_scaling(struct work_struct *work)
 {
 	int err = mali_perf_set_num_pp_cores(num_cores_enabled);
+
+	if (mali_pm_statue == 0) {
+		printk("skip none clock test.\n");
+		return;
+	}
 	MALI_DEBUG_ASSERT(0 == err);
 	MALI_IGNORE(err);
 	if (mali_dvfs_threshold[currentStep].freq_index != mali_dvfs_threshold[lastStep].freq_index) {
@@ -426,6 +431,11 @@ void mali_plat_preheat(void)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
+
+	if (mali_pm_statue == 0) {
+		printk("skip none clock scaling.\n");
+		return;
+	}
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
 		mali_pp_fs_scaling_update(data);
