@@ -32,7 +32,10 @@ static ssize_t domain_stat_read(struct class *class,
 {
 	unsigned int val;
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	val = mali_pmu_get_status();
+	if (mali_pm_statue == 1) {
+		val = mali_pmu_get_status();
+	} else
+		val = 0x7;
 #else
 	val = 0;
 #endif
