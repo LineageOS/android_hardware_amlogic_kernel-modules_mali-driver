@@ -40,23 +40,6 @@ u32 mali_dvfs_clk_sample[1];
 
 static struct mali_dvfs_threshold_table mali_dvfs_threshold[1];
 
-u32 set_mali_dvfs_tbl_size(u32 size)
-{
-	return 0;
-}
-
-u32 get_max_dvfs_tbl_size(void)
-{
-	return 0;
-}
-
-uint32_t* get_mali_dvfs_tbl_addr(void)
-{
-	return mali_dvfs_threshold;
-}
-
-
-
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV
 #undef INT_MALI_GP
 #undef INT_MALI_GP_MMU
@@ -103,8 +86,6 @@ static struct resource meson_mali_resources[] =
 
 #elif MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
 
-int static_pp_mmu_cnt;
-
 #undef INT_MALI_GP
 #undef INT_MALI_GP_MMU
 #undef INT_MALI_PP
@@ -149,6 +130,10 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
 
 }
+
+mali_plat_info_t mali_plat_data = {
+
+};
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {

@@ -32,10 +32,10 @@
  *
  */
 
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8
-u32 mali_clock_turbo_index = 4;
-u32 mali_default_clock_idx = 0;
-u32 mali_up_clock_idx = 3;
+#define CFG_PP 6
+#define CFG_CLOCK 3
+#define CFG_MIN_PP 1
+#define CFG_MIN_CLOCK 0
 
 /* fclk is 2550Mhz. */
 #define FCLK_DEV3 (6 << 9)		/*	850   Mhz  */
@@ -43,7 +43,7 @@ u32 mali_up_clock_idx = 3;
 #define FCLK_DEV5 (7 << 9)		/*	510   Mhz  */
 #define FCLK_DEV7 (4 << 9)		/*	364.3 Mhz  */
 
-u32 mali_dvfs_clk[] = {
+static u32 mali_dvfs_clk[] = {
 	FCLK_DEV7 | 1,     /* 182.1 Mhz */
 	FCLK_DEV4 | 1,     /* 318.7 Mhz */
 	FCLK_DEV3 | 1,     /* 425 Mhz */
@@ -51,7 +51,7 @@ u32 mali_dvfs_clk[] = {
 	FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
-u32 mali_dvfs_clk_sample[] = {
+static u32 mali_dvfs_clk_sample[] = {
 	182,     /* 182.1 Mhz */
 	319,     /* 318.7 Mhz */
 	425,     /* 425 Mhz */
@@ -59,25 +59,84 @@ u32 mali_dvfs_clk_sample[] = {
 	637,     /* 637.5 Mhz */
 };
 
-u32 get_mali_tbl_size(void)
+static mali_dvfs_threshold_table mali_dvfs_table[]={
+		{ 0, 0, 3,  70, 180}, /* for 182.1  */
+		{ 1, 1, 3, 108, 205}, /* for 318.7  */
+		{ 2, 2, 3, 150, 215}, /* for 425.0  */
+		{ 3, 3, 3, 170, 253}, /* for 510.0  */
+		{ 4, 4, 3, 230, 256},  /* for 637.5  */
+		{ 0, 0, 3,   0,   0}
+};
+
+static void mali_plat_preheat(void);
+static mali_plat_info_t mali_plat_data = {
+	.cfg_pp = CFG_PP,  /* number of pp. */
+	.cfg_min_pp = CFG_MIN_PP,
+	.turbo_clock = 4, /* reserved clock src. */
+	.def_clock = 2, /* gpu clock used most of time.*/
+	.cfg_clock = CFG_CLOCK, /* max gpu clock. */
+	.cfg_min_clock = CFG_MIN_CLOCK,
+
+	.sc_mpp = 3, /* number of pp used most of time.*/
+	.bst_gpu = 210, /* threshold for boosting gpu. */
+	.bst_pp = 160, /* threshold for boosting PP. */
+
+	.clk = mali_dvfs_clk, /* clock source table. */
+	.clk_sample = mali_dvfs_clk_sample, /* freqency table for show. */
+	.clk_len = sizeof(mali_dvfs_clk) / sizeof(mali_dvfs_clk[0]),
+	.have_switch = 0,
+
+	.dvfs_table = mali_dvfs_table, /* DVFS table. */
+	.dvfs_table_size = sizeof(mali_dvfs_table) / sizeof(mali_dvfs_threshold_table),
+
+	.scale_info = {
+		CFG_MIN_PP, /* minpp */
+		CFG_PP, /* maxpp, should be same as cfg_pp */ 
+		CFG_MIN_CLOCK, /* minclk */ 
+		CFG_CLOCK, /* maxclk should be same as cfg_clock */ 
+	},
+
+	.limit_on = 1,
+	.plat_preheat = mali_plat_preheat,
+};
+
+static void mali_plat_preheat(void)
 {
-	return sizeof(mali_dvfs_clk) / sizeof(u32);
+	u32 pre_fs;
+	u32 clk, pp;
+
+	if (get_mali_schel_mode() != MALI_PP_FS_SCALING)
+		return;
+
+	get_mali_rt_clkpp(&clk, &pp);
+	pre_fs = mali_plat_data.def_clock + 1;
+	if (clk < pre_fs)
+		clk = pre_fs;
+	if (pp < mali_plat_data.sc_mpp)
+		pp = mali_plat_data.sc_mpp;
+	set_mali_rt_clkpp(clk, pp, 1);
+}
+
+mali_plat_info_t* get_mali_plat_data(void) {
+	return &mali_plat_data;
 }
 
 int get_mali_freq_level(int freq)
 {
 	int i = 0, level = -1;
+	int mali_freq_num;
+
 	if(freq < 0)
 		return level;
-	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]) - 1;
-	if(freq <= mali_dvfs_clk_sample[0])
+	mali_freq_num = mali_plat_data.dvfs_table_size - 1;
+	if(freq <= mali_plat_data.clk_sample[0])
 		level = mali_freq_num-1;
-	if(freq >= mali_dvfs_clk_sample[mali_freq_num - 1])
+	if(freq >= mali_plat_data.clk_sample[mali_freq_num - 1])
 		level = 0;
 	for(i=0; i<mali_freq_num - 1 ;i++) {
-		if(freq >= mali_dvfs_clk_sample[i] && freq<=mali_dvfs_clk_sample[i+1]) {
+		if(freq >= mali_plat_data.clk_sample[i] && freq<=mali_plat_data.clk_sample[i + 1]) {
 			level = i;
-			level = mali_freq_num-level-1;
+			level = mali_freq_num-level - 1;
 		}
 	}
 	return level;
@@ -85,11 +144,8 @@ int get_mali_freq_level(int freq)
 
 unsigned int get_mali_max_level(void)
 {
-	int mali_freq_num = sizeof(mali_dvfs_clk_sample) / sizeof(mali_dvfs_clk_sample[0]);
-	return mali_freq_num - 1;
+	return mali_plat_data.dvfs_table_size - 1;
 }
-
-#define MALI_PP_NUMBER 6
 
 static struct resource mali_gpu_resources[] =
 {
@@ -103,15 +159,51 @@ static struct resource mali_gpu_resources[] =
 				INT_MALI_PP)
 };
 
+static void set_limit_mali_freq(u32 idx)
+{
+	if (mali_plat_data.limit_on == 0)
+		return;
+	if (idx > mali_plat_data.turbo_clock || idx < mali_plat_data.scale_info.minclk)
+		return;
+	mali_plat_data.scale_info.maxclk= idx;
+	revise_mali_rt();
+}
+
+static u32 get_limit_mali_freq(void)
+{
+	return mali_plat_data.scale_info.maxclk;
+}
+
+static u32 set_limit_pp_num(u32 num)
+{
+	u32 ret = -1;
+	if (mali_plat_data.limit_on == 0)
+		goto quit;
+	if (num > mali_plat_data.cfg_pp ||
+				num < mali_plat_data.scale_info.minpp)
+		goto quit;
+	mali_plat_data.scale_info.maxpp = num;
+	revise_mali_rt();
+	ret = 0;
+quit:
+	return ret;
+}
+
 #ifdef CONFIG_AM_VDEC_H264_4K2K
+static u32 grd_pp_bk = CFG_PP;
 static void mali_4k2k_enter(void)
 {
-	set_max_pp_num(1);
+	if (mali_plat_data.limit_on == 0)
+		return;
+	grd_pp_bk = mali_plat_data.scale_info.maxpp;
+	set_limit_pp_num(mali_plat_data.scale_info.minpp);
 }
 
 static void mali_4k2k_exit(void)
 {
-	set_max_pp_num(6);
+	if (mali_plat_data.limit_on == 0)
+		return;
+	set_limit_pp_num(grd_pp_bk);
 }
 
 void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
@@ -120,17 +212,16 @@ void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_f
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
-
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
 	/* for mali platform data. */
-	pdev->utilization_interval = 500,
+	pdev->utilization_interval = 300,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
 	ptr_plt_dev->resource = mali_gpu_resources;
-	return mali_clock_init(mali_default_clock_idx);
+	return mali_clock_init(&mali_plat_data);
 }
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
@@ -138,8 +229,14 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 #ifdef CONFIG_GPU_THERMAL
 	int err;
 	struct gpufreq_cooling_device *gcdev = NULL;
+	struct gpucore_cooling_device *gccdev = NULL;
+#endif
+	if (mali_core_scaling_init(&mali_plat_data) < 0)
+		return -1;
+
+#ifdef CONFIG_GPU_THERMAL
 	gcdev = gpufreq_cooling_alloc();
-    register_gpu_freq_info(get_current_frequency);
+	register_gpu_freq_info(get_current_frequency);
 	if(IS_ERR(gcdev))
 		printk("malloc gpu cooling buffer error!!\n");
 	else if(!gcdev)
@@ -147,30 +244,28 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 	else {
 		gcdev->get_gpu_freq_level = get_mali_freq_level;
 		gcdev->get_gpu_max_level = get_mali_max_level;
-		gcdev->set_gpu_freq_idx = set_max_mali_freq;
-		gcdev->get_gpu_current_max_level = get_max_mali_freq;
+		gcdev->set_gpu_freq_idx = set_limit_mali_freq;
+		gcdev->get_gpu_current_max_level = get_limit_mali_freq;
 		err = gpufreq_cooling_register(gcdev);
 		if(err < 0)
 			printk("register GPU  cooling error\n");
 		printk("gpu cooling register okay with err=%d\n",err);
 	}
-	
-	struct gpucore_cooling_device *gccdev=NULL;
+
 	gccdev=gpucore_cooling_alloc();
 	if(IS_ERR(gccdev))
 		printk("malloc gpu core cooling buffer error!!\n");
 	else if(!gccdev)
 		printk("system does not enable thermal driver\n");
 	else {
-		gccdev->max_gpu_core_num=MALI_PP_NUMBER;
-		gccdev->set_max_pp_num=set_max_pp_num;
-		err=gpucore_cooling_register(gccdev);
+		gccdev->max_gpu_core_num=mali_plat_data.cfg_pp;
+		gccdev->set_max_pp_num=set_limit_pp_num;
+		err = (int)gpucore_cooling_register(gccdev);
 		if(err < 0)
 			printk("register GPU  cooling error\n");
 		printk("gpu core cooling register okay with err=%d\n",err);
 	}
 #endif
-	mali_core_scaling_init(MALI_PP_NUMBER, mali_default_clock_idx);
 #ifdef CONFIG_AM_VDEC_H264_4K2K
 	vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
 #endif /* CONFIG_AM_VDEC_H264_4K2K */
@@ -294,7 +389,6 @@ int mali_light_resume(struct device *device)
 					MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
 					get_current_frequency(), 0,	0,	0,	0);
 #endif
-
 	return ret;
 }
 
@@ -320,5 +414,4 @@ int mali_deep_resume(struct device *device)
 	return ret;
 
 }
-#endif /* MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8 */
 

@@ -74,10 +74,6 @@ typedef enum mali_mmu_status_bits {
 struct mali_mmu_core {
 	struct mali_hw_core hw_core; /**< Common for all HW cores */
 	_mali_osk_irq_t *irq;        /**< IRQ handler */
-
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-	u32 id;
-#endif
 };
 
 _mali_osk_errcode_t mali_mmu_initialize(void);

@@ -160,17 +160,17 @@ endif
 
 ifeq ($(TARGET_PLATFORM),meson_m450)
 ccflags-y += -DCONFIG_MALI450=y
+mali-y += \
+	platform/meson_m450/scaling.o 
+
 mali-$(CONFIG_ARCH_MESON8) += \
-	platform/meson_m450/platform_m8.o \
-	platform/meson_m450/scaling_m8.o 
+	platform/meson_m450/platform_m8.o
 
 mali-$(CONFIG_ARCH_MESON6TVD) += \
-	platform/meson_m450/platform_m6tvd.o \
-	
-	
+	platform/meson_m450/platform_m6tvd.o
+
 mali-$(CONFIG_ARCH_MESON8B) += \
-	platform/meson_m450/platform_m8b.o \
-	platform/meson_m450/scaling_m8b.o 
+	platform/meson_m450/platform_m8b.o
 endif
 ##################### end Kasin Added. ###################
 
