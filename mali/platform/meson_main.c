@@ -27,8 +27,8 @@
 #include "common/mali_pmu.h"
 #include "common/mali_osk_profiling.h"
 
-static void mali_platform_device_release(struct device *device);
 int mali_pm_statue = 1;
+
 static struct mali_gpu_device_data mali_gpu_data =
 {
 	.shared_mem_size = 1024 * 1024 * 1024,
@@ -37,6 +37,7 @@ static struct mali_gpu_device_data mali_gpu_data =
 	.pmu_domain_config = {0x1, 0x2, 0x4, 0x4, 0x4, 0x8, 0x8, 0x8, 0x8, 0x1, 0x2, 0x8},
 };
 
+static void mali_platform_device_release(struct device *device);
 static struct platform_device mali_gpu_device =
 {
 	.name = MALI_GPU_NAME_UTGARD,
@@ -75,41 +76,15 @@ int mali_pdev_dts_init(struct platform_device* mali_gpu_device)
 	struct device_node     *child;
 	u32 prop_value;
 	int err;
-	mali_dvfs_threshold_table_t* tbl = NULL;
-	u32 tbl_size;
-	u32 tbl_size_in_byte;
 
 	for_each_child_of_node(cfg_node, child) {
-	err = of_property_read_u32(child, "shared_memory", &prop_value);
-	if (err == 0) {
-		MALI_DEBUG_PRINT(2, ("shared_memory configurate  %d\n", prop_value));
-		mali_gpu_data.shared_mem_size = prop_value * 1024 * 1024;
-	}
-
-	err = of_property_read_u32(child, "dvfs_size", &prop_value);
-	if (err != 0 || prop_value < 0 || prop_value > get_max_dvfs_tbl_size()) {
-		MALI_DEBUG_PRINT(2, ("invalid recorde_number is.\n"));
-		goto def_start;
-	}
-
-	tbl_size = sizeof(mali_dvfs_threshold_table_t) * prop_value;
-	tbl_size_in_byte = tbl_size / sizeof(u32);
-	tbl = kzalloc(tbl_size, GFP_KERNEL);
-		if (!tbl)
-			goto def_start;
-
-		err = of_property_read_u32_array(child,
-						"dvfs_table",
-						(u32*)tbl,
-						tbl_size_in_byte);
+		err = of_property_read_u32(child, "shared_memory", &prop_value);
 		if (err == 0) {
-			memcpy(get_mali_dvfs_tbl_addr(), tbl, tbl_size);
-			set_mali_dvfs_tbl_size(prop_value);
-			kfree(tbl);
+			MALI_DEBUG_PRINT(2, ("shared_memory configurate  %d\n", prop_value));
+			mali_gpu_data.shared_mem_size = prop_value * 1024 * 1024;
 		}
 	}
 
-def_start:
 	err = mali_pdev_pre_init(mali_gpu_device);
 	if (err == 0)
 		mali_pdev_post_init(mali_gpu_device);
@@ -141,6 +116,3 @@ static void mali_platform_device_release(struct device *device)
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_release() called\n"));
 }
 
-static int  dbg_parm = 0;
-module_param(dbg_parm, int, 0664);
-MODULE_PARM_DESC(dbg_parm, "Internal debug");

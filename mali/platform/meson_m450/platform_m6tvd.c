@@ -34,9 +34,7 @@
 #ifdef MESON_CPU_TYPE_MESON6TVD
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD
 
-u32 mali_clock_turbo_index = 3;
 u32 mali_default_clock_idx = 3;
-u32 mali_up_clock_idx = 3;
 
 /* fclk is 2Ghz. */
 #define FCLK_DEV5 (7 << 9)		/*	400   Mhz  */
@@ -85,21 +83,6 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 {
 	return 0;
-}
-
-u32 set_mali_dvfs_tbl_size(u32 size)
-{
-	return 0;
-}
-
-u32 get_max_dvfs_tbl_size(void)
-{
-	return 0;
-}
-
-uint32_t* get_mali_dvfs_tbl_addr(void)
-{
-	return NULL;
 }
 
 void mali_core_scaling_term(void)

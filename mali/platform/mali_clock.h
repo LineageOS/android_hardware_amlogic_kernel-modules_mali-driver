@@ -4,7 +4,7 @@
 typedef int (*critical_t)(size_t param);
 int mali_clock_critical(critical_t critical, size_t param);
 
-int mali_clock_init(u32 def_clk_idx);
+int mali_clock_init(mali_plat_info_t*);
 int mali_clock_set(unsigned int index);
 void disable_clock(void);
 void enable_clock(void);
