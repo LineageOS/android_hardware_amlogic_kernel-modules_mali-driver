@@ -1,6 +1,6 @@
 /*
  * platform.c
- * 
+ *
  * clock source setting and resource config
  *
  *  Created on: Dec 4, 2013
@@ -26,15 +26,15 @@
 
 #include "meson_main.h"
 
-/**
- *    For Meson 6tvd.
- * 
+/*
+ *    For Meson 8TVD.
+ *
  */
 
-#ifdef MESON_CPU_TYPE_MESON6TVD
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TVD
-
-u32 mali_default_clock_idx = 3;
+#define CFG_PP 2
+#define CFG_CLOCK 3
+#define CFG_MIN_PP 1
+#define CFG_MIN_CLOCK 0
 
 /* fclk is 2Ghz. */
 #define FCLK_DEV5 (7 << 9)		/*	400   Mhz  */
@@ -50,14 +50,25 @@ u32 mali_dvfs_clk[] = {
 };
 
 u32 mali_dvfs_clk_sample[] = {
-	182,     /* 182.1 Mhz */
-	319,     /* 318.7 Mhz */
-	425,     /* 425 Mhz */
-	510,     /* 510 Mhz */
-	637,     /* 637.5 Mhz */
+	100,     /* 182.1 Mhz */
+	200,     /* 318.7 Mhz */
+	333,     /* 425 Mhz */
+	400,     /* 510 Mhz */
 };
 
-#define MALI_PP_NUMBER 2
+static mali_plat_info_t mali_plat_data = {
+	.cfg_pp = CFG_PP,  /* number of pp. */
+	.cfg_min_pp = CFG_MIN_PP,
+	.def_clock = CFG_CLOCK, /* gpu clock used most of time.*/
+	.cfg_clock = CFG_CLOCK, /* max gpu clock. */
+	.cfg_min_clock = CFG_MIN_CLOCK,
+
+	.clk = mali_dvfs_clk, /* clock source table. */
+	.clk_sample = mali_dvfs_clk_sample, /* freqency table for show. */
+	.clk_len = sizeof(mali_dvfs_clk) / sizeof(mali_dvfs_clk[0]),
+	.have_switch = 0,
+};
+
 #define MALI_USER_PP0	AM_IRQ4(31)
 
 static struct resource mali_gpu_resources[] =
@@ -72,7 +83,7 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);
 	ptr_plt_dev->resource = mali_gpu_resources;
-	return mali_clock_init(mali_default_clock_idx);
+	return mali_clock_init(&mali_plat_data);
 }
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
@@ -83,11 +94,6 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 {
 	return 0;
-}
-
-void mali_core_scaling_term(void)
-{
-
 }
 
 static int mali_cri_pmu_on_off(size_t param)
@@ -185,5 +191,4 @@ int mali_deep_resume(struct device *device)
 	return ret;
 
 }
-#endif /* MESON_CPU_TYPE == MESON_CPU_TYPE_MESON8 */
-#endif /* define MESON_CPU_TYPE_MESON6TVD */
+

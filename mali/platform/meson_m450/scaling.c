@@ -24,7 +24,11 @@
 
 #include <meson_main.h>
 
+<<<<<<< HEAD
 #define LOG_MALI_SCALING 1
+=======
+#define LOG_MALI_SCALING 0
+>>>>>>> ae39dbaec5c0ea26fafeaf557ce022c55a9ad899
 
 static int num_cores_enabled;
 static int currentStep;
