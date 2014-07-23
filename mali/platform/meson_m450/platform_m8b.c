@@ -43,7 +43,7 @@
 #define FCLK_DEV5 (7 << 9)		/*	510   Mhz  */
 #define FCLK_DEV7 (4 << 9)		/*	364.3 Mhz  */
 
-u32 mali_dvfs_clk[] = {
+static u32 mali_dvfs_clk[] = {
 	FCLK_DEV5 | 1,     /* 255 Mhz */
 	FCLK_DEV7 | 0,     /* 364 Mhz */
 	FCLK_DEV3 | 1,     /* 425 Mhz */
@@ -51,7 +51,7 @@ u32 mali_dvfs_clk[] = {
 	FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
-u32 mali_dvfs_clk_sample[] = {
+static u32 mali_dvfs_clk_sample[] = {
 	255,     /* 182.1 Mhz */
 	364,     /* 318.7 Mhz */
 	425,     /* 425 Mhz */
@@ -91,9 +91,9 @@ static mali_plat_info_t mali_plat_data = {
 
 	.scale_info = {
 		CFG_MIN_PP, /* minpp */
-		CFG_PP, /* maxpp, should be same as cfg_pp */ 
-		CFG_MIN_CLOCK, /* minclk */ 
-		CFG_CLOCK, /* maxclk should be same as cfg_clock */ 
+		CFG_PP, /* maxpp, should be same as cfg_pp */
+		CFG_MIN_CLOCK, /* minclk */
+		CFG_CLOCK, /* maxclk should be same as cfg_clock */
 	},
 
 	.limit_on = 1,

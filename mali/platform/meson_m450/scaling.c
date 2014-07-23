@@ -346,18 +346,25 @@ void set_mali_schel_mode(u32 mode)
 	if (mode >= MALI_SCALING_MODE_MAX)
 		return;
 	scaling_mode = mode;
-	if (scaling_mode != MALI_PP_FS_SCALING) {
-		pmali_plat->scale_info.minclk = pmali_plat->cfg_min_clock;
+
+	/* set default performance range. */
+	pmali_plat->scale_info.minclk = pmali_plat->cfg_min_clock;
+	pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
+	pmali_plat->scale_info.minpp = pmali_plat->cfg_min_pp;
+	pmali_plat->scale_info.maxpp = pmali_plat->cfg_pp;
+
+	/* set current status and tune max freq */
+	if (scaling_mode == MALI_PP_FS_SCALING) {
 		pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
-		pmali_plat->scale_info.minpp = pmali_plat->cfg_min_pp;
-		pmali_plat->scale_info.maxpp = pmali_plat->cfg_pp;
+		enable_pp_cores(pmali_plat->sc_mpp);
+	} else if (scaling_mode == MALI_SCALING_DISABLE) {
+		pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
+		enable_max_num_cores();
+	} else if (scaling_mode == MALI_TURBO_MODE) {
+		pmali_plat->scale_info.maxclk = pmali_plat->turbo_clock;
+		enable_max_num_cores();
 	}
-	if (scaling_mode == MALI_TURBO_MODE) {
-		currentStep = pmali_plat->turbo_clock;
-		pmali_plat->scale_info.maxclk = currentStep;
-	} else
-		currentStep = pmali_plat->scale_info.maxclk;
-	enable_max_num_cores();
+	currentStep = pmali_plat->scale_info.maxclk;
 	schedule_work(&wq_work);
 }
 

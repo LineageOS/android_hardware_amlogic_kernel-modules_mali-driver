@@ -132,6 +132,11 @@ static _mali_osk_errcode_t mali_pmu_wait_for_command_finish(struct mali_pmu_core
 static _mali_osk_errcode_t mali_pmu_power_up_internal(struct mali_pmu_core *pmu, const u32 mask)
 {
 	u32 stat;
+	u32 active_mask;
+	u32 mask_ck;
+	u32 swt_dly;
+	u32 xxd = 1;
+
 	_mali_osk_errcode_t err;
 #if !defined(CONFIG_MALI_PMU_PARALLEL_POWER_UP)
 	u32 current_domain;
@@ -153,8 +158,17 @@ static _mali_osk_errcode_t mali_pmu_power_up_internal(struct mali_pmu_core *pmu,
 		return err;
 	}
 #else
+	active_mask = mask & stat;
+	mask_ck = active_mask;
 	for (current_domain = 1; current_domain <= pmu->registered_cores_mask; current_domain <<= 1) {
-		if (current_domain & mask & stat) {
+		if (current_domain & active_mask) {
+			if (mask_ck == 1) {
+				swt_dly = pmu->switch_delay;
+				xxd = 0;
+			}
+			else
+				swt_dly = 0xfff;
+			mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, swt_dly);
 			mali_hw_core_register_write(&pmu->hw_core, PMU_REG_ADDR_MGMT_POWER_UP, current_domain);
 
 			err = mali_pmu_wait_for_command_finish(pmu);
@@ -162,7 +176,16 @@ static _mali_osk_errcode_t mali_pmu_power_up_internal(struct mali_pmu_core *pmu,
 				return err;
 			}
 		}
+		mask_ck = mask_ck >> 1;
 	}
+	if (xxd != 0) {
+		printk("@@@@ warn\n");
+		printk("mask_ck:%d,active_mask:%d\n", mask_ck, active_mask);
+		//panic(0);
+        }
+        if (swt_dly != pmu->switch_delay)
+		mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, pmu->switch_delay);
+
 #endif
 
 #if defined(DEBUG)
