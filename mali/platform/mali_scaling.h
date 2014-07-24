@@ -51,6 +51,7 @@ typedef struct mali_plat_info_t {
 	u32 turbo_clock; /* reserved clock src. */
 	u32 def_clock; /* gpu clock used most of time.*/
 	u32 cfg_clock; /* max clock could be used.*/
+	u32 cfg_clock_bkup; /* same as cfg_clock, for backup. */
 	u32 cfg_min_clock;
 
 	u32  sc_mpp; /* number of pp used most of time.*/

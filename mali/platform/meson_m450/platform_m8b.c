@@ -75,6 +75,7 @@ static mali_plat_info_t mali_plat_data = {
 	.turbo_clock = 4, /* reserved clock src. */
 	.def_clock = 2, /* gpu clock used most of time.*/
 	.cfg_clock = CFG_CLOCK, /* max gpu clock. */
+	.cfg_clock_bkup = CFG_CLOCK,
 	.cfg_min_clock = CFG_MIN_CLOCK,
 
 	.sc_mpp = 2, /* number of pp used most of time.*/

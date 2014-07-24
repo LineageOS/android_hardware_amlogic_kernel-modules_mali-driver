@@ -173,9 +173,6 @@ mali-$(CONFIG_ARCH_MESON6TVD) += \
 mali-$(CONFIG_ARCH_MESON8B) += \
 	platform/meson_m450/platform_m8b.o
 
-mali-$(CONFIG_ARCH_MESON8M2) += \
-	platform/meson_m450/platform_m8m2.o
-
 mali-$(CONFIG_ARCH_MESONG9TV) += \
 	platform/meson_m450/platform_g9tv.o
 endif

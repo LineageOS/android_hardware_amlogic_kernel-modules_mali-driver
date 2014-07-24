@@ -75,6 +75,11 @@ static ssize_t mpgpu_write(struct class *class,
 			base = 16;
 		if (kstrtouint(cprt, base, &val) <0)
 			goto quit;
+		if (val < 11)
+			pmali_plat->cfg_clock = pmali_plat->cfg_clock_bkup;
+		else
+			pmali_plat->cfg_clock = pmali_plat->turbo_clock;
+		pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
 		set_str_src(val);
 	} else if (!strncmp(pstart, SCMPP_CMD, MAX_TOKEN)) {
 		if ((kstrtouint(cprt, 10, &val) <0) || pmali_plat == NULL)

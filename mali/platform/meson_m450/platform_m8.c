@@ -28,7 +28,7 @@
 #include "meson_main.h"
 
 /*
- *    For Meson 8.
+ *    For Meson 8 M2.
  *
  */
 
@@ -75,6 +75,7 @@ static mali_plat_info_t mali_plat_data = {
 	.turbo_clock = 4, /* reserved clock src. */
 	.def_clock = 2, /* gpu clock used most of time.*/
 	.cfg_clock = CFG_CLOCK, /* max gpu clock. */
+	.cfg_clock_bkup = CFG_CLOCK,
 	.cfg_min_clock = CFG_MIN_CLOCK,
 
 	.sc_mpp = 3, /* number of pp used most of time.*/
@@ -84,16 +85,16 @@ static mali_plat_info_t mali_plat_data = {
 	.clk = mali_dvfs_clk, /* clock source table. */
 	.clk_sample = mali_dvfs_clk_sample, /* freqency table for show. */
 	.clk_len = sizeof(mali_dvfs_clk) / sizeof(mali_dvfs_clk[0]),
-	.have_switch = 0,
+	.have_switch = 1,
 
 	.dvfs_table = mali_dvfs_table, /* DVFS table. */
 	.dvfs_table_size = sizeof(mali_dvfs_table) / sizeof(mali_dvfs_threshold_table),
 
 	.scale_info = {
 		CFG_MIN_PP, /* minpp */
-		CFG_PP, /* maxpp, should be same as cfg_pp */ 
-		CFG_MIN_CLOCK, /* minclk */ 
-		CFG_CLOCK, /* maxclk should be same as cfg_clock */ 
+		CFG_PP, /* maxpp, should be same as cfg_pp */
+		CFG_MIN_CLOCK, /* minclk */
+		CFG_CLOCK, /* maxclk should be same as cfg_clock */
 	},
 
 	.limit_on = 1,
@@ -214,6 +215,14 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
+	/* chip mark detect. */
+
+#ifdef IS_MESON_M8_CPU
+	if(IS_MESON_M8_CPU) {
+		mali_plat_data.have_switch = 0;
+	}
+#endif
+
 	/* for mali platform data. */
 	pdev->utilization_interval = 300,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
@@ -284,6 +293,7 @@ static int mali_cri_light_suspend(size_t param)
 	struct mali_pmu_core *pmu;
 
 	ret = 0;
+	mali_pm_statue = 0;
 	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
 
@@ -316,6 +326,7 @@ static int mali_cri_light_resume(size_t param)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
+	mali_pm_statue = 1;
 	return ret;
 }
 
@@ -374,14 +385,14 @@ int mali_light_suspend(struct device *device)
 
 	/* clock scaling. Kasin..*/
 	ret = mali_clock_critical(mali_cri_light_suspend, (size_t)device);
-
+	disable_clock();
 	return ret;
 }
 
 int mali_light_resume(struct device *device)
 {
 	int ret = 0;
-
+	enable_clock();
 	ret = mali_clock_critical(mali_cri_light_resume, (size_t)device);
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
