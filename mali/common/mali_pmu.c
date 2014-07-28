@@ -160,14 +160,13 @@ static _mali_osk_errcode_t mali_pmu_power_up_internal(struct mali_pmu_core *pmu,
 #else
 	active_mask = mask & stat;
 	mask_ck = active_mask;
+	swt_dly = 0xfff;
 	for (current_domain = 1; current_domain <= pmu->registered_cores_mask; current_domain <<= 1) {
 		if (current_domain & active_mask) {
 			if (mask_ck == 1) {
 				swt_dly = pmu->switch_delay;
 				xxd = 0;
 			}
-			else
-				swt_dly = 0xfff;
 			mali_hw_core_register_write_relaxed(&pmu->hw_core, PMU_REG_ADDR_MGMT_SW_DELAY, swt_dly);
 			mali_hw_core_register_write(&pmu->hw_core, PMU_REG_ADDR_MGMT_POWER_UP, current_domain);
 
