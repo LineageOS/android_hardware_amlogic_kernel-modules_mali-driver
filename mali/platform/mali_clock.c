@@ -9,7 +9,7 @@
 #include <asm/io.h>
 #include "meson_main.h"
 
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
 
 #define FCLK_MPLL2 (2 << 9)
 
