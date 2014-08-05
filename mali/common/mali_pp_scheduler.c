@@ -1786,7 +1786,7 @@ static void mali_pp_scheduler_notify_core_change(u32 num_cores)
 
 static void mali_pp_scheduler_core_scale_up(unsigned int target_core_nr)
 {
-	MALI_DEBUG_PRINT(2, ("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
+	MALI_DEBUG_PRINT(3, ("Requesting %d cores: enabling %d cores\n", target_core_nr, target_core_nr - enabled_cores));
 
 	_mali_osk_pm_dev_ref_add_no_power_on();
 	_mali_osk_pm_dev_barrier();
@@ -1824,7 +1824,7 @@ static void mali_pp_scheduler_core_scale_up(unsigned int target_core_nr)
 
 static void mali_pp_scheduler_core_scale_down(unsigned int target_core_nr)
 {
-	MALI_DEBUG_PRINT(2, ("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
+	MALI_DEBUG_PRINT(3, ("Requesting %d cores: disabling %d cores\n", target_core_nr, enabled_cores - target_core_nr));
 
 	mali_pp_scheduler_suspend();
 

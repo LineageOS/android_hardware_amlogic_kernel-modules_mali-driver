@@ -45,6 +45,11 @@ static struct sync_pt *timeline_dup(struct sync_pt *pt)
 	struct sync_pt *new_pt;
 
 	MALI_DEBUG_ASSERT_POINTER(pt);
+
+	if (NULL == pt) {
+		dump_stack();
+		return NULL;
+	}
 	mpt = to_mali_sync_pt(pt);
 
 	new_pt = sync_pt_create(pt->parent, sizeof(struct mali_sync_pt));

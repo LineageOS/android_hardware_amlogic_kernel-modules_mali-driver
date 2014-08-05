@@ -28,11 +28,11 @@
 #include "meson_main.h"
 
 /*
- *    For Meson 8B.
+ *    For Meson 8 M2.
  *
  */
 
-#define CFG_PP 2
+#define CFG_PP 6
 #define CFG_CLOCK 3
 #define CFG_MIN_PP 1
 #define CFG_MIN_CLOCK 0
@@ -44,28 +44,28 @@
 #define FCLK_DEV7 (4 << 9)		/*	364.3 Mhz  */
 
 static u32 mali_dvfs_clk[] = {
-	FCLK_DEV5 | 1,     /* 255 Mhz */
-	FCLK_DEV7 | 0,     /* 364 Mhz */
+	FCLK_DEV7 | 1,     /* 182.1 Mhz */
+	FCLK_DEV4 | 1,     /* 318.7 Mhz */
 	FCLK_DEV3 | 1,     /* 425 Mhz */
 	FCLK_DEV5 | 0,     /* 510 Mhz */
 	FCLK_DEV4 | 0,     /* 637.5 Mhz */
 };
 
 static u32 mali_dvfs_clk_sample[] = {
-	255,     /* 182.1 Mhz */
-	364,     /* 318.7 Mhz */
+	182,     /* 182.1 Mhz */
+	319,     /* 318.7 Mhz */
 	425,     /* 425 Mhz */
 	510,     /* 510 Mhz */
 	637,     /* 637.5 Mhz */
 };
 
 static mali_dvfs_threshold_table mali_dvfs_table[]={
-		{ 0, 0, 5, 0  , 180}, /* for 255  */
-		{ 1, 1, 5, 152, 205}, /* for 364  */
-		{ 2, 2, 5, 180, 212}, /* for 425  */
-		{ 3, 3, 5, 205, 236}, /* for 510  */
-		{ 4, 4, 5, 230, 256}, /* for 637  */
-		{ 0, 0, 5,   0,   0}
+		{ 0, 0, 3,  70, 180}, /* for 182.1  */
+		{ 1, 1, 3, 108, 205}, /* for 318.7  */
+		{ 2, 2, 3, 150, 215}, /* for 425.0  */
+		{ 3, 3, 3, 170, 253}, /* for 510.0  */
+		{ 4, 4, 3, 230, 256},  /* for 637.5  */
+		{ 0, 0, 3,   0,   0}
 };
 
 static void mali_plat_preheat(void);
@@ -75,10 +75,9 @@ static mali_plat_info_t mali_plat_data = {
 	.turbo_clock = 4, /* reserved clock src. */
 	.def_clock = 2, /* gpu clock used most of time.*/
 	.cfg_clock = CFG_CLOCK, /* max gpu clock. */
-	.cfg_clock_bkup = CFG_CLOCK,
 	.cfg_min_clock = CFG_MIN_CLOCK,
 
-	.sc_mpp = 2, /* number of pp used most of time.*/
+	.sc_mpp = 3, /* number of pp used most of time.*/
 	.bst_gpu = 210, /* threshold for boosting gpu. */
 	.bst_pp = 160, /* threshold for boosting PP. */
 
@@ -150,9 +149,13 @@ unsigned int get_mali_max_level(void)
 
 static struct resource mali_gpu_resources[] =
 {
-	MALI_GPU_RESOURCES_MALI450_MP2_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU, 
+	MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU,
 				INT_MALI_PP0, INT_MALI_PP0_MMU,
 				INT_MALI_PP1, INT_MALI_PP1_MMU,
+				INT_MALI_PP2, INT_MALI_PP2_MMU,
+				INT_MALI_PP4, INT_MALI_PP4_MMU,
+				INT_MALI_PP5, INT_MALI_PP5_MMU,
+				INT_MALI_PP6, INT_MALI_PP6_MMU,
 				INT_MALI_PP)
 };
 
@@ -186,13 +189,33 @@ quit:
 	return ret;
 }
 
+#ifdef CONFIG_AM_VDEC_H264_4K2K
+static u32 grd_pp_bk = CFG_PP;
+static void mali_4k2k_enter(void)
+{
+	if (mali_plat_data.limit_on == 0)
+		return;
+	grd_pp_bk = mali_plat_data.scale_info.maxpp;
+	set_limit_pp_num(mali_plat_data.scale_info.minpp);
+}
+
+static void mali_4k2k_exit(void)
+{
+	if (mali_plat_data.limit_on == 0)
+		return;
+	set_limit_pp_num(grd_pp_bk);
+}
+
+void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
+#endif /* CONFIG_AM_VDEC_H264_4K2K */
+
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
 	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
 
 	/* for mali platform data. */
-	pdev->utilization_interval = 200,
+	pdev->utilization_interval = 300,
 	pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
@@ -206,12 +229,14 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 #ifdef CONFIG_GPU_THERMAL
 	int err;
 	struct gpufreq_cooling_device *gcdev = NULL;
+	struct gpucore_cooling_device *gccdev = NULL;
 #endif
 	if (mali_core_scaling_init(&mali_plat_data) < 0)
 		return -1;
 
 #ifdef CONFIG_GPU_THERMAL
 	gcdev = gpufreq_cooling_alloc();
+	register_gpu_freq_info(get_current_frequency);
 	if(IS_ERR(gcdev))
 		printk("malloc gpu cooling buffer error!!\n");
 	else if(!gcdev)
@@ -227,7 +252,23 @@ int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 		printk("gpu cooling register okay with err=%d\n",err);
 	}
 
+	gccdev=gpucore_cooling_alloc();
+	if(IS_ERR(gccdev))
+		printk("malloc gpu core cooling buffer error!!\n");
+	else if(!gccdev)
+		printk("system does not enable thermal driver\n");
+	else {
+		gccdev->max_gpu_core_num=mali_plat_data.cfg_pp;
+		gccdev->set_max_pp_num=set_limit_pp_num;
+		err = (int)gpucore_cooling_register(gccdev);
+		if(err < 0)
+			printk("register GPU  cooling error\n");
+		printk("gpu core cooling register okay with err=%d\n",err);
+	}
 #endif
+#ifdef CONFIG_AM_VDEC_H264_4K2K
+	vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
+#endif /* CONFIG_AM_VDEC_H264_4K2K */
 	return 0;
 }
 
@@ -243,7 +284,6 @@ static int mali_cri_light_suspend(size_t param)
 	struct mali_pmu_core *pmu;
 
 	ret = 0;
-	mali_pm_statue = 0;
 	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
 
@@ -276,7 +316,6 @@ static int mali_cri_light_resume(size_t param)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
-	mali_pm_statue = 1;
 	return ret;
 }
 
@@ -335,14 +374,14 @@ int mali_light_suspend(struct device *device)
 
 	/* clock scaling. Kasin..*/
 	ret = mali_clock_critical(mali_cri_light_suspend, (size_t)device);
-	disable_clock();
+
 	return ret;
 }
 
 int mali_light_resume(struct device *device)
 {
 	int ret = 0;
-	enable_clock();
+
 	ret = mali_clock_critical(mali_cri_light_resume, (size_t)device);
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
@@ -356,9 +395,6 @@ int mali_light_resume(struct device *device)
 int mali_deep_suspend(struct device *device)
 {
 	int ret = 0;
-	struct mali_pmu_core *pmu;
-
-	pmu = mali_pmu_get_global_pmu_core();
 	enable_clock();
 	flush_scaling_job();
 
@@ -376,5 +412,6 @@ int mali_deep_resume(struct device *device)
 	enable_clock();
 	ret = mali_clock_critical(mali_cri_deep_resume, (size_t)device);
 	return ret;
+
 }
 

@@ -7,14 +7,9 @@
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
- 
- //#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-#include <linux/kernel.h>
-#include <asm/io.h>
-#include <mach/am_regs.h>
-#include <linux/module.h>
-//#endif
 
+#include <linux/types.h>
+#include <mach/cpu.h>
 #include "mali_kernel_common.h"
 #include "mali_group.h"
 #include "mali_osk.h"
@@ -1316,19 +1311,10 @@ static void mali_group_mmu_page_fault_and_unlock(struct mali_group *group)
 }
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-inline mali_bool mali_group_power_is_on_2(struct mali_group *group)
-{
-#ifdef DEBUG
-	if(_mali_osk_lock_get_owner(group->lock) == _mali_osk_get_tid())
-		return group->power_is_on;
-	else 
-		return MALI_FALSE;
-#else
-	return group->power_is_on;
+#define INT_MALI_PP2_MMU ( 6+32)
+struct _mali_osk_irq_t_struct;
+u32 get_irqnum(struct _mali_osk_irq_t_struct* irq);
 #endif
-}
-#endif
-
 _mali_osk_errcode_t mali_group_upper_half_mmu(void * data)
 {
 	_mali_osk_errcode_t err = _MALI_OSK_ERR_FAULT;
@@ -1339,20 +1325,23 @@ _mali_osk_errcode_t mali_group_upper_half_mmu(void * data)
 	MALI_DEBUG_ASSERT_POINTER(mmu);
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-	if ( MALI_FALSE == mali_group_power_is_on_2(group) )
-	{
-		if (mmu->id == 2)
-			malifix_set_mmu_int_process_state(0, MMU_INT_NONE);
-		else if (mmu->id == 3)
-			malifix_set_mmu_int_process_state(1, MMU_INT_NONE);
-		MALI_DEBUG_PRINT(4, ("Mali MMU: invalid interrupt. <<-- \n"));
+	if (MALI_FALSE == group->power_is_on)
 		MALI_SUCCESS;
-	}
-#endif
-
-#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
-	if (MALI_FALSE == mali_pm_domain_lock_state(group->pm_domain)) {
-		goto out;
+	if (get_irqnum(mmu->irq) == INT_MALI_PP2_MMU)
+	{
+		if (group->pp_core->core_id == 0) {
+			if (malifix_get_mmu_int_process_state(0) == MMU_INT_HIT)
+				malifix_set_mmu_int_process_state(0, MMU_INT_TOP);
+			else
+				MALI_SUCCESS;
+		}
+		else if (group->pp_core->core_id == 1) {
+			if (malifix_get_mmu_int_process_state(1) == MMU_INT_HIT)
+				malifix_set_mmu_int_process_state(1, MMU_INT_TOP);
+			else
+				MALI_SUCCESS;
+		} else
+			MALI_SUCCESS;
 	}
 #endif
 
@@ -1419,10 +1408,17 @@ static void mali_group_bottom_half_mmu(void *data)
 		return;
 	}
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-	if (mmu->id == 2)
-		malifix_set_mmu_int_process_state(0, MMU_INT_NONE);
-	else if (mmu->id == 3)
-		malifix_set_mmu_int_process_state(1, MMU_INT_NONE);
+	if (get_irqnum(mmu->irq) == INT_MALI_PP2_MMU)
+	{
+		if (group->pp_core->core_id == 0) {
+			if (malifix_get_mmu_int_process_state(0) == MMU_INT_TOP)
+				malifix_set_mmu_int_process_state(0, MMU_INT_NONE);
+		}
+		else if (group->pp_core->core_id == 1) {
+			if (malifix_get_mmu_int_process_state(1) == MMU_INT_TOP)
+				malifix_set_mmu_int_process_state(1, MMU_INT_NONE);
+		}
+	}
 #endif	
 
 	mali_group_unlock(group);

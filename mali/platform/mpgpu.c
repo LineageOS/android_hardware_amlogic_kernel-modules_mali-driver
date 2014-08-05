@@ -31,9 +31,11 @@ static ssize_t domain_stat_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
 	unsigned int val;
-
-#if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TV
-	val = mali_pmu_get_status();
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+	if (mali_pm_statue == 1) {
+		val = mali_pmu_get_status();
+	} else
+		val = 0x7;
 #else
 	val = 0;
 #endif
@@ -41,19 +43,76 @@ static ssize_t domain_stat_read(struct class *class,
 }
 
 #if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TVD
-static ssize_t mpgpu_read(struct class *class,
-			struct class_attribute *attr, char *buf)
-{
-    return 0;
-}
-
 #define PREHEAT_CMD "preheat"
+#define PLL2_CMD "mpl2"  /* mpl2 [11] or [0xxxxxxx] */
+#define SCMPP_CMD "scmpp"  /* scmpp [number of pp your want in most of time]. */
+#define BSTGPU_CMD "bstgpu"  /* bstgpu [0-256] */
+#define BSTPP_CMD "bstpp"  /* bstpp [0-256] */
+#define LIMIT_CMD "lmt"  /* lmt [0 or 1] */
+#define MAX_TOKEN 20
+#define FULL_UTILIZATION 256
 
 static ssize_t mpgpu_write(struct class *class,
 			struct class_attribute *attr, const char *buf, size_t count)
 {
-	if(!strncmp(buf,PREHEAT_CMD,strlen(PREHEAT_CMD)))
-		mali_plat_preheat();
+	char *pstart, *cprt = NULL;
+	u32 val = 0;
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+
+	cprt = skip_spaces(buf);
+	pstart = strsep(&cprt," ");
+	if (strlen(pstart) < 1)
+		goto quit;
+
+	if(!strncmp(pstart, PREHEAT_CMD, MAX_TOKEN)) {
+		if (pmali_plat->plat_preheat) {
+			pmali_plat->plat_preheat();
+		}
+	} else if (!strncmp(pstart, PLL2_CMD, MAX_TOKEN)) {
+		int base = 10;
+		if ((strlen(cprt) > 2) && (cprt[0] == '0') &&
+				(cprt[1] == 'x' || cprt[1] == 'X'))
+			base = 16;
+		if (kstrtouint(cprt, base, &val) <0)
+			goto quit;
+		if (val < 11)
+			pmali_plat->cfg_clock = pmali_plat->cfg_clock_bkup;
+		else
+			pmali_plat->cfg_clock = pmali_plat->turbo_clock;
+		pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
+		set_str_src(val);
+	} else if (!strncmp(pstart, SCMPP_CMD, MAX_TOKEN)) {
+		if ((kstrtouint(cprt, 10, &val) <0) || pmali_plat == NULL)
+			goto quit;
+		if ((val > 0) && (val < pmali_plat->cfg_pp)) {
+			pmali_plat->sc_mpp = val;
+		}
+	} else if (!strncmp(pstart, BSTGPU_CMD, MAX_TOKEN)) {
+		if ((kstrtouint(cprt, 10, &val) <0) || pmali_plat == NULL)
+			goto quit;
+		if ((val > 0) && (val < FULL_UTILIZATION)) {
+			pmali_plat->bst_gpu = val;
+		}
+	} else if (!strncmp(pstart, BSTPP_CMD, MAX_TOKEN)) {
+		if ((kstrtouint(cprt, 10, &val) <0) || pmali_plat == NULL)
+			goto quit;
+		if ((val > 0) && (val < FULL_UTILIZATION)) {
+			pmali_plat->bst_pp = val;
+		}
+	} else if (!strncmp(pstart, LIMIT_CMD, MAX_TOKEN)) {
+		if ((kstrtouint(cprt, 10, &val) <0) || pmali_plat == NULL)
+			goto quit;
+		
+		if (val < 2) {
+			pmali_plat->limit_on = val;
+			if (val == 0) {
+				pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
+				pmali_plat->scale_info.maxpp = pmali_plat->cfg_pp;
+				revise_mali_rt();
+			}
+		}
+	}
+quit:
 	return count;
 }
 
@@ -74,6 +133,7 @@ static ssize_t scale_mode_write(struct class *class,
 	{
 		return -EINVAL;
 	}
+
 	set_mali_schel_mode(val);
 
 	return count;
@@ -82,7 +142,8 @@ static ssize_t scale_mode_write(struct class *class,
 static ssize_t max_pp_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", get_max_pp_num());
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+	return sprintf(buf, "%d\n", pmali_plat->scale_info.maxpp);
 }
 
 static ssize_t max_pp_write(struct class *class,
@@ -90,13 +151,18 @@ static ssize_t max_pp_write(struct class *class,
 {
 	int ret;
 	unsigned int val;
+	mali_plat_info_t* pmali_plat;
+	mali_scale_info_t* pinfo;
+
+	pmali_plat = get_mali_plat_data();
+	pinfo = &pmali_plat->scale_info;
 
 	ret = kstrtouint(buf, 10, &val);
-	if (0 != ret)
-	{
+	if ((0 != ret) || (val > pmali_plat->cfg_pp) || (val < pinfo->minpp))
 		return -EINVAL;
-	}
-	ret = set_max_pp_num(val);
+
+	pinfo->maxpp = val;
+	revise_mali_rt();
 
 	return count;
 }
@@ -104,8 +170,8 @@ static ssize_t max_pp_write(struct class *class,
 static ssize_t min_pp_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
-
-	return sprintf(buf, "%d\n", get_min_pp_num());
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+	return sprintf(buf, "%d\n", pmali_plat->scale_info.minpp);
 }
 
 static ssize_t min_pp_write(struct class *class,
@@ -113,13 +179,18 @@ static ssize_t min_pp_write(struct class *class,
 {
 	int ret;
 	unsigned int val;
+	mali_plat_info_t* pmali_plat;
+	mali_scale_info_t* pinfo;
+
+	pmali_plat = get_mali_plat_data();
+	pinfo = &pmali_plat->scale_info;
 
 	ret = kstrtouint(buf, 10, &val);
-	if (0 != ret)
-	{
+	if ((0 != ret) || (val > pinfo->maxpp) || (val < 1))
 		return -EINVAL;
-	}
-	ret = set_min_pp_num(val);
+
+	pinfo->minpp = val;
+	revise_mali_rt();
 
 	return count;
 }
@@ -127,7 +198,8 @@ static ssize_t min_pp_write(struct class *class,
 static ssize_t max_freq_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", get_max_mali_freq());
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+	return sprintf(buf, "%d\n", pmali_plat->scale_info.maxclk);
 }
 
 static ssize_t max_freq_write(struct class *class,
@@ -135,13 +207,18 @@ static ssize_t max_freq_write(struct class *class,
 {
 	int ret;
 	unsigned int val;
+	mali_plat_info_t* pmali_plat;
+	mali_scale_info_t* pinfo;
+
+	pmali_plat = get_mali_plat_data();
+	pinfo = &pmali_plat->scale_info;
 
 	ret = kstrtouint(buf, 10, &val);
-	if (0 != ret)
-	{
+	if ((0 != ret) || (val > pmali_plat->cfg_clock) || (val < pinfo->minclk))
 		return -EINVAL;
-	}
-	ret = set_max_mali_freq(val);
+
+	pinfo->maxclk = val;
+	revise_mali_rt();
 
 	return count;
 }
@@ -149,7 +226,8 @@ static ssize_t max_freq_write(struct class *class,
 static ssize_t min_freq_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", get_min_mali_freq());
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+	return sprintf(buf, "%d\n", pmali_plat->scale_info.minclk);
 }
 
 static ssize_t min_freq_write(struct class *class,
@@ -157,52 +235,90 @@ static ssize_t min_freq_write(struct class *class,
 {
 	int ret;
 	unsigned int val;
+	mali_plat_info_t* pmali_plat;
+	mali_scale_info_t* pinfo;
+
+	pmali_plat = get_mali_plat_data();
+	pinfo = &pmali_plat->scale_info;
 
 	ret = kstrtouint(buf, 10, &val);
-	if (0 != ret)
-	{
+	if ((0 != ret) || (val > pinfo->maxclk))
 		return -EINVAL;
-	}
-	ret = set_min_mali_freq(val);
+
+	pinfo->minclk = val;
+	revise_mali_rt();
 
 	return count;
 }
 
-static ssize_t read_extr_src(struct class *class,
+static ssize_t freq_read(struct class *class,
 			struct class_attribute *attr, char *buf)
 {
-	return sprintf(buf, "usage echo 0(restore), 1(set fix src), xxx user mode\n");
+	return sprintf(buf, "%d\n", get_current_frequency());
 }
 
-static ssize_t write_extr_src(struct class *class,
+static ssize_t freq_write(struct class *class,
 			struct class_attribute *attr, const char *buf, size_t count)
 {
 	int ret;
 	unsigned int val;
+	u32 clk, pp;
+	get_mali_rt_clkpp(&clk, &pp);
 
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+		return -EINVAL;
+
+	set_mali_rt_clkpp(val, pp, 1);
+
+	return count;
+}
+
+static ssize_t current_pp_read(struct class *class,
+			struct class_attribute *attr, char *buf)
+{
+	u32 clk, pp;
+	get_mali_rt_clkpp(&clk, &pp);
+	return sprintf(buf, "%d\n", pp);
+}
+
+static ssize_t current_pp_write(struct class *class,
+			struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+	u32 clk, pp;
+
+	get_mali_rt_clkpp(&clk, &pp);
 	ret = kstrtouint(buf, 10, &val);
 	if (0 != ret)
 	{
 		return -EINVAL;
 	}
 
-	set_str_src(val);
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+		return -EINVAL;
+
+	set_mali_rt_clkpp(clk, val, 1);
 
 	return count;
 }
+
 #endif
 
 
 static struct class_attribute mali_class_attrs[] = {
-	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	__ATTR(mpgpucmd,	0644, mpgpu_read,	mpgpu_write),
+	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
+	__ATTR(mpgpucmd,	0644, NULL,		mpgpu_write),
 	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),
 	__ATTR(min_freq,	0644, min_freq_read,  	min_freq_write),
 	__ATTR(max_freq,	0644, max_freq_read,	max_freq_write),
 	__ATTR(min_pp,		0644, min_pp_read,	min_pp_write),
 	__ATTR(max_pp,		0644, max_pp_read,	max_pp_write),
-	__ATTR(extr_src,	0644, read_extr_src,	write_extr_src),
+	__ATTR(cur_freq,	0644, freq_read,	freq_write),
+	__ATTR(cur_pp,		0644, current_pp_read,	current_pp_write),
 #endif
 };
 
@@ -234,24 +350,4 @@ void  mpgpu_class_exit(void)
 {
 	class_unregister(&mpgpu_class);
 }
-
-#if 0
-static int __init mpgpu_init(void)
-{
-	return mpgpu_class_init();
-}
-
-static void __exit mpgpu_exit(void)
-{
-	mpgpu_class_exit();
-}
-
-fs_initcall(mpgpu_init);
-module_exit(mpgpu_exit);
-
-MODULE_DESCRIPTION("AMLOGIC  mpgpu driver");
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("aml-sh <kasin.li@amlogic.com>");
-#endif
-
 
