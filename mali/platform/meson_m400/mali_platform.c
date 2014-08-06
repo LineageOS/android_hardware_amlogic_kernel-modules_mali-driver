@@ -289,12 +289,6 @@ _mali_osk_errcode_t mali_platform_deinit(void)
 
 _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 {
-	unsigned long flags;
-	unsigned cpu_divider, mali_divider;
-	unsigned ddr_pll_setting, sys_pll_setting;
-	unsigned cpu_freq, ddr_freq;
-	int mali_flag;
-
 	MALI_DEBUG_PRINT(3, ( "mali_platform_power_mode_change power_mode=%d\n", power_mode));
 
 	switch (power_mode) {
