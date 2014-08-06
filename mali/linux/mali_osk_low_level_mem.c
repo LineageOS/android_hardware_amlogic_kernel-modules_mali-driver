@@ -82,7 +82,7 @@ void _mali_osk_cache_ensure_uncached_range_flushed(void *uncached_mapping, u32 o
 	_mali_osk_write_mem_barrier();
 }
 
-u32 _mali_osk_mem_write_safe(void *dest, const void *src, u32 size)
+u32 _mali_osk_mem_write_safe(void __user *dest, const void __user *src, u32 size)
 {
 #define MALI_MEM_SAFE_COPY_BLOCK_SIZE 4096
 	u32 retval = 0;
@@ -125,13 +125,22 @@ u32 _mali_osk_mem_write_safe(void *dest, const void *src, u32 size)
 
 _mali_osk_errcode_t _mali_ukk_mem_write_safe(_mali_uk_mem_write_safe_s *args)
 {
+	void __user *src;
+	void __user *dst;
+	struct mali_session_data *session;
+
 	MALI_DEBUG_ASSERT_POINTER(args);
 
-	if (NULL == args->ctx) {
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
+
+	if (NULL == session) {
 		return _MALI_OSK_ERR_INVALID_ARGS;
 	}
 
+	src = (void __user *)(uintptr_t)args->src;
+	dst = (void __user *)(uintptr_t)args->dest;
+
 	/* Return number of bytes actually copied */
-	args->size = _mali_osk_mem_write_safe(args->dest, args->src, args->size);
+	args->size = _mali_osk_mem_write_safe(dst, src, args->size);
 	return _MALI_OSK_ERR_OK;
 }

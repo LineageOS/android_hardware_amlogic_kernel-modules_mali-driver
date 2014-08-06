@@ -36,7 +36,8 @@ void mali_pp_job_terminate(void)
 	_mali_osk_atomic_term(&pp_counter_per_sub_job_count);
 }
 
-struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_uk_pp_start_job_s *uargs, u32 id)
+struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session,
+				       _mali_uk_pp_start_job_s __user *uargs, u32 id)
 {
 	struct mali_pp_job *job;
 	u32 perf_counter_flag;
@@ -89,13 +90,14 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 		job->num_memory_cookies = job->uargs.num_memory_cookies;
 		if (job->num_memory_cookies > 0) {
 			u32 size;
+			u32 __user *memory_cookies = (u32 __user *)(uintptr_t)job->uargs.memory_cookies;
 
 			if (job->uargs.num_memory_cookies > session->descriptor_mapping->current_nr_mappings) {
 				MALI_PRINT_ERROR(("Mali PP job: Too many memory cookies specified in job object\n"));
 				goto fail;
 			}
 
-			size = sizeof(*job->uargs.memory_cookies) * job->num_memory_cookies;
+			size = sizeof(*memory_cookies) * job->num_memory_cookies;
 
 			job->memory_cookies = _mali_osk_malloc(size);
 			if (NULL == job->memory_cookies) {
@@ -103,7 +105,7 @@ struct mali_pp_job *mali_pp_job_create(struct mali_session_data *session, _mali_
 				goto fail;
 			}
 
-			if (0 != _mali_osk_copy_from_user(job->memory_cookies, job->uargs.memory_cookies, size)) {
+			if (0 != _mali_osk_copy_from_user(job->memory_cookies, memory_cookies, size)) {
 				MALI_PRINT_ERROR(("Mali PP job: Failed to copy %d bytes of memory cookies from user!\n", size));
 				goto fail;
 			}

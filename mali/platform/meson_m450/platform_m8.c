@@ -126,7 +126,6 @@ int get_mali_freq_level(int freq)
 {
 	int mali_freq_num;
 	int i = 0, level = -1;
-	int mali_freq_num;
 
 	if(freq < 0)
 		return level;

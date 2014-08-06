@@ -590,7 +590,7 @@ static void mali_group_job_prepare_virtual(struct mali_group *group, struct mali
 				 * remove it from broadcast
 				 */
 				mali_bcast_remove_group(group->bcast_core, child);
-				MALI_DEBUG_PRINT(4, ("Mali Virtual Group: Remained PP group %0x remove from bcast_core\n", (int)child));
+				MALI_DEBUG_PRINT(4, ("Mali Virtual Group: Remained PP group %p remove from bcast_core\n", child));
 			}
 		}
 
@@ -1344,6 +1344,11 @@ _mali_osk_errcode_t mali_group_upper_half_mmu(void * data)
 			MALI_SUCCESS;
 	}
 #endif
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	if (MALI_FALSE == mali_pm_domain_lock_state(group->pm_domain)) {
+		goto out;
+	}
+#endif
 
 	/* Check if it was our device which caused the interrupt (we could be sharing the IRQ line) */
 	int_stat = mali_mmu_get_int_status(mmu);
@@ -1397,11 +1402,12 @@ static void mali_group_bottom_half_mmu(void *data)
 		/* An actual page fault has occurred. */
 #ifdef DEBUG
 		u32 fault_address = mali_mmu_get_page_fault_addr(mmu);
-		MALI_DEBUG_PRINT(2, ("Mali MMU: Page fault detected at 0x%x from bus id %d of type %s on %s\n",
-				     (void *)fault_address,
+		MALI_DEBUG_PRINT(2, ("Mali MMU: Page fault detected at 0x%08x from bus id %d of type %s on %s\n",
+				     fault_address,
 				     (status >> 6) & 0x1F,
 				     (status & 32) ? "write" : "read",
 				     mmu->hw_core.description));
+		mali_mmu_pagedir_diag(group->session->page_directory, fault_address);
 #endif
 
 		mali_group_mmu_page_fault_and_unlock(group);

@@ -1167,7 +1167,25 @@ u32 mali_kernel_core_get_gpu_minor_version(void)
 _mali_osk_errcode_t _mali_ukk_get_api_version(_mali_uk_get_api_version_s *args)
 {
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
+
+	/* check compatability */
+	if (args->version == _MALI_UK_API_VERSION) {
+		args->compatible = 1;
+	} else {
+		args->compatible = 0;
+	}
+
+	args->version = _MALI_UK_API_VERSION; /* report our version */
+
+	/* success regardless of being compatible or not */
+	MALI_SUCCESS;
+}
+
+_mali_osk_errcode_t _mali_ukk_get_api_version_v2(_mali_uk_get_api_version_v2_s *args)
+{
+	MALI_DEBUG_ASSERT_POINTER(args);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
 	/* check compatability */
 	if (args->version == _MALI_UK_API_VERSION) {
@@ -1187,12 +1205,14 @@ _mali_osk_errcode_t _mali_ukk_wait_for_notification(_mali_uk_wait_for_notificati
 	_mali_osk_errcode_t err;
 	_mali_osk_notification_t *notification;
 	_mali_osk_notification_queue_t *queue;
+	struct mali_session_data *session;
 
 	/* check input */
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
-	queue = ((struct mali_session_data *)args->ctx)->ioctl_queue;
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
+	queue = session->ioctl_queue;
 
 	/* if the queue does not exist we're currently shutting down */
 	if (NULL == queue) {
@@ -1221,12 +1241,14 @@ _mali_osk_errcode_t _mali_ukk_post_notification(_mali_uk_post_notification_s *ar
 {
 	_mali_osk_notification_t *notification;
 	_mali_osk_notification_queue_t *queue;
+	struct mali_session_data *session;
 
 	/* check input */
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
-	queue = ((struct mali_session_data *)args->ctx)->ioctl_queue;
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
+	queue = session->ioctl_queue;
 
 	/* if the queue does not exist we're currently shutting down */
 	if (NULL == queue) {
@@ -1250,9 +1272,9 @@ _mali_osk_errcode_t _mali_ukk_request_high_priority(_mali_uk_request_high_priori
 	struct mali_session_data *session;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
-	session = (struct mali_session_data *) args->ctx;
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
 
 	if (!session->use_high_priority_job_queue) {
 		session->use_high_priority_job_queue = MALI_TRUE;

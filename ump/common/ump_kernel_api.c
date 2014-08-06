@@ -167,12 +167,12 @@ _mali_osk_errcode_t _ump_uku_get_api_version(_ump_uk_api_version_s *args)
 	/* check compatability */
 	if (args->version == UMP_IOCTL_API_VERSION) {
 		DBG_MSG(3, ("API version set to newest %d (compatible)\n",
-				GET_VERSION(args->version)));
+			    GET_VERSION(args->version)));
 		args->compatible = 1;
 		session_data->api_version = args->version;
 	} else {
 		DBG_MSG(2, ("API version set to %d (incompatible with client version %d)\n",
-				GET_VERSION(UMP_IOCTL_API_VERSION), GET_VERSION(args->version)));
+			    GET_VERSION(UMP_IOCTL_API_VERSION), GET_VERSION(args->version)));
 		args->compatible = 0;
 		args->version = UMP_IOCTL_API_VERSION; /* report our version */
 	}
@@ -237,14 +237,14 @@ _mali_osk_errcode_t _ump_ukk_size_get(_ump_uk_size_get_s *user_interaction)
 	if (NULL != mem) {
 		user_interaction->size = mem->size_bytes;
 		DBG_MSG(4, ("Returning size. ID: %u, size: %lu ",
-				(ump_secure_id)user_interaction->secure_id,
-				(unsigned long)user_interaction->size));
+			    (ump_secure_id)user_interaction->secure_id,
+			    (unsigned long)user_interaction->size));
 		ump_random_mapping_put(mem);
 		ret = _MALI_OSK_ERR_OK;
 	} else {
 		user_interaction->size = 0;
 		DBG_MSG(1, ("Failed to look up mapping in ump_ioctl_size_get(). ID: %u\n",
-					(ump_secure_id)user_interaction->secure_id));
+			    (ump_secure_id)user_interaction->secure_id));
 	}
 
 	return ret;
@@ -262,7 +262,7 @@ void _ump_ukk_msync(_ump_uk_msync_s *args)
 	mem = ump_random_mapping_get(device.secure_id_map, (int)args->secure_id);
 	if (NULL == mem) {
 		DBG_MSG(1, ("Failed to look up mapping in _ump_ukk_msync(). ID: %u\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		return;
 	}
 
@@ -363,7 +363,7 @@ void _ump_ukk_switch_hw_usage(_ump_uk_switch_hw_usage_s *args)
 	mem = ump_random_mapping_get(device.secure_id_map, (int)args->secure_id);
 	if (NULL == mem) {
 		DBG_MSG(1, ("Failed to look up mapping in _ump_ukk_switch_hw_usage(). ID: %u\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		return;
 	}
 
@@ -371,19 +371,19 @@ void _ump_ukk_switch_hw_usage(_ump_uk_switch_hw_usage_s *args)
 	mem->hw_device = args->new_user;
 
 	DBG_MSG(3, ("UMP[%02u] Switch usage  Start  New: %s  Prev: %s.\n",
-				(ump_secure_id)args->secure_id,
-				args->new_user ? "MALI" : "CPU",
-				old_user ? "MALI" : "CPU"));
+		    (ump_secure_id)args->secure_id,
+		    args->new_user ? "MALI" : "CPU",
+		    old_user ? "MALI" : "CPU"));
 
 	if (!mem->is_cached) {
 		DBG_MSG(3, ("UMP[%02u] Changing owner of uncached memory. Cache flushing not needed.\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		goto out;
 	}
 
 	if (old_user == args->new_user) {
 		DBG_MSG(4, ("UMP[%02u] Setting the new_user equal to previous for. Cache flushing not needed.\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		goto out;
 	}
 	if (
@@ -391,7 +391,7 @@ void _ump_ukk_switch_hw_usage(_ump_uk_switch_hw_usage_s *args)
 		(old_user != _UMP_UK_USED_BY_CPU) && (args->new_user != _UMP_UK_USED_BY_CPU)
 	) {
 		DBG_MSG(4, ("UMP[%02u] Previous and new user is not CPU. Cache flushing not needed.\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		goto out;
 	}
 
@@ -424,7 +424,7 @@ void _ump_ukk_lock(_ump_uk_lock_s *args)
 	mem = ump_random_mapping_get(device.secure_id_map, (int)args->secure_id);
 	if (NULL == mem) {
 		DBG_MSG(1, ("UMP[%02u] Failed to look up mapping in _ump_ukk_lock(). ID: %u\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		return;
 	}
 
@@ -442,12 +442,12 @@ void _ump_ukk_unlock(_ump_uk_unlock_s *args)
 	mem = ump_random_mapping_get(device.secure_id_map, (int)args->secure_id);
 	if (NULL == mem) {
 		DBG_MSG(1, ("Failed to look up mapping in _ump_ukk_unlock(). ID: %u\n",
-					(ump_secure_id)args->secure_id));
+			    (ump_secure_id)args->secure_id));
 		return;
 	}
 
 	DBG_MSG(1, ("UMP[%02u] Unlocking. Old Lock flag:\n",
-				(u32)args->secure_id, (u32) mem->lock_usage));
+		    (u32)args->secure_id, (u32) mem->lock_usage));
 
 	mem->lock_usage = (ump_lock_usage) UMP_NOT_LOCKED;
 

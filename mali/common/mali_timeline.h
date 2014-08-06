@@ -475,21 +475,21 @@ mali_timeline_tracker_state mali_timeline_debug_get_tracker_state(struct mali_ti
  *
  * @param tracker Tracker to print.
  */
-void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker);
+void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker, _mali_osk_print_ctx *print_ctx);
 
 /**
  * Print debug information about timeline.
  *
  * @param timeline Timeline to print.
  */
-void mali_timeline_debug_print_timeline(struct mali_timeline *timeline);
+void mali_timeline_debug_print_timeline(struct mali_timeline *timeline, _mali_osk_print_ctx *print_ctx);
 
 /**
  * Print debug information about timeline system.
  *
  * @param system Timeline system to print.
  */
-void mali_timeline_debug_print_system(struct mali_timeline_system *system);
+void mali_timeline_debug_print_system(struct mali_timeline_system *system, _mali_osk_print_ctx *print_ctx);
 
 #endif /* defined(MALI_TIMELINE_DEBUG_FUNCTIONS) */
 

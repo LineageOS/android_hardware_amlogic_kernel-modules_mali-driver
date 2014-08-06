@@ -235,10 +235,20 @@ _mali_osk_errcode_t _mali_ukk_post_notification(_mali_uk_post_notification_s *ar
 
 /** @brief Verifies if the user and kernel side of this API are compatible.
  *
+ * This function is obsolete, but kept to allow old, incompatible user space
+ * clients to robustly detect the incompatibility.
+ *
  * @param args see _mali_uk_get_api_version_s in "mali_utgard_uk_types.h"
  * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
  */
 _mali_osk_errcode_t _mali_ukk_get_api_version(_mali_uk_get_api_version_s *args);
+
+/** @brief Verifies if the user and kernel side of this API are compatible.
+ *
+ * @param args see _mali_uk_get_api_version_v2_s in "mali_utgard_uk_types.h"
+ * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
+ */
+_mali_osk_errcode_t _mali_ukk_get_api_version_v2(_mali_uk_get_api_version_v2_s *args);
 
 /** @brief Get the user space settings applicable for calling process.
  *
@@ -364,49 +374,6 @@ _mali_osk_errcode_t _mali_ukk_attach_ump_mem(_mali_uk_attach_ump_mem_s *args);
  */
 _mali_osk_errcode_t _mali_ukk_release_ump_mem(_mali_uk_release_ump_mem_s *args);
 #endif /* CONFIG_MALI400_UMP */
-
-/** @brief Determine virtual-to-physical mapping of a contiguous memory range
- * (optional)
- *
- * This allows the user-side to do a virtual-to-physical address translation.
- * In conjunction with _mali_uku_map_external_mem, this can be used to do
- * direct rendering.
- *
- * This function will only succeed on a virtual range that is mapped into the
- * current process, and that is contigious.
- *
- * If va is not page-aligned, then it is rounded down to the next page
- * boundary. The remainer is added to size, such that ((u32)va)+size before
- * rounding is equal to ((u32)va)+size after rounding. The rounded modified
- * va and size will be written out into args on success.
- *
- * If the supplied size is zero, or not a multiple of the system's PAGE_SIZE,
- * then size will be rounded up to the next multiple of PAGE_SIZE before
- * translation occurs. The rounded up size will be written out into args on
- * success.
- *
- * On most OSs, virtual-to-physical address translation is a priveledged
- * function. Therefore, the implementer must validate the range supplied, to
- * ensure they are not providing arbitrary virtual-to-physical address
- * translations. While it is unlikely such a mechanism could be used to
- * compromise the security of a system on its own, it is possible it could be
- * combined with another small security risk to cause a much larger security
- * risk.
- *
- * @note This is an optional part of the interface, and is only used by certain
- * implementations of libEGL. If the platform layer in your libEGL
- * implementation does not require Virtual-to-Physical address translation,
- * then this function need not be implemented. A stub implementation should not
- * be required either, as it would only be removed by the compiler's dead code
- * elimination.
- *
- * @note if implemented, this function is entirely platform-dependant, and does
- * not exist in common code.
- *
- * @param args see _mali_uk_va_to_mali_pa_s in "mali_utgard_uk_types.h"
- * @return _MALI_OSK_ERR_OK on success, otherwise a suitable _mali_osk_errcode_t on failure.
- */
-_mali_osk_errcode_t _mali_ukk_va_to_mali_pa(_mali_uk_va_to_mali_pa_s *args);
 
 /** @} */ /* end group _mali_uk_memory */
 
@@ -536,35 +503,11 @@ _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s
 /** @addtogroup _mali_uk_profiling U/K Timeline profiling module
  * @{ */
 
-/** @brief Start recording profiling events.
- *
- * @param args see _mali_uk_profiling_start_s in "mali_utgard_uk_types.h"
- */
-_mali_osk_errcode_t _mali_ukk_profiling_start(_mali_uk_profiling_start_s *args);
-
 /** @brief Add event to profiling buffer.
  *
  * @param args see _mali_uk_profiling_add_event_s in "mali_utgard_uk_types.h"
  */
 _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s *args);
-
-/** @brief Stop recording profiling events.
- *
- * @param args see _mali_uk_profiling_stop_s in "mali_utgard_uk_types.h"
- */
-_mali_osk_errcode_t _mali_ukk_profiling_stop(_mali_uk_profiling_stop_s *args);
-
-/** @brief Retrieve a recorded profiling event.
- *
- * @param args see _mali_uk_profiling_get_event_s in "mali_utgard_uk_types.h"
- */
-_mali_osk_errcode_t _mali_ukk_profiling_get_event(_mali_uk_profiling_get_event_s *args);
-
-/** @brief Clear recorded profiling events.
- *
- * @param args see _mali_uk_profiling_clear_s in "mali_utgard_uk_types.h"
- */
-_mali_osk_errcode_t _mali_ukk_profiling_clear(_mali_uk_profiling_clear_s *args);
 
 /** @brief Return the total memory usage
  *

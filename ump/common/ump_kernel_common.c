@@ -107,8 +107,8 @@ _mali_osk_errcode_t _ump_ukk_open(void **context)
 	}
 
 	session_data->cookies_map = ump_descriptor_mapping_create(
-				UMP_COOKIES_PER_SESSION_INITIAL,
-				UMP_COOKIES_PER_SESSION_MAXIMUM);
+					    UMP_COOKIES_PER_SESSION_INITIAL,
+					    UMP_COOKIES_PER_SESSION_MAXIMUM);
 
 	if (NULL == session_data->cookies_map) {
 		MSG_ERR(("Failed to create descriptor mapping for _ump_ukk_map_mem cookies\n"));

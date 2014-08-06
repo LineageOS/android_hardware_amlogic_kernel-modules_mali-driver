@@ -89,7 +89,7 @@ MALI_STATIC_INLINE u32 mali_pp_job_get_cache_order(struct mali_pp_job *job)
 	return (NULL == job) ? 0 : job->cache_order;
 }
 
-MALI_STATIC_INLINE u32 mali_pp_job_get_user_id(struct mali_pp_job *job)
+MALI_STATIC_INLINE u64 mali_pp_job_get_user_id(struct mali_pp_job *job)
 {
 	return job->uargs.user_job_ptr;
 }

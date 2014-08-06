@@ -37,45 +37,6 @@ void _mali_osk_profiling_term(void)
 	/* Nothing to do */
 }
 
-_mali_osk_errcode_t _mali_osk_profiling_start(u32 *limit)
-{
-	/* Nothing to do */
-	return _MALI_OSK_ERR_OK;
-}
-
-_mali_osk_errcode_t _mali_osk_profiling_stop(u32 *count)
-{
-	/* Nothing to do */
-	return _MALI_OSK_ERR_OK;
-}
-
-u32 _mali_osk_profiling_get_count(void)
-{
-	return 0;
-}
-
-_mali_osk_errcode_t _mali_osk_profiling_get_event(u32 index, u64 *timestamp, u32 *event_id, u32 data[5])
-{
-	/* Nothing to do */
-	return _MALI_OSK_ERR_OK;
-}
-
-_mali_osk_errcode_t _mali_osk_profiling_clear(void)
-{
-	/* Nothing to do */
-	return _MALI_OSK_ERR_OK;
-}
-
-mali_bool _mali_osk_profiling_is_recording(void)
-{
-	return MALI_FALSE;
-}
-
-mali_bool _mali_osk_profiling_have_recording(void)
-{
-	return MALI_FALSE;
-}
-
 void _mali_osk_profiling_report_sw_counters(u32 *counters)
 {
 	trace_mali_sw_counters(_mali_osk_get_pid(), _mali_osk_get_tid(), NULL, counters);
@@ -86,12 +47,6 @@ void _mali_osk_profiling_memory_usage_get(u32 *memory_usage)
 	*memory_usage = _mali_ukk_report_memory_usage();
 }
 
-
-_mali_osk_errcode_t _mali_ukk_profiling_start(_mali_uk_profiling_start_s *args)
-{
-	return _mali_osk_profiling_start(&args->limit);
-}
-
 _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s *args)
 {
 	/* Always add process and thread identificator in the first two data elements for events from user space */
@@ -100,24 +55,12 @@ _mali_osk_errcode_t _mali_ukk_profiling_add_event(_mali_uk_profiling_add_event_s
 	return _MALI_OSK_ERR_OK;
 }
 
-_mali_osk_errcode_t _mali_ukk_profiling_stop(_mali_uk_profiling_stop_s *args)
-{
-	return _mali_osk_profiling_stop(&args->count);
-}
-
-_mali_osk_errcode_t _mali_ukk_profiling_get_event(_mali_uk_profiling_get_event_s *args)
-{
-	return _mali_osk_profiling_get_event(args->index, &args->timestamp, &args->event_id, args->data);
-}
-
-_mali_osk_errcode_t _mali_ukk_profiling_clear(_mali_uk_profiling_clear_s *args)
-{
-	return _mali_osk_profiling_clear();
-}
-
 _mali_osk_errcode_t _mali_ukk_sw_counters_report(_mali_uk_sw_counters_report_s *args)
 {
-	_mali_osk_profiling_report_sw_counters(args->counters);
+	u32 *counters = (u32 *)(uintptr_t)args->counters;
+
+	_mali_osk_profiling_report_sw_counters(counters);
+
 	return _MALI_OSK_ERR_OK;
 }
 

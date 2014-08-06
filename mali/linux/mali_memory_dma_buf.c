@@ -378,11 +378,11 @@ int mali_release_dma_buf(struct mali_session_data *session, _mali_uk_release_dma
 		return -EFAULT;
 	}
 
-	MALI_DEBUG_PRINT(3, ("Mali DMA-buf: release descriptor cookie %d\n", args.cookie));
+	MALI_DEBUG_PRINT(3, ("Mali DMA-buf: release descriptor cookie %ld\n", args.cookie));
 
 	_mali_osk_mutex_wait(session->memory_lock);
 
-	descriptor = mali_descriptor_mapping_free(session->descriptor_mapping, args.cookie);
+	descriptor = mali_descriptor_mapping_free(session->descriptor_mapping, (u32)args.cookie);
 
 	if (NULL != descriptor) {
 		MALI_DEBUG_PRINT(3, ("Mali DMA-buf: Releasing dma-buf at mali address %x\n", descriptor->mali_mapping.addr));
@@ -393,7 +393,7 @@ int mali_release_dma_buf(struct mali_session_data *session, _mali_uk_release_dma
 
 		mali_mem_descriptor_destroy(descriptor);
 	} else {
-		MALI_DEBUG_PRINT_ERROR(("Invalid memory descriptor %d used to release dma-buf\n", args.cookie));
+		MALI_DEBUG_PRINT_ERROR(("Invalid memory descriptor %ld used to release dma-buf\n", args.cookie));
 		ret = -EINVAL;
 	}
 

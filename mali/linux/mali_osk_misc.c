@@ -16,6 +16,7 @@
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
 #include <linux/sched.h>
+#include <linux/seq_file.h>
 #include <linux/module.h>
 #include "mali_osk.h"
 
@@ -39,6 +40,17 @@ u32 _mali_osk_snprintf(char *buf, u32 size, const char *fmt, ...)
 
 	va_end(args);
 	return res;
+}
+
+void _mali_osk_ctxprintf(_mali_osk_print_ctx *print_ctx, const char *fmt, ...)
+{
+	va_list args;
+	char buf[512];
+
+	va_start(args, fmt);
+	vscnprintf(buf,512,fmt,args);
+	seq_printf(print_ctx,buf);
+	va_end(args);
 }
 
 void _mali_osk_abort(void)

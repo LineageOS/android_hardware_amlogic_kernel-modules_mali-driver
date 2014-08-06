@@ -20,7 +20,7 @@
  */
 #define MALI_DLBU_SIZE 0x400
 
-u32 mali_dlbu_phys_addr = 0;
+mali_dma_addr mali_dlbu_phys_addr = 0;
 static mali_io_address mali_dlbu_cpu_addr = NULL;
 
 /**

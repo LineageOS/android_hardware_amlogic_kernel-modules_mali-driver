@@ -114,10 +114,9 @@ _mali_osk_errcode_t _mali_ukk_attach_ump_mem(_mali_uk_attach_ump_mem_s *args)
 	int md, ret;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
-	session = (struct mali_session_data *)args->ctx;
-	MALI_CHECK_NON_NULL(session, _MALI_OSK_ERR_INVALID_ARGS);
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
 
 	/* check arguments */
 	/* NULL might be a valid Mali address */
@@ -191,10 +190,9 @@ _mali_osk_errcode_t _mali_ukk_release_ump_mem(_mali_uk_release_ump_mem_s *args)
 	struct mali_session_data *session;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT(NULL != (void *)(uintptr_t)args->ctx);
 
-	session = (struct mali_session_data *)args->ctx;
-	MALI_CHECK_NON_NULL(session, _MALI_OSK_ERR_INVALID_ARGS);
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
 
 	if (_MALI_OSK_ERR_OK != mali_descriptor_mapping_get(session->descriptor_mapping, args->cookie, (void **)&descriptor)) {
 		MALI_DEBUG_PRINT(1, ("Invalid memory descriptor %d used to release ump memory\n", args->cookie));

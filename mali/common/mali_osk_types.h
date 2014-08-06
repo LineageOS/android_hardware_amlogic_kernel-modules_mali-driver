@@ -448,6 +448,10 @@ typedef struct _mali_osk_wait_queue_t_struct _mali_osk_wait_queue_t;
 
 /** @} */ /* end group uddapi */
 
+/** @brief Mali print ctx type which uses seq_file
+  */
+typedef struct seq_file _mali_osk_print_ctx;
+
 #ifdef __cplusplus
 }
 #endif

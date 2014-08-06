@@ -22,6 +22,7 @@
 #include "mali_kernel_license.h"
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
+#include <linux/bug.h>
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
 #include "mali_session.h"
@@ -222,6 +223,7 @@ struct file_operations mali_fops = {
 #else
 	.ioctl = mali_ioctl,
 #endif
+	.compat_ioctl = mali_ioctl,
 	.mmap = mali_mmap
 };
 
@@ -627,7 +629,13 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 	switch (cmd) {
 	case MALI_IOC_WAIT_FOR_NOTIFICATION:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_wait_for_notification_s), sizeof(u64)));
 		err = wait_for_notification_wrapper(session_data, (_mali_uk_wait_for_notification_s __user *)arg);
+		break;
+
+	case MALI_IOC_GET_API_VERSION_V2:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_api_version_v2_s), sizeof(u64)));
+		err = get_api_version_v2_wrapper(session_data, (_mali_uk_get_api_version_v2_s __user *)arg);
 		break;
 
 	case MALI_IOC_GET_API_VERSION:
@@ -635,61 +643,42 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		break;
 
 	case MALI_IOC_POST_NOTIFICATION:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_post_notification_s), sizeof(u64)));
 		err = post_notification_wrapper(session_data, (_mali_uk_post_notification_s __user *)arg);
 		break;
 
 	case MALI_IOC_GET_USER_SETTINGS:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_user_settings_s), sizeof(u64)));
 		err = get_user_settings_wrapper(session_data, (_mali_uk_get_user_settings_s __user *)arg);
 		break;
 
 	case MALI_IOC_REQUEST_HIGH_PRIORITY:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_request_high_priority_s), sizeof(u64)));
 		err = request_high_priority_wrapper(session_data, (_mali_uk_request_high_priority_s __user *)arg);
 		break;
 
 #if defined(CONFIG_MALI400_PROFILING)
-	case MALI_IOC_PROFILING_START:
-		err = profiling_start_wrapper(session_data, (_mali_uk_profiling_start_s __user *)arg);
-		break;
-
 	case MALI_IOC_PROFILING_ADD_EVENT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_add_event_s), sizeof(u64)));
 		err = profiling_add_event_wrapper(session_data, (_mali_uk_profiling_add_event_s __user *)arg);
 		break;
 
-	case MALI_IOC_PROFILING_STOP:
-		err = profiling_stop_wrapper(session_data, (_mali_uk_profiling_stop_s __user *)arg);
-		break;
-
-	case MALI_IOC_PROFILING_GET_EVENT:
-		err = profiling_get_event_wrapper(session_data, (_mali_uk_profiling_get_event_s __user *)arg);
-		break;
-
-	case MALI_IOC_PROFILING_CLEAR:
-		err = profiling_clear_wrapper(session_data, (_mali_uk_profiling_clear_s __user *)arg);
-		break;
-
-	case MALI_IOC_PROFILING_GET_CONFIG:
-		/* Deprecated: still compatible with get_user_settings */
-		err = get_user_settings_wrapper(session_data, (_mali_uk_get_user_settings_s __user *)arg);
-		break;
-
 	case MALI_IOC_PROFILING_REPORT_SW_COUNTERS:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_sw_counters_report_s), sizeof(u64)));
 		err = profiling_report_sw_counters_wrapper(session_data, (_mali_uk_sw_counters_report_s __user *)arg);
 		break;
 
 
 	case MALI_IOC_PROFILING_MEMORY_USAGE_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_profiling_memory_usage_get_s), sizeof(u64)));
 		err = profiling_memory_usage_get_wrapper(session_data, (_mali_uk_profiling_memory_usage_get_s __user *)arg);
 		break;
 
 #else
 
-	case MALI_IOC_PROFILING_START:              /* FALL-THROUGH */
 	case MALI_IOC_PROFILING_ADD_EVENT:          /* FALL-THROUGH */
-	case MALI_IOC_PROFILING_STOP:               /* FALL-THROUGH */
-	case MALI_IOC_PROFILING_GET_EVENT:          /* FALL-THROUGH */
-	case MALI_IOC_PROFILING_CLEAR:              /* FALL-THROUGH */
-	case MALI_IOC_PROFILING_GET_CONFIG:         /* FALL-THROUGH */
 	case MALI_IOC_PROFILING_REPORT_SW_COUNTERS: /* FALL-THROUGH */
+	case MALI_IOC_PROFILING_MEMORY_USAGE_GET:   /* FALL-THROUGH */
 		MALI_DEBUG_PRINT(2, ("Profiling not supported\n"));
 		err = -ENOTTY;
 		break;
@@ -697,32 +686,39 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 #endif
 
 	case MALI_IOC_MEM_WRITE_SAFE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_mem_write_safe_s), sizeof(u64)));
 		err = mem_write_safe_wrapper(session_data, (_mali_uk_mem_write_safe_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_MAP_EXT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_map_external_mem_s), sizeof(u64)));
 		err = mem_map_ext_wrapper(session_data, (_mali_uk_map_external_mem_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_UNMAP_EXT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_unmap_external_mem_s), sizeof(u64)));
 		err = mem_unmap_ext_wrapper(session_data, (_mali_uk_unmap_external_mem_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_query_mmu_page_table_dump_size_s), sizeof(u64)));
 		err = mem_query_mmu_page_table_dump_size_wrapper(session_data, (_mali_uk_query_mmu_page_table_dump_size_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_DUMP_MMU_PAGE_TABLE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_dump_mmu_page_table_s), sizeof(u64)));
 		err = mem_dump_mmu_page_table_wrapper(session_data, (_mali_uk_dump_mmu_page_table_s __user *)arg);
 		break;
 
 #if defined(CONFIG_MALI400_UMP)
 
 	case MALI_IOC_MEM_ATTACH_UMP:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_attach_ump_mem_s), sizeof(u64)));
 		err = mem_attach_ump_wrapper(session_data, (_mali_uk_attach_ump_mem_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_RELEASE_UMP:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_release_ump_mem_s), sizeof(u64)));
 		err = mem_release_ump_wrapper(session_data, (_mali_uk_release_ump_mem_s __user *)arg);
 		break;
 
@@ -737,14 +733,17 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
 	case MALI_IOC_MEM_ATTACH_DMA_BUF:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_attach_dma_buf_s), sizeof(u64)));
 		err = mali_attach_dma_buf(session_data, (_mali_uk_attach_dma_buf_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_RELEASE_DMA_BUF:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_release_dma_buf_s), sizeof(u64)));
 		err = mali_release_dma_buf(session_data, (_mali_uk_release_dma_buf_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_DMA_BUF_GET_SIZE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_dma_buf_get_size_s), sizeof(u64)));
 		err = mali_dma_buf_get_size(session_data, (_mali_uk_dma_buf_get_size_s __user *)arg);
 		break;
 #else
@@ -758,71 +757,74 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 #endif
 
 	case MALI_IOC_PP_START_JOB:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pp_start_job_s), sizeof(u64)));
 		err = pp_start_job_wrapper(session_data, (_mali_uk_pp_start_job_s __user *)arg);
 		break;
 
 	case MALI_IOC_PP_AND_GP_START_JOB:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pp_and_gp_start_job_s), sizeof(u64)));
 		err = pp_and_gp_start_job_wrapper(session_data, (_mali_uk_pp_and_gp_start_job_s __user *)arg);
 		break;
 
 	case MALI_IOC_PP_NUMBER_OF_CORES_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_pp_number_of_cores_s), sizeof(u64)));
 		err = pp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_pp_number_of_cores_s __user *)arg);
 		break;
 
 	case MALI_IOC_PP_CORE_VERSION_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_pp_core_version_s), sizeof(u64)));
 		err = pp_get_core_version_wrapper(session_data, (_mali_uk_get_pp_core_version_s __user *)arg);
 		break;
 
 	case MALI_IOC_PP_DISABLE_WB:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pp_disable_wb_s), sizeof(u64)));
 		err = pp_disable_wb_wrapper(session_data, (_mali_uk_pp_disable_wb_s __user *)arg);
 		break;
 
 	case MALI_IOC_GP2_START_JOB:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_gp_start_job_s), sizeof(u64)));
 		err = gp_start_job_wrapper(session_data, (_mali_uk_gp_start_job_s __user *)arg);
 		break;
 
 	case MALI_IOC_GP2_NUMBER_OF_CORES_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_gp_number_of_cores_s), sizeof(u64)));
 		err = gp_get_number_of_cores_wrapper(session_data, (_mali_uk_get_gp_number_of_cores_s __user *)arg);
 		break;
 
 	case MALI_IOC_GP2_CORE_VERSION_GET:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_get_gp_core_version_s), sizeof(u64)));
 		err = gp_get_core_version_wrapper(session_data, (_mali_uk_get_gp_core_version_s __user *)arg);
 		break;
 
 	case MALI_IOC_GP2_SUSPEND_RESPONSE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_gp_suspend_response_s), sizeof(u64)));
 		err = gp_suspend_response_wrapper(session_data, (_mali_uk_gp_suspend_response_s __user *)arg);
 		break;
 
 	case MALI_IOC_VSYNC_EVENT_REPORT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_vsync_event_report_s), sizeof(u64)));
 		err = vsync_event_report_wrapper(session_data, (_mali_uk_vsync_event_report_s __user *)arg);
 		break;
 
 	case MALI_IOC_TIMELINE_GET_LATEST_POINT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_timeline_get_latest_point_s), sizeof(u64)));
 		err = timeline_get_latest_point_wrapper(session_data, (_mali_uk_timeline_get_latest_point_s __user *)arg);
 		break;
 	case MALI_IOC_TIMELINE_WAIT:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_timeline_wait_s), sizeof(u64)));
 		err = timeline_wait_wrapper(session_data, (_mali_uk_timeline_wait_s __user *)arg);
 		break;
 	case MALI_IOC_TIMELINE_CREATE_SYNC_FENCE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_timeline_create_sync_fence_s), sizeof(u64)));
 		err = timeline_create_sync_fence_wrapper(session_data, (_mali_uk_timeline_create_sync_fence_s __user *)arg);
 		break;
 	case MALI_IOC_SOFT_JOB_START:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_soft_job_start_s), sizeof(u64)));
 		err = soft_job_start_wrapper(session_data, (_mali_uk_soft_job_start_s __user *)arg);
 		break;
 	case MALI_IOC_SOFT_JOB_SIGNAL:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_soft_job_signal_s), sizeof(u64)));
 		err = soft_job_signal_wrapper(session_data, (_mali_uk_soft_job_signal_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_INIT: /* Fallthrough */
-	case MALI_IOC_MEM_TERM: /* Fallthrough */
-		MALI_DEBUG_PRINT(2, ("Deprecated ioctls called\n"));
-		err = -ENOTTY;
-		break;
-
-	case MALI_IOC_MEM_GET_BIG_BLOCK: /* Fallthrough */
-	case MALI_IOC_MEM_FREE_BIG_BLOCK:
-		MALI_PRINT_ERROR(("Non-MMU mode is no longer supported.\n"));
-		err = -ENOTTY;
 		break;
 
 	default:

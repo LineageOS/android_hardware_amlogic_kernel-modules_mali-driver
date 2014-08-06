@@ -364,7 +364,7 @@ _mali_osk_errcode_t _mali_ukk_gp_start_job(void *ctx, _mali_uk_gp_start_job_s *u
 		return _MALI_OSK_ERR_NOMEM;
 	}
 
-	timeline_point_ptr = (u32 __user *) job->uargs.timeline_point_ptr;
+	timeline_point_ptr = (u32 __user *)(uintptr_t)job->uargs.timeline_point_ptr;
 
 	point = mali_gp_scheduler_submit_job(session, job);
 
@@ -379,7 +379,8 @@ _mali_osk_errcode_t _mali_ukk_gp_start_job(void *ctx, _mali_uk_gp_start_job_s *u
 _mali_osk_errcode_t _mali_ukk_get_gp_number_of_cores(_mali_uk_get_gp_number_of_cores_s *args)
 {
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT_POINTER((struct mali_session_data *)(uintptr_t)args->ctx);
+
 	args->number_of_cores = 1;
 	return _MALI_OSK_ERR_OK;
 }
@@ -387,27 +388,18 @@ _mali_osk_errcode_t _mali_ukk_get_gp_number_of_cores(_mali_uk_get_gp_number_of_c
 _mali_osk_errcode_t _mali_ukk_get_gp_core_version(_mali_uk_get_gp_core_version_s *args)
 {
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
+	MALI_DEBUG_ASSERT_POINTER((struct mali_session_data *)(uintptr_t)args->ctx);
+
 	args->version = gp_version;
 	return _MALI_OSK_ERR_OK;
 }
 
 _mali_osk_errcode_t _mali_ukk_gp_suspend_response(_mali_uk_gp_suspend_response_s *args)
 {
-	struct mali_session_data *session;
 	struct mali_gp_job *resumed_job;
 	_mali_osk_notification_t *new_notification = NULL;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-
-	if (NULL == args->ctx) {
-		return _MALI_OSK_ERR_INVALID_ARGS;
-	}
-
-	session = (struct mali_session_data *)args->ctx;
-	if (NULL == session) {
-		return _MALI_OSK_ERR_FAULT;
-	}
 
 	if (_MALIGP_JOB_RESUME_WITH_NEW_HEAP == args->code) {
 		new_notification = _mali_osk_notification_create(_MALI_NOTIFICATION_GP_STALLED, sizeof(_mali_uk_gp_job_suspended_s));

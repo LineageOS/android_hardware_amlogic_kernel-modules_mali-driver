@@ -49,6 +49,7 @@
 #include "mali_gp_job.h"
 #include "mali_pp_job.h"
 #include "mali_pp_scheduler.h"
+#include "mali_session.h"
 
 #define PRIVATE_DATA_COUNTER_MAKE_GP(src) (src)
 #define PRIVATE_DATA_COUNTER_MAKE_PP(src) ((1 << 24) | src)
@@ -168,10 +169,10 @@ static const struct file_operations hw_core_base_addr_fops = {
 
 static ssize_t profiling_counter_src_read(struct file *filp, char __user *ubuf, size_t cnt, loff_t *ppos)
 {
-	u32 is_pp = PRIVATE_DATA_COUNTER_IS_PP((u32)filp->private_data);
-	u32 src_id = PRIVATE_DATA_COUNTER_GET_SRC((u32)filp->private_data);
-	mali_bool is_sub_job = PRIVATE_DATA_COUNTER_IS_SUB_JOB((u32)filp->private_data);
-	u32 sub_job = PRIVATE_DATA_COUNTER_GET_SUB_JOB((u32)filp->private_data);
+	u32 is_pp = PRIVATE_DATA_COUNTER_IS_PP((uintptr_t)filp->private_data);
+	u32 src_id = PRIVATE_DATA_COUNTER_GET_SRC((uintptr_t)filp->private_data);
+	mali_bool is_sub_job = PRIVATE_DATA_COUNTER_IS_SUB_JOB((uintptr_t)filp->private_data);
+	u32 sub_job = PRIVATE_DATA_COUNTER_GET_SUB_JOB((uintptr_t)filp->private_data);
 	char buf[64];
 	int r;
 	u32 val;
@@ -213,10 +214,10 @@ static ssize_t profiling_counter_src_read(struct file *filp, char __user *ubuf, 
 
 static ssize_t profiling_counter_src_write(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *ppos)
 {
-	u32 is_pp = PRIVATE_DATA_COUNTER_IS_PP((u32)filp->private_data);
-	u32 src_id = PRIVATE_DATA_COUNTER_GET_SRC((u32)filp->private_data);
-	mali_bool is_sub_job = PRIVATE_DATA_COUNTER_IS_SUB_JOB((u32)filp->private_data);
-	u32 sub_job = PRIVATE_DATA_COUNTER_GET_SUB_JOB((u32)filp->private_data);
+	u32 is_pp = PRIVATE_DATA_COUNTER_IS_PP((uintptr_t)filp->private_data);
+	u32 src_id = PRIVATE_DATA_COUNTER_GET_SRC((uintptr_t)filp->private_data);
+	mali_bool is_sub_job = PRIVATE_DATA_COUNTER_IS_SUB_JOB((uintptr_t)filp->private_data);
+	u32 sub_job = PRIVATE_DATA_COUNTER_GET_SUB_JOB((uintptr_t)filp->private_data);
 	char buf[64];
 	long val;
 	int ret;
@@ -950,9 +951,11 @@ static int mali_sysfs_user_settings_register(void)
 	struct dentry *mali_user_settings_dir = debugfs_create_dir("userspace_settings", mali_debugfs_dir);
 
 	if (mali_user_settings_dir != NULL) {
-		int i;
+		long i;
 		for (i = 0; i < _MALI_UK_USER_SETTING_MAX; i++) {
-			debugfs_create_file(_mali_uk_user_setting_descriptions[i], 0600, mali_user_settings_dir, (void *)i, &user_settings_fops);
+			debugfs_create_file(_mali_uk_user_setting_descriptions[i],
+					    0600, mali_user_settings_dir, (void *)i,
+					    &user_settings_fops);
 		}
 	}
 
@@ -1176,6 +1179,39 @@ static const struct file_operations version_fops = {
 	.read = version_read,
 };
 
+#if defined(DEBUG)
+static int timeline_debugfs_show(struct seq_file *s, void *private_data)
+{
+	struct mali_session_data *session, *tmp;
+	u32 session_seq = 1;
+
+	seq_printf(s, "timeline system info: \n=================\n\n");
+
+    	mali_session_lock();
+	MALI_SESSION_FOREACH(session, tmp, link){
+		seq_printf(s, "session %d <%p> start:\n", session_seq,session);
+		mali_timeline_debug_print_system(session->timeline_system,s);
+		seq_printf(s, "session %d end\n\n\n", session_seq++);
+	}
+	mali_session_unlock();
+
+	return 0;
+}
+
+static int timeline_debugfs_open( struct inode *inode, struct file *file)
+{
+	return single_open(file, timeline_debugfs_show, inode->i_private);
+}
+
+static const struct file_operations timeline_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = timeline_debugfs_open,
+	.read  = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release
+};
+#endif
+
 int mali_sysfs_register(const char *mali_dev_name)
 {
 	mali_debugfs_dir = debugfs_create_dir(mali_dev_name, NULL);
@@ -1209,7 +1245,7 @@ int mali_sysfs_register(const char *mali_dev_name)
 			mali_gp_dir = debugfs_create_dir("gp", mali_debugfs_dir);
 			if (mali_gp_dir != NULL) {
 				u32 num_groups;
-				int i;
+				long i;
 
 				num_groups = mali_group_get_glob_num_groups();
 				for (i = 0; i < num_groups; i++) {
@@ -1232,7 +1268,7 @@ int mali_sysfs_register(const char *mali_dev_name)
 			mali_pp_dir = debugfs_create_dir("pp", mali_debugfs_dir);
 			if (mali_pp_dir != NULL) {
 				u32 num_groups;
-				int i;
+				long i;
 
 				debugfs_create_file("num_cores_total", 0400, mali_pp_dir, NULL, &pp_num_cores_total_fops);
 				debugfs_create_file("num_cores_enabled", 0600, mali_pp_dir, NULL, &pp_num_cores_enabled_fops);
@@ -1298,7 +1334,7 @@ int mali_sysfs_register(const char *mali_dev_name)
 			mali_profiling_dir = debugfs_create_dir("profiling", mali_debugfs_dir);
 			if (mali_profiling_dir != NULL) {
 				u32 max_sub_jobs;
-				int i;
+				long i;
 				struct dentry *mali_profiling_gp_dir;
 				struct dentry *mali_profiling_pp_dir;
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
@@ -1331,8 +1367,14 @@ int mali_sysfs_register(const char *mali_dev_name)
 					_mali_osk_snprintf(buf, sizeof(buf), "%u", i);
 					mali_profiling_pp_x_dir = debugfs_create_dir(buf, mali_profiling_pp_dir);
 					if (NULL != mali_profiling_pp_x_dir) {
-						debugfs_create_file("counter_src0", 0600, mali_profiling_pp_x_dir, (void *)PRIVATE_DATA_COUNTER_MAKE_PP_SUB_JOB(0, i), &profiling_counter_src_fops);
-						debugfs_create_file("counter_src1", 0600, mali_profiling_pp_x_dir, (void *)PRIVATE_DATA_COUNTER_MAKE_PP_SUB_JOB(1, i), &profiling_counter_src_fops);
+						debugfs_create_file("counter_src0",
+								    0600, mali_profiling_pp_x_dir,
+								    (void *)PRIVATE_DATA_COUNTER_MAKE_PP_SUB_JOB(0, i),
+								    &profiling_counter_src_fops);
+						debugfs_create_file("counter_src1",
+								    0600, mali_profiling_pp_x_dir,
+								    (void *)PRIVATE_DATA_COUNTER_MAKE_PP_SUB_JOB(1, i),
+								    &profiling_counter_src_fops);
 					}
 				}
 
@@ -1354,6 +1396,9 @@ int mali_sysfs_register(const char *mali_dev_name)
 			debugfs_create_file("state_dump", 0400, mali_debugfs_dir, NULL, &mali_seq_internal_state_fops);
 #endif
 
+#if defined(DEBUG)
+			debugfs_create_file("timeline_dump", 0400, mali_debugfs_dir, NULL, &timeline_dump_fops);
+#endif
 			if (mali_sysfs_user_settings_register()) {
 				/* Failed to create the debugfs entries for the user settings DB. */
 				MALI_DEBUG_PRINT(2, ("Failed to create user setting debugfs files. Ignoring...\n"));

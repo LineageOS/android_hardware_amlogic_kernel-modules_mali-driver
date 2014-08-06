@@ -74,7 +74,7 @@ ump_random_mapping *ump_random_mapping_create(void)
 		return NULL;
 
 	map->lock = _mali_osk_mutex_rw_init(_MALI_OSK_LOCKFLAG_ORDERED,
-			_MALI_OSK_LOCK_ORDER_DESCRIPTOR_MAP);
+					    _MALI_OSK_LOCK_ORDER_DESCRIPTOR_MAP);
 	if (NULL != map->lock) {
 		map->root = RB_ROOT;
 #if UMP_RANDOM_MAP_DELAY
@@ -135,8 +135,7 @@ ump_dd_mem *ump_random_mapping_get(ump_random_mapping *map, int id)
 		map->failed.count++;
 
 		if (time_is_before_jiffies(map->failed.timestamp +
-				UMP_FAILED_LOOKUP_DELAY * HZ))
-		{
+					   UMP_FAILED_LOOKUP_DELAY * HZ)) {
 			/* If it is a long time since last failure, reset
 			 * the counter and skip the delay this time. */
 			map->failed.count = 0;
@@ -182,7 +181,7 @@ void ump_random_mapping_put(ump_dd_mem *mem)
 
 	new_ref = _ump_osk_atomic_dec_and_read(&mem->ref_count);
 	DBG_MSG(5, ("Memory reference decremented. ID: %u, new value: %d\n",
-				mem->secure_id, new_ref));
+		    mem->secure_id, new_ref));
 
 	if (0 == new_ref) {
 		DBG_MSG(3, ("Final release of memory. ID: %u\n", mem->secure_id));

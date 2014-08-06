@@ -1237,6 +1237,17 @@ void _mali_osk_dbgmsg(const char *fmt, ...);
  */
 u32 _mali_osk_snprintf(char *buf, u32 size, const char *fmt, ...);
 
+/** @brief Print fmt into print_ctx.
+ *
+ * The interpretation of \a fmt is the same as the \c format parameter in
+ * _mali_osu_vsnprintf().
+ *
+ * @param print_ctx a pointer to the result file buffer
+ * @param fmt a _mali_osu_vsnprintf() style format string
+ * @param ... a variable-number of parameters suitable for \a fmt
+ */
+void _mali_osk_ctxprintf(_mali_osk_print_ctx *print_ctx, const char *fmt, ...);
+
 /** @brief Abnormal process abort.
  *
  * Terminates the caller-process if this function is called.

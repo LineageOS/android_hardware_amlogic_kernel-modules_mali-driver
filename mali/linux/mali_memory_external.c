@@ -31,9 +31,8 @@ _mali_osk_errcode_t _mali_ukk_map_external_mem(_mali_uk_map_external_mem_s *args
 	_mali_osk_errcode_t err;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
 
-	session = (struct mali_session_data *)args->ctx;
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
 	MALI_CHECK_NON_NULL(session, _MALI_OSK_ERR_INVALID_ARGS);
 
 	/* check arguments */
@@ -45,10 +44,8 @@ _mali_osk_errcode_t _mali_ukk_map_external_mem(_mali_uk_map_external_mem_s *args
 
 	MALI_DEBUG_PRINT(3,
 			 ("Requested to map physical memory 0x%x-0x%x into virtual memory 0x%x\n",
-			  (void *)args->phys_addr,
-			  (void *)(args->phys_addr + args->size - 1),
-			  (void *)args->mali_address)
-			);
+			  args->phys_addr, (args->phys_addr + args->size - 1),
+			  args->mali_address));
 
 	/* Validate the mali physical range */
 	if (_MALI_OSK_ERR_OK != mali_mem_validation_check(args->phys_addr, args->size)) {
@@ -106,9 +103,8 @@ _mali_osk_errcode_t _mali_ukk_unmap_external_mem(_mali_uk_unmap_external_mem_s *
 	struct mali_session_data *session;
 
 	MALI_DEBUG_ASSERT_POINTER(args);
-	MALI_CHECK_NON_NULL(args->ctx, _MALI_OSK_ERR_INVALID_ARGS);
 
-	session = (struct mali_session_data *)args->ctx;
+	session = (struct mali_session_data *)(uintptr_t)args->ctx;
 	MALI_CHECK_NON_NULL(session, _MALI_OSK_ERR_INVALID_ARGS);
 
 	if (_MALI_OSK_ERR_OK != mali_descriptor_mapping_get(session->descriptor_mapping, args->cookie, (void **)&descriptor)) {

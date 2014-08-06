@@ -19,7 +19,7 @@
 
 typedef struct mali_dma_cmd_buf {
 	u32 *virt_addr;           /**< CPU address of command buffer */
-	u32 phys_addr;            /**< Physical address of command buffer */
+	mali_dma_addr phys_addr;  /**< Physical address of command buffer */
 	u32 size;                 /**< Number of prepared words in command buffer */
 } mali_dma_cmd_buf;
 

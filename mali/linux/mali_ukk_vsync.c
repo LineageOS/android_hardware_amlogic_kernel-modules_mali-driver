@@ -28,7 +28,7 @@ int vsync_event_report_wrapper(struct mali_session_data *session_data, _mali_uk_
 		return -EFAULT;
 	}
 
-	kargs.ctx = session_data;
+	kargs.ctx = (uintptr_t)session_data;
 	err = _mali_ukk_vsync_event_report(&kargs);
 	if (_MALI_OSK_ERR_OK != err) {
 		return map_errcode(err);

@@ -15,15 +15,6 @@
 #include "mali_mmu_page_directory.h"
 #include "mali_hw_core.h"
 
-#include <linux/kernel.h>
-#include <asm/io.h>
-#include <mach/am_regs.h>
-#include <linux/module.h>
-#if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
-#include "meson_m400/mali_fix.h"
-#endif
-
-
 /* Forward declaration from mali_group.h */
 struct mali_group;
 

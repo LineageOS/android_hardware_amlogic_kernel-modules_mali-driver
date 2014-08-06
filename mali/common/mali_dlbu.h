@@ -17,10 +17,9 @@
 
 struct mali_pp_job;
 struct mali_group;
-
-extern u32 mali_dlbu_phys_addr;
-
 struct mali_dlbu_core;
+
+extern mali_dma_addr mali_dlbu_phys_addr;
 
 _mali_osk_errcode_t mali_dlbu_initialize(void);
 void mali_dlbu_terminate(void);

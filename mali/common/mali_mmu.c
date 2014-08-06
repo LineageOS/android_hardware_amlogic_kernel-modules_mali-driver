@@ -45,15 +45,15 @@ MALI_STATIC_INLINE _mali_osk_errcode_t mali_mmu_raw_reset(struct mali_mmu_core *
 
 /* page fault queue flush helper pages
  * note that the mapping pointers are currently unused outside of the initialization functions */
-static u32 mali_page_fault_flush_page_directory = MALI_INVALID_PAGE;
+static mali_dma_addr mali_page_fault_flush_page_directory = MALI_INVALID_PAGE;
 static mali_io_address mali_page_fault_flush_page_directory_mapping = NULL;
-static u32 mali_page_fault_flush_page_table = MALI_INVALID_PAGE;
+static mali_dma_addr mali_page_fault_flush_page_table = MALI_INVALID_PAGE;
 static mali_io_address mali_page_fault_flush_page_table_mapping = NULL;
-static u32 mali_page_fault_flush_data_page = MALI_INVALID_PAGE;
+static mali_dma_addr mali_page_fault_flush_data_page = MALI_INVALID_PAGE;
 static mali_io_address mali_page_fault_flush_data_page_mapping = NULL;
 
 /* an empty page directory (no address valid) which is active on any MMU not currently marked as in use */
-static u32 mali_empty_page_directory_phys   = MALI_INVALID_PAGE;
+static mali_dma_addr mali_empty_page_directory_phys   = MALI_INVALID_PAGE;
 static mali_io_address mali_empty_page_directory_virt = NULL;
 
 
@@ -93,9 +93,12 @@ void mali_mmu_terminate(void)
 	mali_empty_page_directory_virt = NULL;
 
 	/* Free the page fault flush pages */
-	mali_destroy_fault_flush_pages(&mali_page_fault_flush_page_directory, &mali_page_fault_flush_page_directory_mapping,
-				       &mali_page_fault_flush_page_table, &mali_page_fault_flush_page_table_mapping,
-				       &mali_page_fault_flush_data_page, &mali_page_fault_flush_data_page_mapping);
+	mali_destroy_fault_flush_pages(&mali_page_fault_flush_page_directory,
+				       &mali_page_fault_flush_page_directory_mapping,
+				       &mali_page_fault_flush_page_table,
+				       &mali_page_fault_flush_page_table_mapping,
+				       &mali_page_fault_flush_data_page,
+				       &mali_page_fault_flush_data_page_mapping);
 }
 
 struct mali_mmu_core *mali_mmu_create(_mali_osk_resource_t *resource, struct mali_group *group, mali_bool is_virtual)
@@ -106,9 +109,8 @@ struct mali_mmu_core *mali_mmu_create(_mali_osk_resource_t *resource, struct mal
 
 	MALI_DEBUG_PRINT(2, ("Mali MMU: Creating Mali MMU: %s\n", resource->description));
 
-	mmu = _mali_osk_calloc(1,sizeof(struct mali_mmu_core));
-	if (NULL != mmu)
-	{
+	mmu = _mali_osk_calloc(1, sizeof(struct mali_mmu_core));
+	if (NULL != mmu) {
 		if (_MALI_OSK_ERR_OK == mali_hw_core_create(&mmu->hw_core, resource, MALI_MMU_REGISTERS_SIZE)) {
 			if (_MALI_OSK_ERR_OK == mali_group_add_mmu_core(group, mmu)) {
 				if (is_virtual) {
