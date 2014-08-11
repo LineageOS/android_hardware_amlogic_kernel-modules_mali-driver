@@ -38,8 +38,6 @@
 u32 mali_dvfs_clk[1];
 u32 mali_dvfs_clk_sample[1];
 
-static struct mali_dvfs_threshold_table mali_dvfs_threshold[1];
-
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6TV
 #undef INT_MALI_GP
 #undef INT_MALI_GP_MMU

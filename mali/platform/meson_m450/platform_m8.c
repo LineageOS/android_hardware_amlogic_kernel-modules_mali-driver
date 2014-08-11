@@ -124,11 +124,12 @@ mali_plat_info_t* get_mali_plat_data(void) {
 
 int get_mali_freq_level(int freq)
 {
-	int i = 0, level = -1;
 	int mali_freq_num;
+	int i = 0, level = -1;
 
 	if(freq < 0)
 		return level;
+
 	mali_freq_num = mali_plat_data.dvfs_table_size - 1;
 	if(freq <= mali_plat_data.clk_sample[0])
 		level = mali_freq_num-1;
