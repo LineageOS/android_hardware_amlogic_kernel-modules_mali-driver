@@ -309,7 +309,7 @@ static ssize_t current_pp_write(struct class *class,
 
 
 static struct class_attribute mali_class_attrs[] = {
-#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON6TVD
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
 	__ATTR(mpgpucmd,	0644, NULL,		mpgpu_write),
 	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),

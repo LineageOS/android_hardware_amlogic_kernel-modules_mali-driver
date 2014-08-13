@@ -1311,6 +1311,7 @@ static void mali_group_mmu_page_fault_and_unlock(struct mali_group *group)
 }
 
 #if MESON_CPU_TYPE == MESON_CPU_TYPE_MESON6
+#include <platform/meson_m400/mali_fix.h>
 #define INT_MALI_PP2_MMU ( 6+32)
 struct _mali_osk_irq_t_struct;
 u32 get_irqnum(struct _mali_osk_irq_t_struct* irq);
