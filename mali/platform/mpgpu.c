@@ -20,6 +20,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
+#include <mach/io.h>
+#include <plat/io.h>
 #include <asm/io.h>
 
 #include <linux/mali/mali_utgard.h>
@@ -27,21 +29,19 @@
 #include <common/mali_pmu.h>
 #include "meson_main.h"
 
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 static ssize_t domain_stat_read(struct class *class, 
 			struct class_attribute *attr, char *buf)
 {
 	unsigned int val;
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
-	if (mali_pm_statue == 1) {
-		val = mali_pmu_get_status();
-	} else
-		val = 0x7;
+	val = readl((u32 *)(IO_AOBUS_BASE + 0xf0)) & 0xff;
 #else
-	val = 0;
+	val = 0xffffffff;
 #endif
-	return sprintf(buf, "%x\n", val);
+	return sprintf(buf, "%x\n", val>>4);
 }
-
+#endif
 #if MESON_CPU_TYPE > MESON_CPU_TYPE_MESON6TVD
 #define PREHEAT_CMD "preheat"
 #define PLL2_CMD "mpl2"  /* mpl2 [11] or [0xxxxxxx] */
