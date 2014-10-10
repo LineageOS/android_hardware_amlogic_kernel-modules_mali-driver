@@ -358,6 +358,7 @@ int mali_deep_suspend(struct device *device)
 	int ret = 0;
 	struct mali_pmu_core *pmu;
 
+	mali_pm_statue = 1;
 	pmu = mali_pmu_get_global_pmu_core();
 	enable_clock();
 	flush_scaling_job();
@@ -375,6 +376,7 @@ int mali_deep_resume(struct device *device)
 	/* clock scaling up. Kasin.. */
 	enable_clock();
 	ret = mali_clock_critical(mali_cri_deep_resume, (size_t)device);
+	mali_pm_statue = 0;
 	return ret;
 }
 

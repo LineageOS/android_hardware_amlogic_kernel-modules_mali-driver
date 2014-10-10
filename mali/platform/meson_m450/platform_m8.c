@@ -407,6 +407,8 @@ int mali_light_resume(struct device *device)
 int mali_deep_suspend(struct device *device)
 {
 	int ret = 0;
+
+	mali_pm_statue = 1;
 	enable_clock();
 	flush_scaling_job();
 
@@ -423,6 +425,7 @@ int mali_deep_resume(struct device *device)
 	/* clock scaling up. Kasin.. */
 	enable_clock();
 	ret = mali_clock_critical(mali_cri_deep_resume, (size_t)device);
+	mali_pm_statue = 0;
 	return ret;
 
 }

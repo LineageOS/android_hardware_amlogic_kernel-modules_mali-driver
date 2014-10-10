@@ -380,6 +380,9 @@ u32 get_current_frequency(void)
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
+	if (mali_pm_statue)
+		return;
+
 	switch (scaling_mode) {
 	case MALI_PP_FS_SCALING:
 		mali_pp_fs_scaling_update(data);
