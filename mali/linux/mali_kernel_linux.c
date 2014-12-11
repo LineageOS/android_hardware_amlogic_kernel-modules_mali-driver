@@ -53,6 +53,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 
 /* from the __malidrv_build_info.c file that is generated during build */
 extern const char *__malidrv_build_info(void);
+extern void mali_post_init(void);
 extern int mali_pdev_dts_init(struct platform_device* mali_gpu_device);
 
 /* Module parameter to control log level */
@@ -451,6 +452,7 @@ static int mali_probe(struct platform_device *pdev)
 				/* Setup sysfs entries */
 				err = mali_sysfs_register(mali_dev_name);
 				if (0 == err) {
+					mali_post_init();
 					MALI_DEBUG_PRINT(2, ("mali_probe(): Successfully initialized driver for platform device %s\n", pdev->name));
 					return 0;
 				} else {

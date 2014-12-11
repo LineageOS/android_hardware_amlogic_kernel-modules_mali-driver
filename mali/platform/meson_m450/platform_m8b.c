@@ -203,31 +203,8 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 {
-#ifdef CONFIG_GPU_THERMAL
-	int err;
-	struct gpufreq_cooling_device *gcdev = NULL;
-#endif
 	if (mali_core_scaling_init(&mali_plat_data) < 0)
 		return -1;
-
-#ifdef CONFIG_GPU_THERMAL
-	gcdev = gpufreq_cooling_alloc();
-	if(IS_ERR(gcdev))
-		printk("malloc gpu cooling buffer error!!\n");
-	else if(!gcdev)
-		printk("system does not enable thermal driver\n");
-	else {
-		gcdev->get_gpu_freq_level = get_mali_freq_level;
-		gcdev->get_gpu_max_level = get_mali_max_level;
-		gcdev->set_gpu_freq_idx = set_limit_mali_freq;
-		gcdev->get_gpu_current_max_level = get_limit_mali_freq;
-		err = gpufreq_cooling_register(gcdev);
-		if(err < 0)
-			printk("register GPU  cooling error\n");
-		printk("gpu cooling register okay with err=%d\n",err);
-	}
-
-#endif
 	return 0;
 }
 
@@ -380,3 +357,27 @@ int mali_deep_resume(struct device *device)
 	return ret;
 }
 
+void mali_post_init(void)
+{
+#ifdef CONFIG_GPU_THERMAL
+	int err;
+	struct gpufreq_cooling_device *gcdev = NULL;
+
+	gcdev = gpufreq_cooling_alloc();
+	if(IS_ERR(gcdev))
+		printk("malloc gpu cooling buffer error!!\n");
+	else if(!gcdev)
+		printk("system does not enable thermal driver\n");
+	else {
+		gcdev->get_gpu_freq_level = get_mali_freq_level;
+		gcdev->get_gpu_max_level = get_mali_max_level;
+		gcdev->set_gpu_freq_idx = set_limit_mali_freq;
+		gcdev->get_gpu_current_max_level = get_limit_mali_freq;
+		err = gpufreq_cooling_register(gcdev);
+		if(err < 0)
+			printk("register GPU  cooling error\n");
+		printk("gpu cooling register okay with err=%d\n",err);
+	}
+
+#endif
+}
