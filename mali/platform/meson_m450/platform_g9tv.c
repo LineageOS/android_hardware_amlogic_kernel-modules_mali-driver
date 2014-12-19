@@ -165,6 +165,7 @@ static void set_limit_mali_freq(u32 idx)
 		return;
 	if (idx > mali_plat_data.turbo_clock || idx < mali_plat_data.scale_info.minclk)
 		return;
+
 	mali_plat_data.scale_info.maxclk= idx;
 	revise_mali_rt();
 }

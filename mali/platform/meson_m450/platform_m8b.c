@@ -163,6 +163,7 @@ static void set_limit_mali_freq(u32 idx)
 	if (idx > mali_plat_data.turbo_clock || idx < mali_plat_data.scale_info.minclk)
 		return;
 	mali_plat_data.scale_info.maxclk= idx;
+
 	revise_mali_rt();
 }
 
@@ -220,7 +221,7 @@ static int mali_cri_light_suspend(size_t param)
 	struct mali_pmu_core *pmu;
 
 	ret = 0;
-	mali_pm_statue = 0;
+	mali_pm_statue = 1;
 	device = (struct device *)param;
 	pmu = mali_pmu_get_global_pmu_core();
 
@@ -253,7 +254,7 @@ static int mali_cri_light_resume(size_t param)
 		/* Need to notify Mali driver about this event */
 		ret = device->driver->pm->runtime_resume(device);
 	}
-	mali_pm_statue = 1;
+	mali_pm_statue = 0;
 	return ret;
 }
 

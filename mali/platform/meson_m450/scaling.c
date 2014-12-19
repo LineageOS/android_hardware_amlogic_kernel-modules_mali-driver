@@ -394,3 +394,11 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 		break;
 	}
 }
+
+void mali_dev_restore(void)
+{
+	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
+
+	//mali_perf_set_num_pp_cores(num_cores_enabled);
+	mali_clock_set(pdvfs[currentStep].freq_index);
+}
