@@ -171,7 +171,7 @@ static u32 get_limit_mali_freq(void)
 {
 	return mali_plat_data.scale_info.maxclk;
 }
-#if 0
+
 static u32 set_limit_pp_num(u32 num)
 {
 	u32 ret = -1;
@@ -186,7 +186,6 @@ static u32 set_limit_pp_num(u32 num)
 quit:
 	return ret;
 }
-#endif
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
@@ -357,8 +356,10 @@ void mali_post_init(void)
 #ifdef CONFIG_GPU_THERMAL
 	int err;
 	struct gpufreq_cooling_device *gcdev = NULL;
+	struct gpucore_cooling_device *gccdev = NULL;
 
 	gcdev = gpufreq_cooling_alloc();
+	register_gpu_freq_info(get_current_frequency);
 	if(IS_ERR(gcdev))
 		printk("malloc gpu cooling buffer error!!\n");
 	else if(!gcdev)
@@ -374,5 +375,18 @@ void mali_post_init(void)
 		printk("gpu cooling register okay with err=%d\n",err);
 	}
 
+	gccdev=gpucore_cooling_alloc();
+	if(IS_ERR(gccdev))
+		printk("malloc gpu core cooling buffer error!!\n");
+	else if(!gccdev)
+		printk("system does not enable thermal driver\n");
+	else {
+		gccdev->max_gpu_core_num=mali_plat_data.cfg_pp;
+		gccdev->set_max_pp_num=set_limit_pp_num;
+		err = (int)gpucore_cooling_register(gccdev);
+		if(err < 0)
+			printk("register GPU  cooling error\n");
+		printk("gpu core cooling register okay with err=%d\n",err);
+	}
 #endif
 }
