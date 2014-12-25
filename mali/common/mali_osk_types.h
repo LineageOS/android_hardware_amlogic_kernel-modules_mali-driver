@@ -210,21 +210,17 @@ typedef enum {
 	_MALI_OSK_LOCK_ORDER_MEM_INFO,
 	_MALI_OSK_LOCK_ORDER_MEM_PT_CACHE,
 	_MALI_OSK_LOCK_ORDER_DESCRIPTOR_MAP,
-	_MALI_OSK_LOCK_ORDER_GROUP_VIRTUAL,
-	_MALI_OSK_LOCK_ORDER_GROUP,
+	_MALI_OSK_LOCK_ORDER_PM_EXECUTION,
+	_MALI_OSK_LOCK_ORDER_EXECUTOR,
 	_MALI_OSK_LOCK_ORDER_TIMELINE_SYSTEM,
 	_MALI_OSK_LOCK_ORDER_SCHEDULER,
 	_MALI_OSK_LOCK_ORDER_SCHEDULER_DEFERRED,
-	_MALI_OSK_LOCK_ORDER_PM_CORE_STATE,
-	_MALI_OSK_LOCK_ORDER_L2_COMMAND,
-	_MALI_OSK_LOCK_ORDER_DMA_COMMAND,
 	_MALI_OSK_LOCK_ORDER_PROFILING,
-	_MALI_OSK_LOCK_ORDER_L2_COUNTER,
+	_MALI_OSK_LOCK_ORDER_L2,
+	_MALI_OSK_LOCK_ORDER_L2_COMMAND,
 	_MALI_OSK_LOCK_ORDER_UTILIZATION,
-	_MALI_OSK_LOCK_ORDER_PM_EXECUTE,
 	_MALI_OSK_LOCK_ORDER_SESSION_PENDING_JOBS,
-	_MALI_OSK_LOCK_ORDER_PM_DOMAIN,
-	_MALI_OSK_LOCK_ORDER_PMU,
+	_MALI_OSK_LOCK_ORDER_PM_STATE,
 
 	_MALI_OSK_LOCK_ORDER_LAST,
 } _mali_osk_lock_order_t;
@@ -433,7 +429,8 @@ typedef struct _mali_osk_list_s {
  */
 typedef struct _mali_osk_resource {
 	const char *description;        /**< short description of the resource */
-	u32 base;                       /**< Physical base address of the resource, as seen by Mali resources. */
+	uintptr_t base;                 /**< Physical base address of the resource, as seen by Mali resources. */
+	const char *irq_name;           /**< Name of irq belong to this resource */
 	u32 irq;                        /**< IRQ number delivered to the CPU, or -1 to tell the driver to probe for it (if possible) */
 } _mali_osk_resource_t;
 /** @} */ /* end group _mali_osk_miscellaneous */

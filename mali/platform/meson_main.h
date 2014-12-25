@@ -25,6 +25,7 @@ u32 get_max_mali_freq(void);
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev);
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev);
+void mali_post_init(void);
 int mali_meson_uninit(struct platform_device* ptr_plt_dev);
 int mali_light_suspend(struct device *device);
 int mali_light_resume(struct device *device);

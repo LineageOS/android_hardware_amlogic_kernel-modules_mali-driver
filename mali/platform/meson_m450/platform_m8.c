@@ -211,22 +211,14 @@ static void mali_4k2k_exit(void)
 void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
 #endif /* CONFIG_AM_VDEC_H264_4K2K */
 
-void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
-	struct mali_gpu_device_data* pdev = ptr_plt_dev->dev.platform_data;
-
 	/* chip mark detect. */
-
 #ifdef IS_MESON_M8_CPU
 	if(IS_MESON_M8_CPU) {
 		mali_plat_data.have_switch = 0;
 	}
 #endif
-
-	/* for mali platform data. */
-	pdev->utilization_interval = 300,
-	pdev->utilization_callback = mali_gpu_utilization_callback,
 
 	/* for resource data. */
 	ptr_plt_dev->num_resources = ARRAY_SIZE(mali_gpu_resources);

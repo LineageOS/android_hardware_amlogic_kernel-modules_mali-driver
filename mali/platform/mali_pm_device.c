@@ -55,11 +55,12 @@ static int mali_os_freeze(struct device *device)
 static int mali_os_thaw(struct device *device)
 {
 	int ret = 0;
+	struct mali_pmu_core *pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_os_thaw() called\n"));
 	enable_clock();
-	mali_pmu_powerup();
-
+	pmu = mali_pmu_get_global_pmu_core();
+	mali_pmu_power_up_all(pmu);
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->thaw)

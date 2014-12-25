@@ -19,7 +19,7 @@
  * This struct is embedded inside all core specific structs.
  */
 struct mali_hw_core {
-	u32 phys_addr;                    /**< Physical address of the registers */
+	uintptr_t phys_addr;              /**< Physical address of the registers */
 	u32 phys_offset;                  /**< Offset from start of Mali to registers */
 	u32 size;                         /**< Size of registers */
 	mali_io_address mapped_registers; /**< Virtual mapping of the registers */
@@ -28,6 +28,18 @@ struct mali_hw_core {
 
 #define MALI_REG_POLL_COUNT_FAST 1000
 #define MALI_REG_POLL_COUNT_SLOW 1000000
+
+/*
+ * GP and PP core translate their int_stat/rawstat into one of these
+ */
+enum mali_interrupt_result {
+	MALI_INTERRUPT_RESULT_NONE,
+	MALI_INTERRUPT_RESULT_SUCCESS,
+	MALI_INTERRUPT_RESULT_SUCCESS_VS,
+	MALI_INTERRUPT_RESULT_SUCCESS_PLBU,
+	MALI_INTERRUPT_RESULT_OOM,
+	MALI_INTERRUPT_RESULT_ERROR
+};
 
 _mali_osk_errcode_t mali_hw_core_create(struct mali_hw_core *core, const _mali_osk_resource_t *resource, u32 reg_size);
 void mali_hw_core_delete(struct mali_hw_core *core);
@@ -59,7 +71,6 @@ MALI_STATIC_INLINE void mali_hw_core_register_write_relaxed_conditional(struct m
 		_mali_osk_mem_iowrite32_relaxed(core->mapped_registers, relative_address, new_val);
 	}
 }
-
 
 MALI_STATIC_INLINE void mali_hw_core_register_write(struct mali_hw_core *core, u32 relative_address, u32 new_val)
 {

@@ -17,10 +17,8 @@
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/mali/mali_utgard.h>
-#include "mali_kernel_common.h"
-#include "common/mali_osk_profiling.h"
-#include "common/mali_kernel_utilization.h"
-#include "common/mali_pp_scheduler.h"
+#include <mali_kernel_common.h>
+#include <mali_osk_profiling.h>
 
 #include <meson_main.h>
 

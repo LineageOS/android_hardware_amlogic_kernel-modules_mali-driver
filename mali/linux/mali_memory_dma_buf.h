@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+#include "mali_uk_types.h"
 #include "mali_osk.h"
 #include "mali_memory.h"
 

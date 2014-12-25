@@ -17,6 +17,8 @@
 
 #include "mali_osk.h"
 
+struct mali_session_data;
+
 /**
  * The actual descriptor mapping table, never directly accessed by clients
  */

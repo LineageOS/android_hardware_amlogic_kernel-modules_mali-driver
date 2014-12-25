@@ -35,32 +35,9 @@ u32 mali_core_timeout = 0;
 module_param(mali_core_timeout, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(mali_core_timeout, "times of failed to reset GP");
 
-static struct mali_gpu_device_data mali_gpu_data =
-{
-	.shared_mem_size = 1024 * 1024 * 1024,
-	.max_job_runtime = 60000, /* 60 seconds */
-	.pmu_switch_delay = 0xFFFF, /* do not have to be this high on FPGA, but it is good for testing to have a delay */
-	.pmu_domain_config = {0x1, 0x2, 0x4, 0x4, 0x4, 0x8, 0x8, 0x8, 0x8, 0x1, 0x2, 0x8},
-};
-
-static void mali_platform_device_release(struct device *device);
-static struct platform_device mali_gpu_device =
-{
-	.name = MALI_GPU_NAME_UTGARD,
-	.id = 0,
-	.dev.release = mali_platform_device_release,
-	.dev.coherent_dma_mask = DMA_BIT_MASK(32),
-	.dev.platform_data = &mali_gpu_data,
-	.dev.type = &mali_pm_device, /* We should probably use the pm_domain instead of type on newer kernels */
-};
-
 int mali_pdev_pre_init(struct platform_device* ptr_plt_dev)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_register() called\n"));
-	if (mali_gpu_data.shared_mem_size < 10) {
-		MALI_DEBUG_PRINT(2, ("mali os memory didn't configered, set to default(512M)\n"));
-		mali_gpu_data.shared_mem_size = 1024 * 1024 *1024;
-	}
 	return mali_meson_init_start(ptr_plt_dev);
 }
 
@@ -78,26 +55,33 @@ void mali_pdev_post_init(struct platform_device* pdev)
 	mali_meson_init_finish(pdev);
 }
 
-int mali_pdev_dts_init(struct platform_device* mali_gpu_device)
+void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
+static struct mali_gpu_device_data mali_gpu_data =
 {
-	struct device_node     *cfg_node = mali_gpu_device->dev.of_node;
-	struct device_node     *child;
-	u32 prop_value;
-	int err;
+	.shared_mem_size = 1024 * 1024 * 1024,
+	.max_job_runtime = 60000, /* 60 seconds */
+	.pmu_switch_delay = 0xFFFF, /* do not have to be this high on FPGA, but it is good for testing to have a delay */
 
-	for_each_child_of_node(cfg_node, child) {
-		err = of_property_read_u32(child, "shared_memory", &prop_value);
-		if (err == 0) {
-			MALI_DEBUG_PRINT(2, ("shared_memory configurate  %d\n", prop_value));
-			mali_gpu_data.shared_mem_size = prop_value * 1024 * 1024;
-		}
-	}
+	/* the following is for dvfs or utilization. */
+	.control_interval = 300, /* 1000ms */
+	.get_clock_info = NULL,
+	.get_freq = NULL,
+	.set_freq = NULL,
+	.utilization_callback = mali_gpu_utilization_callback,
+};
 
-	err = mali_pdev_pre_init(mali_gpu_device);
-	if (err == 0)
-		mali_pdev_post_init(mali_gpu_device);
-	return err;
-}
+#ifndef CONFIG_MALI_DT
+static void mali_platform_device_release(struct device *device);
+static struct platform_device mali_gpu_device =
+{
+	.name = MALI_GPU_NAME_UTGARD,
+	.id = 0,
+	.dev.release = mali_platform_device_release,
+	.dev.dma_mask = &mali_gpu_device.dev.coherent_dma_mask,
+	.dev.coherent_dma_mask = DMA_BIT_MASK(32),
+	.dev.platform_data = &mali_gpu_data,
+	.dev.type = &mali_pm_device, /* We should probably use the pm_domain instead of type on newer kernels */
+};
 
 int mali_platform_device_register(void)
 {
@@ -123,4 +107,33 @@ static void mali_platform_device_release(struct device *device)
 {
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_release() called\n"));
 }
+
+#else /* CONFIG_MALI_DT */
+
+int mali_platform_device_init(struct platform_device *device)
+{
+	int err = 0;
+
+	ret = mali_pdev_pre_init(&mali_gpu_data);
+	if (ret < 0) goto exit;
+	err = platform_device_add_data(device, &mali_gpu_data, sizeof(mali_gpu_data));
+	if (ret < 0) goto exit;
+
+	mali_pdev_post_init(&mali_gpu_data);
+exit:
+	return err;
+}
+
+int mali_platform_device_deinit(struct platform_device *device)
+{
+	MALI_IGNORE(device);
+
+	MALI_DEBUG_PRINT(4, ("mali_platform_device_deinit() called\n"));
+
+	mali_core_scaling_term();
+
+	return 0;
+}
+
+#endif /* CONFIG_MALI_DT */
 

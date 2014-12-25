@@ -41,12 +41,17 @@ endif
 
 OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
 USING_GPU_UTILIZATION ?= 1
+PROFILING_SKIP_PP_JOBS ?= 0
+PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
 ############## Kasin Added, for platform. ################
 ifeq ($(CONFIG_MALI400_DEBUG),y)
 	BUILD ?= debug
 else
 	BUILD ?= release
 	ldflags-y += --strip-debug
+endif
+ifeq ($(CONFIG_CONFIG_MALI_DVFS),y)
+	USING_GPU_UTILIZATION = 1
 endif
 ##################### end Kasin Added. ###################
 
@@ -121,8 +126,7 @@ mali-y += \
 	common/mali_gp_job.o \
 	common/mali_soft_job.o \
 	common/mali_scheduler.o \
-	common/mali_gp_scheduler.o \
-	common/mali_pp_scheduler.o \
+	common/mali_executor.o \
 	common/mali_group.o \
 	common/mali_dlbu.o \
 	common/mali_broadcast.o \
@@ -130,8 +134,8 @@ mali-y += \
 	common/mali_pmu.o \
 	common/mali_user_settings_db.o \
 	common/mali_kernel_utilization.o \
+	common/mali_control_timer.o \
 	common/mali_l2_cache.o \
-	common/mali_dma.o \
 	common/mali_timeline.o \
 	common/mali_timeline_fence_wait.o \
 	common/mali_timeline_sync_fence.o \
@@ -190,7 +194,7 @@ ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 
 mali-$(CONFIG_MALI400_UMP) += linux/mali_memory_ump.o
 
-mali-$(CONFIG_MALI400_POWER_PERFORMANCE_POLICY) += common/mali_power_performance_policy.o
+mali-$(CONFIG_MALI_DVFS) += common/mali_dvfs_policy.o
 
 # Tell the Linux build system from which .o file to create the kernel module
 obj-$(CONFIG_MALI400) := mali.o
@@ -269,7 +273,7 @@ VERSION_STRINGS += USING_UMP=$(CONFIG_MALI400_UMP)
 VERSION_STRINGS += USING_PROFILING=$(CONFIG_MALI400_PROFILING)
 VERSION_STRINGS += USING_INTERNAL_PROFILING=$(CONFIG_MALI400_INTERNAL_PROFILING)
 VERSION_STRINGS += USING_GPU_UTILIZATION=$(USING_GPU_UTILIZATION)
-VERSION_STRINGS += USING_POWER_PERFORMANCE_POLICY=$(CONFIG_POWER_PERFORMANCE_POLICY)
+VERSION_STRINGS += USING_DVFS=$(CONFIG_MALI_DVFS)
 VERSION_STRINGS += MALI_UPPER_HALF_SCHEDULING=$(MALI_UPPER_HALF_SCHEDULING)
 
 # Create file with Mali driver configuration

@@ -31,6 +31,7 @@
 #include "mali_osk.h"
 
 struct mali_sync_flag;
+struct mali_timeline;
 
 /**
  * Create a sync timeline.
@@ -38,7 +39,7 @@ struct mali_sync_flag;
  * @param name Name of the sync timeline.
  * @return The new sync timeline if successful, NULL if not.
  */
-struct sync_timeline *mali_sync_timeline_create(const char *name);
+struct sync_timeline *mali_sync_timeline_create(struct mali_timeline *timeline, const char *name);
 
 /**
  * Check if sync timeline belongs to Mali.
