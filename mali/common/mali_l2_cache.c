@@ -470,7 +470,7 @@ static void mali_l2_cache_reset(struct mali_l2_cache_core *cache)
 	MALI_DEBUG_ASSERT_LOCK_HELD(cache->lock);
 
 	/* Kasin Added, skip off power domain. */
-	if (cache && cache->pm_domain && cache->pm_domain->power_is_on == MALI_TRUE) {
+	if (cache && cache->pm_domain && cache->pm_domain->power_is_on == MALI_FALSE) {
 		return;
 	}
 	
