@@ -38,7 +38,6 @@
 #include "mali_kernel_license.h"
 #include "mali_memory.h"
 #include "mali_memory_dma_buf.h"
-#include <meson_main.h>
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
 #include "mali_profiling_internal.h"
 #endif
@@ -63,6 +62,10 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(mali_sw_counters);
 
 /* from the __malidrv_build_info.c file that is generated during build */
 extern const char *__malidrv_build_info(void);
+extern void mali_post_init(void);
+extern int mali_pdev_dts_init(struct platform_device* mali_gpu_device);
+extern int mpgpu_class_init(void);
+extern void mpgpu_class_exit(void);
 
 /* Module parameter to control log level */
 int mali_debug_level = 2;
@@ -359,9 +362,6 @@ void mali_init_cpu_time_counters_on_all_cpus(int print_only)
 	}
 }
 #endif
-
-extern int mpgpu_class_init(void);
-extern void mpgpu_class_exit(void);
 
 int mali_module_init(void)
 {

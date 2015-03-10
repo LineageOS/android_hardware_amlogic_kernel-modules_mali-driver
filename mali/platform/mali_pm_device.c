@@ -51,16 +51,35 @@ static int mali_os_freeze(struct device *device)
 
 	return ret;
 }
+//copy from r4p1 linux/mali_pmu_power_up_down.c
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
+static int mali_pmu_powerup(void)
+{
+	struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
+
+	MALI_DEBUG_PRINT(5, ("Mali PMU: Power up\n"));
+
+	MALI_DEBUG_ASSERT_POINTER(pmu);
+	if (NULL == pmu) {
+		return -ENXIO;
+	}
+
+	mali_pmu_power_up_all(pmu);
+
+	return 0;
+}
+#endif
 
 static int mali_os_thaw(struct device *device)
 {
 	int ret = 0;
-	struct mali_pmu_core *pmu;
 
 	MALI_DEBUG_PRINT(4, ("mali_os_thaw() called\n"));
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	enable_clock();
-	pmu = mali_pmu_get_global_pmu_core();
-	mali_pmu_power_up_all(pmu);
+	mali_pmu_powerup();
+#endif
+
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->thaw)
@@ -75,7 +94,9 @@ static int mali_os_thaw(struct device *device)
 static int mali_os_restore(struct device *device)
 {
 	MALI_DEBUG_PRINT(4, ("mali_os_thaw() called\n"));
+#if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 	mali_dev_restore();
+#endif
 	return mali_os_resume(device);
 }
 
