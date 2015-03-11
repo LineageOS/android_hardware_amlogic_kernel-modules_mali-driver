@@ -256,7 +256,7 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
     /*for dvfs*/
 #ifndef CONFIG_MALI_DVFS
     /* for mali platform data. */
-    pdev->control_interval = 300;
+    pdev->control_interval = 200;
     pdev->utilization_callback = mali_gpu_utilization_callback;
 #else
     pdev->get_clock_info = meson_platform_get_clock_info;
