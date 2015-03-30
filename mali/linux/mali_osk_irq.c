@@ -14,7 +14,10 @@
  */
 
 #include <linux/types.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/cpu.h>
+#endif
 #include <linux/slab.h>	/* For memory allocation */
 #include <linux/interrupt.h>
 #include <linux/wait.h>

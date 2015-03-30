@@ -5,9 +5,11 @@
 #include <linux/module.h>            /* kernel module definitions */
 #include <linux/ioport.h>            /* request_mem_region */
 #include <linux/slab.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/register.h>
 #include <mach/irqs.h>
 #include <mach/io.h>
+#endif
 #include "meson_main.h"
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>

@@ -14,13 +14,17 @@
 #include <linux/module.h>            /* kernel module definitions */
 #include <linux/ioport.h>            /* request_mem_region */
 #include <linux/slab.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/register.h>
 #include <mach/irqs.h>
 #include <mach/io.h>
+#endif
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
+#ifdef CONFIG_GPU_THERMAL
 #include <linux/gpu_cooling.h>
 #include <linux/gpucore_cooling.h>
+#endif
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
 #include <common/mali_pmu.h>
@@ -165,6 +169,7 @@ unsigned int get_mali_max_level(void)
     return mali_plat_data.dvfs_table_size - 1;
 }
 
+#if 0
 static struct resource mali_gpu_resources[] =
 {
     MALI_GPU_RESOURCES_MALI450_MP6_PMU(IO_MALI_APB_PHY_BASE, INT_MALI_GP, INT_MALI_GP_MMU,
@@ -176,7 +181,50 @@ static struct resource mali_gpu_resources[] =
             INT_MALI_PP6, INT_MALI_PP6_MMU,
             INT_MALI_PP)
 };
-
+#else
+static struct resource mali_gpu_resources[] =
+{
+ { .name = "Mali_L2", .flags = 0x00000200, .start = 0xd00c0000 + 0x10000, .end = 0xd00c0000 + 0x10000 + 0x200, },
+ { .name = "Mali_GP", .flags = 0x00000200, .start = 0xd00c0000 + 0x00000, .end = 0xd00c0000 + 0x00000 + 0x100, },
+ { .name = "Mali_GP_IRQ", .flags = 0x00000400, .start = (160 + 32), .end = (160 + 32), },
+ { .name = "Mali_GP_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x03000, .end = 0xd00c0000 + 0x03000 + 0x100, },
+ { .name = "Mali_GP_MMU_IRQ", .flags = 0x00000400, .start = (161 + 32), .end = (161 + 32), },
+ { .name = "Mali_L2", .flags = 0x00000200, .start = 0xd00c0000 + 0x01000, .end = 0xd00c0000 + 0x01000 + 0x200, },
+ { .name = "Mali_PP" "0", .flags = 0x00000200, .start = 0xd00c0000 + 0x08000, .end = 0xd00c0000 + 0x08000 + 0x1100, },
+ { .name = "Mali_PP" "0" "_IRQ", .flags = 0x00000400, .start = (164 + 32), .end = (164 + 32), },
+ { .name = "Mali_PP" "0" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x04000, .end = 0xd00c0000 + 0x04000 + 0x100, },
+ { .name = "Mali_PP" "0" "_MMU_IRQ", .flags = 0x00000400, .start = (165 + 32), .end = (165 + 32), },
+ { .name = "Mali_PP" "1", .flags = 0x00000200, .start = 0xd00c0000 + 0x0A000, .end = 0xd00c0000 + 0x0A000 + 0x1100, },
+ { .name = "Mali_PP" "1" "_IRQ", .flags = 0x00000400, .start = (166 + 32), .end = (166 + 32), },
+ { .name = "Mali_PP" "1" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x05000, .end = 0xd00c0000 + 0x05000 + 0x100, },
+ { .name = "Mali_PP" "1" "_MMU_IRQ", .flags = 0x00000400, .start = (167 + 32), .end = (167 + 32), },
+ { .name = "Mali_PP" "2", .flags = 0x00000200, .start = 0xd00c0000 + 0x0C000, .end = 0xd00c0000 + 0x0C000 + 0x1100, },
+ { .name = "Mali_PP" "2" "_IRQ", .flags = 0x00000400, .start = (168 + 32), .end = (168 + 32), },
+ { .name = "Mali_PP" "2" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x06000, .end = 0xd00c0000 + 0x06000 + 0x100, },
+ { .name = "Mali_PP" "2" "_MMU_IRQ", .flags = 0x00000400, .start = (169 + 32), .end = (169 + 32), },
+ { .name = "Mali_L2", .flags = 0x00000200, .start = 0xd00c0000 + 0x11000, .end = 0xd00c0000 + 0x11000 + 0x200, },
+ { .name = "Mali_PP" "3", .flags = 0x00000200, .start = 0xd00c0000 + 0x28000, .end = 0xd00c0000 + 0x28000 + 0x1100, },
+ { .name = "Mali_PP" "3" "_IRQ", .flags = 0x00000400, .start = (172 + 32), .end = (172 + 32), },
+ { .name = "Mali_PP" "3" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x1C000, .end = 0xd00c0000 + 0x1C000 + 0x100, },
+ { .name = "Mali_PP" "3" "_MMU_IRQ", .flags = 0x00000400, .start = (173 + 32), .end = (173 + 32), },
+ { .name = "Mali_PP" "4", .flags = 0x00000200, .start = 0xd00c0000 + 0x2A000, .end = 0xd00c0000 + 0x2A000 + 0x1100, },
+ { .name = "Mali_PP" "4" "_IRQ", .flags = 0x00000400, .start = (174 + 32), .end = (174 + 32), },
+ { .name = "Mali_PP" "4" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x1D000, .end = 0xd00c0000 + 0x1D000 + 0x100, },
+ { .name = "Mali_PP" "4" "_MMU_IRQ", .flags = 0x00000400, .start = (175 + 32), .end = (175 + 32), },
+ { .name = "Mali_PP" "5", .flags = 0x00000200, .start = 0xd00c0000 + 0x2C000, .end = 0xd00c0000 + 0x2C000 + 0x1100, },
+ { .name = "Mali_PP" "5" "_IRQ", .flags = 0x00000400, .start = (176 + 32), .end = (176 + 32), },
+ { .name = "Mali_PP" "5" "_MMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x1E000, .end = 0xd00c0000 + 0x1E000 + 0x100, },
+ { .name = "Mali_PP" "5" "_MMU_IRQ", .flags = 0x00000400, .start = (177 + 32), .end = (177 + 32), },
+ { .name = "Mali_Broadcast", .flags = 0x00000200, .start = 0xd00c0000 + 0x13000, .end = 0xd00c0000 + 0x13000 + 0x100, },
+ { .name = "Mali_DLBU", .flags = 0x00000200, .start = 0xd00c0000 + 0x14000, .end = 0xd00c0000 + 0x14000 + 0x100, },
+ { .name = "Mali_PP_Broadcast", .flags = 0x00000200, .start = 0xd00c0000 + 0x16000, .end = 0xd00c0000 + 0x16000 + 0x1100, },
+ { .name = "Mali_PP_Broadcast_IRQ", .flags = 0x00000400, .start = (162 + 32), .end = (162 + 32), },
+ { .name = "Mali_PP_MMU_Broadcast", .flags = 0x00000200, .start = 0xd00c0000 + 0x15000, .end = 0xd00c0000 + 0x15000 + 0x100, },
+ { .name = "Mali_DMA", .flags = 0x00000200, .start = 0xd00c0000 + 0x12000, .end = 0xd00c0000 + 0x12000 + 0x100, },
+ { .name = "Mali_PMU", .flags = 0x00000200, .start = 0xd00c0000 + 0x02000, .end = 0xd00c0000 + 0x02000 + 0x100, },
+};
+#endif
+#ifdef CONFIG_GPU_THERMAL
 static void set_limit_mali_freq(u32 idx)
 {
     if (mali_plat_data.limit_on == 0)
@@ -191,7 +239,9 @@ static u32 get_limit_mali_freq(void)
 {
     return mali_plat_data.scale_info.maxclk;
 }
+#endif
 
+#if defined(CONFIG_AM_VDEC_H264_4K2K) || defined(CONFIG_GPU_THERMAL)
 static u32 set_limit_pp_num(u32 num)
 {
     u32 ret = -1;
@@ -206,6 +256,7 @@ static u32 set_limit_pp_num(u32 num)
 quit:
     return ret;
 }
+#endif
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 

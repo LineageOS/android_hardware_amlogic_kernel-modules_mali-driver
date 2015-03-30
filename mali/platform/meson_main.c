@@ -16,9 +16,11 @@
 #include <linux/of.h>
 #include <linux/ioport.h>
 #include <linux/slab.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/register.h>
 #include <mach/irqs.h>
 #include <mach/io.h>
+#endif
 #include <asm/io.h>
 
 #include "meson_main.h"

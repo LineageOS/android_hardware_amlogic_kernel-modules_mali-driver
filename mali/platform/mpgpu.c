@@ -20,9 +20,11 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/io.h>
 #include <plat/io.h>
 #include <asm/io.h>
+#endif
 
 #include <linux/mali/mali_utgard.h>
 #include <common/mali_kernel_common.h>
@@ -33,10 +35,14 @@
 static ssize_t domain_stat_read(struct class *class, 
 			struct class_attribute *attr, char *buf)
 {
+#if 0
 	unsigned int val;
 
 	val = readl((u32 *)(IO_AOBUS_BASE + 0xf0)) & 0xff;
 	return sprintf(buf, "%x\n", val>>4);
+#else
+	return 0;
+#endif
 }
 
 #define PREHEAT_CMD "preheat"
@@ -338,7 +344,7 @@ int mpgpu_class_init(void)
 	}
 	return ret;
 #else
-        return 0;
+	return 0;
 #endif
 }
 

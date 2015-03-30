@@ -9,7 +9,10 @@
  */
 
 #include <linux/types.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/cpu.h>
+#endif
 #include "mali_kernel_common.h"
 #include "mali_group.h"
 #include "mali_osk.h"
