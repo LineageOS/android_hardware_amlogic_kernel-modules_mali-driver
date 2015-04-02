@@ -35,7 +35,7 @@ static mali_plat_info_t* pmali_plat = NULL;
 static int  scaling_mode = MALI_PP_FS_SCALING;
 
 
-static unsigned scaling_dbg_level = 1;
+static unsigned scaling_dbg_level = 0;
 module_param(scaling_dbg_level, uint, 0644);
 MODULE_PARM_DESC(scaling_dbg_level , "scaling debug level");
 
@@ -157,13 +157,13 @@ void flush_scaling_job(void)
 #ifndef CONFIG_MALI_DVFS
 static u32 enable_one_core(void)
 {
-    printk("meson:     one more pp, curent has %d pp cores\n",  num_cores_enabled + 1);
+    scalingdbg(2, "meson:     one more pp, curent has %d pp cores\n",  num_cores_enabled + 1);
     return set_mali_rt_clkpp(currentStep, num_cores_enabled + 1, 0);
 }
 
 static u32 disable_one_core(void)
 {
-    printk("meson: disable one pp, current has %d pp cores\n",  num_cores_enabled - 1);
+    scalingdbg(2, "meson: disable one pp, current has %d pp cores\n",  num_cores_enabled - 1);
     return set_mali_rt_clkpp(currentStep, num_cores_enabled - 1, 0);
 }
 
@@ -174,7 +174,7 @@ static u32 enable_max_num_cores(void)
 
 static u32 enable_pp_cores(u32 val)
 {
-    printk("meson: enable %d pp cores\n", val);
+    scalingdbg(2, "meson: enable %d pp cores\n", val);
     return set_mali_rt_clkpp(currentStep, val, 0);
 }
 #endif
@@ -183,7 +183,7 @@ int mali_core_scaling_init(mali_plat_info_t *mali_plat)
 {
 #ifndef CONFIG_MALI_DVFS
     if (mali_plat == NULL) {
-        printk(" Mali platform data is NULL!!!\n");
+        scalingdbg(2, " Mali platform data is NULL!!!\n");
         return -1;
     }
 
@@ -241,7 +241,7 @@ void trace_utilization(struct mali_gpu_utilization_data *data, u32 current_idx, 
     else
         direction = '~';
 
-    printk("[SCALING]%c (%3d-->%3d)@%3d{%3d - %3d}. pp:(%d-->%d)\n",
+    scalingdbg(2, "[SCALING]%c (%3d-->%3d)@%3d{%3d - %3d}. pp:(%d-->%d)\n",
             direction,
             get_mali_freq(current_idx),
             get_mali_freq(next),
@@ -295,7 +295,7 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
             }
         }
 #if LOG_MALI_SCALING
-        printk("[nexting..] [LD:%d]-> FS[CRNT:%d LMT:%d NEXT:%d] PP[NUM:%d LMT:%d MD:%d][F:%d]\n",
+        scalingdbg(2, "[nexting..] [LD:%d]-> FS[CRNT:%d LMT:%d NEXT:%d] PP[NUM:%d LMT:%d MD:%d][F:%d]\n",
                 data->utilization_pp, currentStep, mali_up_limit, decided_fs_idx,
                 num_cores_enabled, pmali_plat->scale_info.maxpp, *pp_change_flag, change_mode);
 #endif
