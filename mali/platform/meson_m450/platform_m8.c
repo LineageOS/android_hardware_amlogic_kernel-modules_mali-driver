@@ -207,26 +207,6 @@ quit:
     return ret;
 }
 
-#ifdef CONFIG_AM_VDEC_H264_4K2K
-static u32 grd_pp_bk = CFG_PP;
-static void mali_4k2k_enter(void)
-{
-    if (mali_plat_data.limit_on == 0)
-        return;
-    grd_pp_bk = mali_plat_data.scale_info.maxpp;
-    set_limit_pp_num(mali_plat_data.scale_info.minpp);
-}
-
-static void mali_4k2k_exit(void)
-{
-    if (mali_plat_data.limit_on == 0)
-        return;
-    set_limit_pp_num(grd_pp_bk);
-}
-
-void vh264_4k2k_register_module_callback(void(*enter_func)(void), void(*remove_func)(void));
-#endif /* CONFIG_AM_VDEC_H264_4K2K */
-
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
 #if 0
@@ -495,7 +475,4 @@ void mali_post_init(void)
         printk("gpu core cooling register okay with err=%d\n",err);
     }
 #endif
-#ifdef CONFIG_AM_VDEC_H264_4K2K
-    vh264_4k2k_register_module_callback(mali_4k2k_enter, mali_4k2k_exit);
-#endif /* CONFIG_AM_VDEC_H264_4K2K */
 }
