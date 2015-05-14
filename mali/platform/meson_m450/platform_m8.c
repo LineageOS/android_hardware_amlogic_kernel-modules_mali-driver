@@ -241,7 +241,7 @@ static u32 get_limit_mali_freq(void)
 }
 #endif
 
-#if defined(CONFIG_AM_VDEC_H264_4K2K) || defined(CONFIG_GPU_THERMAL)
+#ifdef CONFIG_GPU_THERMAL
 static u32 set_limit_pp_num(u32 num)
 {
     u32 ret = -1;
