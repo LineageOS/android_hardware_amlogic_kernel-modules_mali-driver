@@ -16,6 +16,8 @@
 #ifndef __ARM_CORE_SCALING_H__
 #define __ARM_CORE_SCALING_H__
 
+#include <linux/types.h>
+
 enum mali_scale_mode_t {
 	MALI_PP_SCALING = 0,
 	MALI_PP_FS_SCALING,
@@ -25,11 +27,13 @@ enum mali_scale_mode_t {
 };
 
 typedef struct mali_dvfs_threshold_table {
-	unsigned int freq_index;
-	unsigned int voltage;
-	unsigned int keep_count;
-	unsigned int downthreshold;
-	unsigned int upthreshold;
+	uint32_t    freq_index;
+	uint32_t    voltage;
+	uint32_t    keep_count;
+	uint32_t    downthreshold;
+	uint32_t    upthreshold;
+    uint32_t    clk_freq;
+    const char  *clk_parent;
 } mali_dvfs_threshold_table;
 
 /**
@@ -73,6 +77,8 @@ typedef struct mali_plat_info_t {
 
 	/* for boost up gpu by user. */
 	void (*plat_preheat)(void);
+
+    struct platform_device *pdev;
 } mali_plat_info_t;
 mali_plat_info_t* get_mali_plat_data(void);
 

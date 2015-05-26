@@ -1,0 +1,212 @@
+#include <linux/platform_device.h>
+#include "mali_scaling.h"
+#include "mali_clock.h"
+#if 1
+#ifndef CLK_DVFS_TBL_SIZE
+#define CLK_DVFS_TBL_SIZE 5
+#endif
+//static DEFINE_SPINLOCK(lock);
+static mali_plat_info_t* pmali_plat = NULL;
+//static u32 mali_extr_backup = 0;
+//static u32 mali_extr_sample_backup = 0;
+
+int mali_clock_init_clk_tree(struct platform_device* pdev)
+{
+	struct clk *clk_mali_0_parent;
+	struct clk *clk_mali_0;
+	struct clk *clk_mali;
+
+	clk_mali = clk_get(&pdev->dev, "clk_mali");
+	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
+	clk_mali_0_parent = clk_get(&pdev->dev, "fclk_div4");
+
+	clk_set_parent(clk_mali_0, clk_mali_0_parent);
+
+	clk_prepare_enable(clk_mali_0_parent);
+	//ret = clk_set_rate(clk_mali, 425000000);
+
+	clk_prepare_enable(clk_mali_0);
+
+	clk_set_parent(clk_mali, clk_mali_0);
+
+	clk_prepare_enable(clk_mali);
+
+	printk(" clk_mali_0_parent =%p, clk_mali_0=%p, clk_mali=%p\n ",
+			clk_mali_0_parent, clk_mali_0, clk_mali);
+
+	printk("pdev->drvdata=%p\n",
+			dev_get_drvdata(&pdev->dev));
+
+	return 0;
+}
+
+int mali_clock_init(mali_plat_info_t *pdev)
+{
+	*pdev = *pdev;
+	return 0;
+}
+
+int mali_clock_critical(critical_t critical, size_t param)
+{
+	int ret = 0;
+	//unsigned long flags;
+
+	//spin_lock_irqsave(&lock, flags);
+	ret = critical(param);
+	//spin_unlock_irqrestore(&lock, flags);
+	return ret;
+}
+
+static int critical_clock_set(size_t param)
+{
+	int ret = 0;
+	unsigned int idx = param;
+	struct platform_device *pdev = pmali_plat->pdev;
+	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[idx];
+
+	struct clk *clk_mali_0_parent;
+	struct clk *clk_mali_0;
+	struct clk *clk_mali_1;
+	struct clk *clk_mali;
+
+	clk_mali = clk_get(&pdev->dev, "clk_mali");
+	clk_mali_1 = clk_get(&pdev->dev, "clk_mali_1");
+	clk_set_parent(clk_mali, clk_mali_1);
+
+	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
+	clk_mali_0_parent = clk_get(&pdev->dev,
+			dvfs_tbl->clk_parent);
+
+	clk_set_parent(clk_mali_0, clk_mali_0_parent);
+	clk_prepare_enable(clk_mali_0_parent);
+	ret = clk_set_rate(clk_mali, dvfs_tbl->clk_freq);
+
+	clk_prepare_enable(clk_mali_0);
+
+	clk_set_parent(clk_mali, clk_mali_0);
+
+	clk_prepare_enable(clk_mali);
+
+	return 0;
+}
+
+int mali_clock_set(unsigned int clock)
+{
+	return mali_clock_critical(critical_clock_set, (size_t)clock);
+}
+
+void disable_clock(void)
+{
+	//unsigned long flags;
+
+	//spin_lock_irqsave(&lock, flags);
+	printk("disable clock\n");
+	//spin_unlock_irqrestore(&lock, flags);
+}
+
+void enable_clock(void)
+{
+	u32 ret = 0;
+	//unsigned long flags;
+
+	//spin_lock_irqsave(&lock, flags);
+	printk("enable clock, ret=%d\n", ret);
+	//spin_unlock_irqrestore(&lock, flags);
+}
+
+u32 get_mali_freq(u32 idx)
+{
+	if (!mali_pm_statue) {
+		return pmali_plat->clk_sample[idx];
+	} else {
+		return 0;
+	}
+}
+
+void set_str_src(u32 data)
+{
+	printk("%s, %s, %d\n", __FILE__, __func__, __LINE__);
+}
+
+int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
+{
+	struct device_node *gpu_dn = pdev->dev.of_node;
+	struct device_node *gpu_clk_dn;
+	phandle dvfs_tbl_hdl;
+	phandle dvfs_clk_hdl[CLK_DVFS_TBL_SIZE];
+	mali_dvfs_threshold_table *dvfs_tbl = mpdata->dvfs_table;
+	uint32_t *clk_sample = mpdata->clk_sample;
+
+	int i = 0;
+	int ret = 0;
+	if (!gpu_dn) {
+		printk("gpu device node not right\n");
+	}
+
+	ret = of_property_read_u32(gpu_dn,"num_of_pp",
+			&mpdata->cfg_pp);
+	mpdata->scale_info.maxpp = mpdata->cfg_pp;
+	printk("configure pp is %d\n", mpdata->cfg_pp);
+
+	ret = of_property_read_u32(gpu_dn,"dvfs_tbl",
+			&dvfs_tbl_hdl);
+	gpu_dn = of_find_node_by_phandle(dvfs_tbl_hdl);
+	if (!gpu_dn) {
+		printk("failed to find gpu dvfs table\n");
+	}
+
+	ret = of_property_read_u32(gpu_dn,"sc_mpp",
+			&mpdata->sc_mpp);
+	printk("sc_mpp=%d\n", mpdata->sc_mpp);
+
+	ret = of_property_read_u32_array(gpu_dn,"tbl",
+			&dvfs_clk_hdl[0], CLK_DVFS_TBL_SIZE);
+
+	for (i = 0; i<CLK_DVFS_TBL_SIZE; i++) {
+		gpu_clk_dn = of_find_node_by_phandle(dvfs_clk_hdl[i]);
+		ret = of_property_read_u32(gpu_clk_dn,"clk_freq", &dvfs_tbl->clk_freq);
+		if (ret) {
+			printk("read clk_freq failed\n");
+		}
+		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
+				&dvfs_tbl->clk_parent);
+		if (ret) {
+			printk("read clk_parent failed\n");
+		}
+		ret = of_property_read_u32(gpu_clk_dn,"voltage", &dvfs_tbl->voltage);
+		if (ret) {
+			printk("read voltage failed\n");
+		}
+		ret = of_property_read_u32(gpu_clk_dn,"keep_count", &dvfs_tbl->keep_count);
+		if (ret) {
+			printk("read keep_count failed\n");
+		}
+		//downthreshold and upthreshold shall be u32
+		ret = of_property_read_u32_array(gpu_clk_dn,"threshold",
+				&dvfs_tbl->downthreshold, 2);
+		if (ret) {
+			printk("read threshold failed\n");
+		}
+		dvfs_tbl->freq_index = i;
+		*clk_sample = dvfs_tbl->clk_freq / 1000000;
+		dvfs_tbl ++;
+		clk_sample ++;
+	}
+
+	dvfs_tbl = mpdata->dvfs_table;
+	clk_sample = mpdata->clk_sample;
+	for (i = 0; i<CLK_DVFS_TBL_SIZE; i++) {
+		printk("===============%d=================\n", i);
+		printk("clk_freq=%d\nclk_parent=%s\nvoltage=%d\nkeep_count=%d\nthreshod=<%d %d>\n, clk_sample=%d\n",
+				dvfs_tbl->clk_freq, dvfs_tbl->clk_parent,
+				dvfs_tbl->voltage,  dvfs_tbl->keep_count,
+				dvfs_tbl->downthreshold, dvfs_tbl->upthreshold, *clk_sample);
+		dvfs_tbl ++;
+		clk_sample ++;
+	}
+
+	pmali_plat = mpdata;
+	mpdata->pdev = pdev;
+	return 0;
+}
+#endif

@@ -10,29 +10,20 @@
 
 # This file is called by the Linux build system.
 ############## Kasin Added, for platform. ################
-TARGET_PLATFORM:=meson_m450
-ifeq ($(CONFIG_ARCH_MESON1),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON3),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON6),y)
-TARGET_PLATFORM:= meson_m400
-endif
-ifeq ($(CONFIG_ARCH_MESON6TV),y)
-TARGET_PLATFORM:= meson_m400
-endif
 
 ifndef CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
     ccflags-y += -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH=y
 endif
-ifeq ($(CONFIG_ARCH_MESON),y)
+#ifeq ($(CONFIG_ARCH_MESON),y)
+CONFIG_MALI400_DEBUG=y
+ccflags-y += -DCONFIG_MALI450=y
+ccflags-y += -DCONFIG_MALI_DT=y
 ccflags-y += -DMESON_CPU_TYPE=0x80
 ccflags-y += -DMESON_CPU_TYPE_MESON6=0x60
 ccflags-y += -DMESON_CPU_TYPE_MESON6TVD=0x75
 ccflags-y += -DMESON_CPU_TYPE_MESON8=0x80
-endif
+ccflags-y += -DMESON_CPU_TYPE_MESON8B=0x8B
+#endif
 
 ##################### end Kasin Added. ###################
 
@@ -67,13 +58,7 @@ ifeq ($(CONFIG_MALI400_DEBUG),y)
 else
 	BUILD ?= release
 	#ldflags-y += --strip-debug
-endif
-##################### end Kasin Added. ###################
 
-############## Kasin Added, useless now. ################
-ifeq ($(USING_UMP),1)
-	UMP_SYMVERS_FILE = ../ump/Module.symvers
-	KBUILD_EXTRA_SYMBOLS = $(srctree)/$(src)/$(UMP_SYMVERS_FILE)
 endif
 ##################### end Kasin Added. ###################
 
@@ -184,11 +169,22 @@ mali-y += \
 	__malidrv_build_info.o
 
 ############## Kasin Added, for platform. ################
+ifeq (true,false)
 mali-y += \
 	platform/meson_main.o \
 	platform/mali_pm_device.o \
 	platform/mali_clock.o \
-	platform/mpgpu.o \
+	platform/mpgpu.o
+else
+mali-y += \
+	platform/mali_pm_device.o \
+	platform/meson_bu/meson_main2.o \
+	platform/meson_bu/mali_clock.o \
+	platform/meson_bu/scaling.o \
+	platform/meson_bu/mpgpu.o \
+	platform/meson_bu/platform_gx.o
+endif
+
 
 ifeq ($(TARGET_PLATFORM),meson_m400)
 MALI_PLATFORM_FILES:= \
