@@ -55,6 +55,9 @@ static void do_scaling(struct work_struct *work)
 	scalingdbg(1, "set pp cores to %d\n", num_cores_enabled);
 	MALI_DEBUG_ASSERT(0 == err);
 	MALI_IGNORE(err);
+	scalingdbg(1, "pdvfs[%d].freq_index=%d, pdvfs[%d].freq_index=%d\n",
+			currentStep, pdvfs[currentStep].freq_index,
+			lastStep, pdvfs[lastStep].freq_index);
 	if (pdvfs[currentStep].freq_index != pdvfs[lastStep].freq_index) {
 		mali_dev_pause();
 		mali_clock_set(pdvfs[currentStep].freq_index);
@@ -268,7 +271,10 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
 	change_mode = 0;
 	utilization = data->utilization_gpu;
 
-	//printk("line(%d), scaling_mode=%d\n",__LINE__,  scaling_mode);
+	scalingdbg(5, "line(%d), scaling_mode=%d, MALI_TURBO_MODE=%d, turbo=%d, maxclk=%d\n",
+			__LINE__,  scaling_mode, MALI_TURBO_MODE,
+		    pmali_plat->turbo_clock, pmali_plat->scale_info.maxclk);
+
 	mali_up_limit = (scaling_mode ==  MALI_TURBO_MODE) ?
 		pmali_plat->turbo_clock : pmali_plat->scale_info.maxclk;
 	decided_fs_idx = currentStep;
@@ -400,7 +406,6 @@ void set_mali_schel_mode(u32 mode)
 	if (mode >= MALI_SCALING_MODE_MAX)
 		return;
 	scaling_mode = mode;
-	//printk("line(%d), scaling_mode=%d\n",__LINE__,  scaling_mode);
 
 	/* set default performance range. */
 	pmali_plat->scale_info.minclk = pmali_plat->cfg_min_clock;
@@ -435,7 +440,6 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 	if (mali_pm_statue)
 		return;
 
-	//printk("line(%d), scaling_mode=%d\n",__LINE__,  scaling_mode);
 	switch (scaling_mode) {
 		case MALI_PP_FS_SCALING:
 			mali_pp_fs_scaling_update(data);

@@ -34,6 +34,7 @@ typedef struct mali_dvfs_threshold_table {
 	uint32_t    upthreshold;
     uint32_t    clk_freq;
     const char  *clk_parent;
+    uint32_t    clkp_freq;
 } mali_dvfs_threshold_table;
 
 /**

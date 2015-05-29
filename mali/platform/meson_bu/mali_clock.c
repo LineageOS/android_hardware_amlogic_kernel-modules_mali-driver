@@ -20,6 +20,19 @@ int mali_clock_init_clk_tree(struct platform_device* pdev)
 	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
 	clk_mali_0_parent = clk_get(&pdev->dev, "fclk_div4");
 
+	if (!clk_mali) {
+		printk("could not get clk_mali\n");
+		return 0;
+	}
+	if (!clk_mali_0) {
+		printk("could not get clk_mali_0\n");
+		return 0;
+	}
+	if (!clk_mali_0_parent) {
+		printk("could not get clk_mali_0_parent\n");
+		return 0;
+	}
+
 	clk_set_parent(clk_mali_0, clk_mali_0_parent);
 
 	clk_prepare_enable(clk_mali_0_parent);
@@ -49,11 +62,9 @@ int mali_clock_init(mali_plat_info_t *pdev)
 int mali_clock_critical(critical_t critical, size_t param)
 {
 	int ret = 0;
-	//unsigned long flags;
 
-	//spin_lock_irqsave(&lock, flags);
 	ret = critical(param);
-	//spin_unlock_irqrestore(&lock, flags);
+
 	return ret;
 }
 
@@ -64,19 +75,36 @@ static int critical_clock_set(size_t param)
 	struct platform_device *pdev = pmali_plat->pdev;
 	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[idx];
 
-	struct clk *clk_mali_0_parent;
-	struct clk *clk_mali_0;
-	struct clk *clk_mali_1;
-	struct clk *clk_mali;
+	struct clk *clk_mali_0_parent = NULL;
+	struct clk *clk_mali_0 = NULL;
+	struct clk *clk_mali_1 = NULL;
+	struct clk *clk_mali   = NULL;
 
 	clk_mali = clk_get(&pdev->dev, "clk_mali");
+	if (!clk_mali) {
+		printk("could not get clk_mali\n");
+		return 0;
+	}
 	clk_mali_1 = clk_get(&pdev->dev, "clk_mali_1");
+	if (!clk_mali_1) {
+		printk("could not get clk_mali_1\n");
+		return 0;
+	}
 	clk_set_parent(clk_mali, clk_mali_1);
 
 	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
+	if (!clk_mali_0) {
+		printk("could not get clk_mali_0\n");
+		return 0;
+	}
 	clk_mali_0_parent = clk_get(&pdev->dev,
 			dvfs_tbl->clk_parent);
+	if (!clk_mali_0_parent) {
+		printk("could not get clk_mali_0_parent\n");
+		return 0;
+	}
 
+	ret = clk_set_rate(clk_mali_0_parent, dvfs_tbl->clkp_freq);
 	clk_set_parent(clk_mali_0, clk_mali_0_parent);
 	clk_prepare_enable(clk_mali_0_parent);
 	ret = clk_set_rate(clk_mali, dvfs_tbl->clk_freq);
@@ -97,21 +125,37 @@ int mali_clock_set(unsigned int clock)
 
 void disable_clock(void)
 {
-	//unsigned long flags;
+	struct platform_device *pdev = pmali_plat->pdev;
+	struct clk *clk_mali_0 = NULL;
+	struct clk *clk_mali_1 = NULL;
 
-	//spin_lock_irqsave(&lock, flags);
-	printk("disable clock\n");
-	//spin_unlock_irqrestore(&lock, flags);
+	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
+	clk_mali_1 = clk_get(&pdev->dev, "clk_mali_1");
+	if (!clk_mali_0 || ! clk_mali_1) {
+		printk("could not get clk_mali_1 or clk_mali_0\n");
+		return ;
+	}
+
+	clk_prepare_enable(clk_mali_0);
+	clk_prepare_enable(clk_mali_1);
 }
 
 void enable_clock(void)
 {
-	u32 ret = 0;
-	//unsigned long flags;
 
-	//spin_lock_irqsave(&lock, flags);
-	printk("enable clock, ret=%d\n", ret);
-	//spin_unlock_irqrestore(&lock, flags);
+	struct platform_device *pdev = pmali_plat->pdev;
+	struct clk *clk_mali_0 = NULL;
+	struct clk *clk_mali_1 = NULL;
+
+	clk_mali_0 = clk_get(&pdev->dev, "clk_mali_0");
+	clk_mali_1 = clk_get(&pdev->dev, "clk_mali_1");
+	if (!clk_mali_0 || ! clk_mali_1) {
+		printk("could not get clk_mali_1 or clk_mali_0\n");
+		return ;
+	}
+
+	clk_disable_unprepare(clk_mali_0);
+	clk_disable_unprepare(clk_mali_1);
 }
 
 u32 get_mali_freq(u32 idx)
@@ -146,7 +190,6 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	ret = of_property_read_u32(gpu_dn,"num_of_pp",
 			&mpdata->cfg_pp);
 	mpdata->scale_info.maxpp = mpdata->cfg_pp;
-	printk("configure pp is %d\n", mpdata->cfg_pp);
 
 	ret = of_property_read_u32(gpu_dn,"dvfs_tbl",
 			&dvfs_tbl_hdl);
@@ -157,7 +200,6 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 
 	ret = of_property_read_u32(gpu_dn,"sc_mpp",
 			&mpdata->sc_mpp);
-	printk("sc_mpp=%d\n", mpdata->sc_mpp);
 
 	ret = of_property_read_u32_array(gpu_dn,"tbl",
 			&dvfs_clk_hdl[0], CLK_DVFS_TBL_SIZE);
@@ -169,9 +211,13 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 			printk("read clk_freq failed\n");
 		}
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
-				&dvfs_tbl->clk_parent);
+					&dvfs_tbl->clk_parent);
 		if (ret) {
 			printk("read clk_parent failed\n");
+		}
+		ret = of_property_read_u32(gpu_clk_dn,"clkp_freq", &dvfs_tbl->clkp_freq);
+		if (ret) {
+			printk("read clk_parent freq failed\n");
 		}
 		ret = of_property_read_u32(gpu_clk_dn,"voltage", &dvfs_tbl->voltage);
 		if (ret) {
@@ -183,7 +229,7 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		}
 		//downthreshold and upthreshold shall be u32
 		ret = of_property_read_u32_array(gpu_clk_dn,"threshold",
-				&dvfs_tbl->downthreshold, 2);
+					&dvfs_tbl->downthreshold, 2);
 		if (ret) {
 			printk("read threshold failed\n");
 		}
@@ -198,9 +244,9 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	for (i = 0; i<CLK_DVFS_TBL_SIZE; i++) {
 		printk("===============%d=================\n", i);
 		printk("clk_freq=%d\nclk_parent=%s\nvoltage=%d\nkeep_count=%d\nthreshod=<%d %d>\n, clk_sample=%d\n",
-				dvfs_tbl->clk_freq, dvfs_tbl->clk_parent,
-				dvfs_tbl->voltage,  dvfs_tbl->keep_count,
-				dvfs_tbl->downthreshold, dvfs_tbl->upthreshold, *clk_sample);
+		        dvfs_tbl->clk_freq, dvfs_tbl->clk_parent,
+			    dvfs_tbl->voltage,  dvfs_tbl->keep_count,
+			    dvfs_tbl->downthreshold, dvfs_tbl->upthreshold, *clk_sample);
 		dvfs_tbl ++;
 		clk_sample ++;
 	}
