@@ -15,7 +15,6 @@ ifndef CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
     ccflags-y += -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH=y
 endif
 #ifeq ($(CONFIG_ARCH_MESON),y)
-CONFIG_MALI400_DEBUG=y
 ccflags-y += -DCONFIG_MALI450=y
 ccflags-y += -DCONFIG_MALI_DT=y
 ccflags-y += -DMESON_CPU_TYPE=0x80
