@@ -21,7 +21,7 @@
 #include <mali_osk_profiling.h>
 
 #include <meson_main.h>
-
+#include <linux/amlogic/amports/gp_pll.h>
 #define LOG_MALI_SCALING 1
 
 
@@ -36,6 +36,9 @@ static int  scaling_mode = MALI_PP_FS_SCALING;
 //static int  scaling_mode = MALI_SCALING_DISABLE;
 //static int  scaling_mode = MALI_PP_SCALING;
 
+static struct gp_pll_user_handle_s *gp_pll_user_gpu;
+static int is_gp_pll_get;
+static int is_gp_pll_put;
 
 static unsigned scaling_dbg_level = 0;
 module_param(scaling_dbg_level, uint, 0644);
@@ -48,6 +51,61 @@ MODULE_PARM_DESC(scaling_dbg_level , "scaling debug level");
 	} while (0)
 
 #ifndef CONFIG_MALI_DVFS
+static inline void mali_clk_exected(void)
+{
+	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
+	uint32_t execStep = currentStep;
+	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[currentStep];
+
+	if (0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) {
+		gp_pll_request(gp_pll_user_gpu);
+		if (!is_gp_pll_get) {
+			//printk("not get pll\n");
+			execStep = currentStep - 1;
+		}
+	} else {
+		//not get the gp pll, do need put
+		is_gp_pll_get = 0;
+		is_gp_pll_put = 0;
+		gp_pll_release(gp_pll_user_gpu);
+	}
+
+	//if (pdvfs[currentStep].freq_index == pdvfs[lastStep].freq_index) return;
+	if (pdvfs[execStep].freq_index == pdvfs[lastStep].freq_index) {
+		return;
+	}
+
+	mali_dev_pause();
+	mali_clock_set(pdvfs[execStep].freq_index);
+	mali_dev_resume();
+	lastStep = execStep;
+	if (is_gp_pll_put) {
+		//printk("release gp0 pll\n");
+		gp_pll_release(gp_pll_user_gpu);
+		gp_pll_request(gp_pll_user_gpu);
+		is_gp_pll_get = 0;
+		is_gp_pll_put = 0;
+	}
+
+}
+static int gp_pll_user_cb_gpu(struct gp_pll_user_handle_s *user,
+		int event)
+{
+	if (event == GP_PLL_USER_EVENT_GRANT) {
+		//printk("granted\n");
+		is_gp_pll_get = 1;
+		is_gp_pll_put = 0;
+		schedule_work(&wq_work);
+	} else if (event == GP_PLL_USER_EVENT_YIELD) {
+		//printk("ask for yield\n");
+		is_gp_pll_get = 0;
+		is_gp_pll_put = 1;
+		schedule_work(&wq_work);
+	}
+
+	return 0;
+}
+
 static void do_scaling(struct work_struct *work)
 {
 	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
@@ -58,12 +116,7 @@ static void do_scaling(struct work_struct *work)
 	scalingdbg(1, "pdvfs[%d].freq_index=%d, pdvfs[%d].freq_index=%d\n",
 			currentStep, pdvfs[currentStep].freq_index,
 			lastStep, pdvfs[lastStep].freq_index);
-	if (pdvfs[currentStep].freq_index != pdvfs[lastStep].freq_index) {
-		mali_dev_pause();
-		mali_clock_set(pdvfs[currentStep].freq_index);
-		mali_dev_resume();
-		lastStep = currentStep;
-	}
+	mali_clk_exected();
 #ifdef CONFIG_MALI400_PROFILING
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
 			MALI_PROFILING_EVENT_CHANNEL_GPU |
@@ -194,6 +247,12 @@ int mali_core_scaling_init(mali_plat_info_t *mali_plat)
 
 	pmali_plat = mali_plat;
 	num_cores_enabled = pmali_plat->sc_mpp;
+	gp_pll_user_gpu = gp_pll_user_register("gpu", 1,
+		gp_pll_user_cb_gpu);
+	//not get the gp pll, do need put
+	is_gp_pll_get = 0;
+	is_gp_pll_put = 0;
+	if (gp_pll_user_gpu == NULL) printk("register gp pll user for gpu failed\n");
 
 	currentStep = pmali_plat->def_clock;
 	lastStep = currentStep;
@@ -207,6 +266,7 @@ void mali_core_scaling_term(void)
 {
 #ifndef CONFIG_MALI_DVFS
 	flush_scheduled_work();
+	gp_pll_user_unregister(gp_pll_user_gpu);
 #endif
 }
 
