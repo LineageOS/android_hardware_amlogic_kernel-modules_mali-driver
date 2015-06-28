@@ -70,12 +70,14 @@ int mali_platform_device_init(struct platform_device *device)
 	err = platform_device_add_data(device, &mali_gpu_data, sizeof(mali_gpu_data));
 
 	if (0 == err) {
+		device->dev.type = &mali_pm_device; /* We should probably use the pm_domain instead of type on newer kernels */
 #ifdef CONFIG_PM_RUNTIME
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
-		pm_runtime_set_autosuspend_delay(&(device->dev), 1000);
-		pm_runtime_use_autosuspend(&(device->dev));
+		pm_runtime_set_autosuspend_delay(&device->dev, 1000);
+		pm_runtime_use_autosuspend(&device->dev);
 #endif
 		pm_runtime_enable(&(device->dev));
+		pm_runtime_enable(&device->dev);
 #endif
 		mali_meson_init_finish(device);
 	}

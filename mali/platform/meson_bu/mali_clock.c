@@ -136,8 +136,8 @@ void disable_clock(void)
 		return ;
 	}
 
-	clk_prepare_enable(clk_mali_0);
-	clk_prepare_enable(clk_mali_1);
+	clk_disable_unprepare(clk_mali_0);
+	clk_disable_unprepare(clk_mali_1);
 }
 
 void enable_clock(void)
@@ -154,8 +154,8 @@ void enable_clock(void)
 		return ;
 	}
 
-	clk_disable_unprepare(clk_mali_0);
-	clk_disable_unprepare(clk_mali_1);
+	clk_prepare_enable(clk_mali_0);
+	clk_prepare_enable(clk_mali_1);
 }
 
 u32 get_mali_freq(u32 idx)
