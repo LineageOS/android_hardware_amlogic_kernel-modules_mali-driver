@@ -75,9 +75,9 @@ static inline void mali_clk_exected(void)
 		return;
 	}
 
-	mali_dev_pause();
+	//mali_dev_pause();
 	mali_clock_set(pdvfs[execStep].freq_index);
-	mali_dev_resume();
+	//mali_dev_resume();
 	lastStep = execStep;
 	if (is_gp_pll_put) {
 		//printk("release gp0 pll\n");
