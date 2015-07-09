@@ -17,6 +17,8 @@
 #define __ARM_CORE_SCALING_H__
 
 #include <linux/types.h>
+#include <linux/workqueue.h>
+#include <linux/clk-private.h>
 
 enum mali_scale_mode_t {
 	MALI_PP_SCALING = 0,
@@ -34,6 +36,7 @@ typedef struct mali_dvfs_threshold_table {
 	uint32_t    upthreshold;
     uint32_t    clk_freq;
     const char  *clk_parent;
+    struct clk  *clkp_handle;
     uint32_t    clkp_freq;
 } mali_dvfs_threshold_table;
 
@@ -69,6 +72,7 @@ typedef struct mali_plat_info_t {
 	u32 have_switch; /* have clock gate switch or not. */
 
 	mali_dvfs_threshold_table *dvfs_table;
+    struct mali_gpu_clk_item *clk_items;
 	u32 dvfs_table_size;
 
 	mali_scale_info_t scale_info;
@@ -80,6 +84,12 @@ typedef struct mali_plat_info_t {
 	void (*plat_preheat)(void);
 
     struct platform_device *pdev;
+    void __iomem *reg_base_hiubus;
+    void __iomem *reg_base_aobus;
+	struct work_struct wq_work;
+    struct clk *clk_mali;
+    struct clk *clk_mali_0;
+    struct clk *clk_mali_1;
 } mali_plat_info_t;
 mali_plat_info_t* get_mali_plat_data(void);
 

@@ -16,6 +16,12 @@ ifndef CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
 endif
 #ifeq ($(CONFIG_ARCH_MESON),y)
 ccflags-y += -DCONFIG_MALI450=y
+#ifeq ($(CONFIG_MALI450),m)
+#ccflags-y += -DCONFIG_MALI450=y
+#endif
+#ifeq ($(CONFIG_MALI450),y)
+#ccflags-y += -DCONFIG_MALI450=y
+#endif
 ccflags-y += -DCONFIG_MALI_DT=y
 ccflags-y += -DMESON_CPU_TYPE=0x80
 ccflags-y += -DMESON_CPU_TYPE_MESON6=0x60
@@ -45,9 +51,14 @@ OS_MEMORY_KERNEL_BUFFER_SIZE_IN_MB ?= 16
 #USING_GPU_UTILIZATION ?= 0
 #PROFILING_SKIP_PP_JOBS ?= 0
 #PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
-
-USING_GPU_UTILIZATION=1
-USING_DVFS=0
+ifeq ($(CONFIG_MALI_DVFS),y)
+    ccflags-y += -DCONFIG_MALI_DVFS
+    USING_GPU_UTILIZATION=0
+    USING_DVFS=1
+else
+    USING_GPU_UTILIZATION=1
+    USING_DVFS=0
+endif
 PROFILING_SKIP_PP_JOBS ?= 0
 PROFILING_SKIP_PP_AND_GP_JOBS ?= 0
 ############## Kasin Added, for platform. ################
@@ -179,11 +190,14 @@ mali-y += \
 	platform/mali_pm_device.o \
 	platform/meson_bu/meson_main2.o \
 	platform/meson_bu/mali_clock.o \
-	platform/meson_bu/scaling.o \
 	platform/meson_bu/mpgpu.o \
 	platform/meson_bu/platform_gx.o
 endif
-
+ifeq ($(CONFIG_MALI_DVFS),y)
+    mali-y += platform/meson_bu/mali_dvfs.o
+else
+	mali-y += platform/meson_bu/scaling.o
+endif
 
 ifeq ($(TARGET_PLATFORM),meson_m400)
 MALI_PLATFORM_FILES:= \

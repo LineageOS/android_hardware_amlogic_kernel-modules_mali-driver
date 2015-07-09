@@ -20,10 +20,10 @@
 #include <mali_kernel_common.h>
 #include <mali_osk_profiling.h>
 
-#include <meson_main.h>
 #include <linux/amlogic/amports/gp_pll.h>
 #define LOG_MALI_SCALING 1
-
+#include "meson_main2.h"
+#include "mali_clock.h"
 
 static int currentStep;
 #ifndef CONFIG_MALI_DVFS
@@ -467,6 +467,12 @@ void set_mali_schel_mode(u32 mode)
 		return;
 	scaling_mode = mode;
 
+	//disable thermal in turbo mode
+	if (scaling_mode == MALI_TURBO_MODE) {
+		pmali_plat->limit_on = 0;
+	} else {
+		pmali_plat->limit_on = 1;
+	}
 	/* set default performance range. */
 	pmali_plat->scale_info.minclk = pmali_plat->cfg_min_clock;
 	pmali_plat->scale_info.maxclk = pmali_plat->cfg_clock;
@@ -515,10 +521,20 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 
 void mali_dev_restore(void)
 {
-#ifndef CONFIG_MALI_DVFS
-	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
+	mali_perf_set_num_pp_cores(num_cores_enabled);
+	if (pmali_plat && pmali_plat->pdev) {
+		mali_clock_init_clk_tree(pmali_plat->pdev);
+	} else {
+		printk("error: init clock failed, pmali_plat=%p, pmali_plat->pdev=%p\n",
+				pmali_plat, pmali_plat == NULL ? NULL: pmali_plat->pdev);
+	}
+}
 
-	//mali_perf_set_num_pp_cores(num_cores_enabled);
-	mali_clock_set(pdvfs[currentStep].freq_index);
-#endif
+int mali_meson_get_gpu_data(struct mali_gpu_device_data *mgpu_data)
+{
+	mgpu_data->get_clock_info = NULL;
+	mgpu_data->get_freq = NULL;
+	mgpu_data->set_freq = NULL;
+	mgpu_data->utilization_callback = mali_gpu_utilization_callback;
+	return 0;
 }

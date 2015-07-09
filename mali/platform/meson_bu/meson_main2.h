@@ -13,6 +13,7 @@
 #ifdef CONFIG_PM_RUNTIME
 #include <linux/pm_runtime.h>
 #endif
+#include <linux/mali/mali_utgard.h>
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 29))
 #include <mach/cpu.h>
 #endif
@@ -27,6 +28,7 @@ u32 set_max_mali_freq(u32 idx);
 u32 get_max_mali_freq(void);
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev);
+int mali_meson_get_gpu_data(struct mali_gpu_device_data *mgpu_data);
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev);
 int mali_meson_uninit(struct platform_device* ptr_plt_dev);
 int mali_light_suspend(struct device *device);

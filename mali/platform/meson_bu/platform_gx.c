@@ -37,87 +37,11 @@
  *    For Meson 8 M2.
  *
  */
-
-#define CFG_PP 6
-#define CFG_CLOCK 3
-#define CFG_MIN_PP 1
-#define CFG_MIN_CLOCK 0
-
-/* fclk is 2550Mhz. */
-#define FCLK_DEV3 (6 << 9)      /*  850   Mhz  */
-#define FCLK_DEV4 (5 << 9)      /*  637.5 Mhz  */
-#define FCLK_DEV5 (7 << 9)      /*  510   Mhz  */
-#define FCLK_DEV7 (4 << 9)      /*  364.3 Mhz  */
-
-
-static u32 mali_dvfs_clk[] = {
-    FCLK_DEV7 | 1,     /* 182.1 Mhz */
-    FCLK_DEV4 | 1,     /* 318.7 Mhz */
-    FCLK_DEV3 | 1,     /* 425 Mhz */
-    FCLK_DEV5 | 0,     /* 510 Mhz */
-    FCLK_DEV4 | 0,     /* 637.5 Mhz */
-};
-
-static u32 mali_dvfs_clk_sample[] = {
-    182,     /* 182.1 Mhz */
-    319,     /* 318.7 Mhz */
-    425,     /* 425 Mhz */
-    510,     /* 510 Mhz */
-    637,     /* 637.5 Mhz */
-};
-//////////////////////////////////////
-//for dvfs
-struct mali_gpu_clk_item  meson_gpu_clk[]  = {
-    {182,  1150},   /* 182.1 Mhz, 1150mV */
-    {319,  1150},   /* 318.7 Mhz */
-    {425,  1150},   /* 425 Mhz */
-    {510,  1150},   /* 510 Mhz */
-    {637,  1150},   /* 637.5 Mhz */
-};
-struct mali_gpu_clock meson_gpu_clk_info = {
-    .item = meson_gpu_clk,
-    .num_of_steps = ARRAY_SIZE(meson_gpu_clk),
-};
-static int cur_gpu_clk_index = 0;
-//////////////////////////////////////
-static mali_dvfs_threshold_table mali_dvfs_table[]={
-    { 0, 0, 3,  30,  80}, /* for 182.1  */
-    { 1, 1, 3,  40, 205}, /* for 318.7  */
-    { 2, 2, 3, 150, 215}, /* for 425.0  */
-    { 3, 3, 3, 170, 253}, /* for 510.0  */
-    { 4, 4, 3, 230, 255},  /* for 637.5  */
-    { 0, 0, 3,   0,   0}
-};
-
 static void mali_plat_preheat(void);
 static mali_plat_info_t mali_plat_data = {
-    .cfg_pp = CFG_PP,  /* number of pp. */
-    .cfg_min_pp = CFG_MIN_PP,
-    .turbo_clock = 4, /* reserved clock src. */
-    .def_clock = 2, /* gpu clock used most of time.*/
-    .cfg_clock = CFG_CLOCK, /* max gpu clock. */
-    .cfg_clock_bkup = CFG_CLOCK,
-    .cfg_min_clock = CFG_MIN_CLOCK,
-
-    .sc_mpp = 3, /* number of pp used most of time.*/
     .bst_gpu = 210, /* threshold for boosting gpu. */
     .bst_pp = 160, /* threshold for boosting PP. */
-
-    .clk = mali_dvfs_clk, /* clock source table. */
-    .clk_sample = mali_dvfs_clk_sample, /* freqency table for show. */
-    .clk_len = sizeof(mali_dvfs_clk) / sizeof(mali_dvfs_clk[0]),
     .have_switch = 1,
-
-    .dvfs_table = mali_dvfs_table, /* DVFS table. */
-    .dvfs_table_size = sizeof(mali_dvfs_table) / sizeof(mali_dvfs_threshold_table),
-
-    .scale_info = {
-        CFG_MIN_PP, /* minpp */
-        CFG_PP, /* maxpp, should be same as cfg_pp */
-        CFG_MIN_CLOCK, /* minclk */
-        CFG_CLOCK, /* maxclk should be same as cfg_clock */
-    },
-
     .limit_on = 1,
     .plat_preheat = mali_plat_preheat,
 };
@@ -207,33 +131,6 @@ quit:
 #endif
 
 void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
-
-/* Function that platfrom report it's clock info which driver can set, needed when CONFIG_MALI_DVFS enabled */
-void meson_platform_get_clock_info(struct mali_gpu_clock **data) {
-    *data = &meson_gpu_clk_info;
-}
-
-/* Function that get the current clock info, needed when CONFIG_MALI_DVFS enabled */
-int meson_platform_get_freq(void) {
-    printk("get cur_gpu_clk_index =%d\n", cur_gpu_clk_index);
-    return  cur_gpu_clk_index;
-}
-
-/* Fuction that platform callback for freq setting, needed when CONFIG_MALI_DVFS enabled */
-int meson_platform_set_freq(int setting_clock_step) {
-
-    if (cur_gpu_clk_index == setting_clock_step) {
-        return 0;
-    }
-
-    mali_clock_set(setting_clock_step);
-
-    cur_gpu_clk_index = setting_clock_step;
-    printk("set cur_gpu_clk_index =%d\n", cur_gpu_clk_index);
-
-    return 0;
-}
-
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
     dev_set_drvdata(&ptr_plt_dev->dev, &mali_plat_data);
@@ -244,17 +141,14 @@ int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 
 int mali_meson_init_finish(struct platform_device* ptr_plt_dev)
 {
-#ifndef CONFIG_MALI_DVFS
     if (mali_core_scaling_init(&mali_plat_data) < 0)
         return -1;
-#else
-    printk("disable meson own dvfs\n");
-#endif
     return 0;
 }
 
 int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 {
+    mali_core_scaling_term();
     return 0;
 }
 
@@ -355,6 +249,7 @@ int mali_light_suspend(struct device *device)
             0, 0, 0, 0, 0);
 #endif
 
+    flush_scaling_job();
     /* clock scaling. Kasin..*/
     ret = mali_clock_critical(mali_cri_light_suspend, (size_t)device);
     disable_clock();
@@ -380,10 +275,8 @@ int mali_deep_suspend(struct device *device)
     int ret = 0;
 
     mali_pm_statue = 1;
-    enable_clock();
-#ifndef CONFIG_MALI_DVFS
     flush_scaling_job();
-#endif
+
 
     /* clock scaling off. Kasin... */
     ret = mali_clock_critical(mali_cri_deep_suspend, (size_t)device);

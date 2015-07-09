@@ -28,12 +28,6 @@
 #include "mali_clock.h"
 #include "meson_main2.h"
 
-#define CLK_DVFS_TBL_SIZE 5
-
-#if 0
-static int mali_core_scaling_enable = 0;
-#endif
-
 int mali_pm_statue = 0;
 extern void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
 
@@ -54,10 +48,6 @@ static struct mali_gpu_device_data mali_gpu_data = {
 	.fb_size = 0x01000000,
 #endif
 	.control_interval = 200, /* 1000ms */
-	.utilization_callback = mali_gpu_utilization_callback,
-	.get_clock_info = NULL,
-	.get_freq = NULL,
-	.set_freq = NULL,
 };
 
 int mali_platform_device_init(struct platform_device *device)
@@ -66,6 +56,8 @@ int mali_platform_device_init(struct platform_device *device)
 
 	err = mali_meson_init_start(device);
 	if (0 != err) printk("mali init failed\n");
+	err = mali_meson_get_gpu_data(&mali_gpu_data);
+	if (0 != err) printk("mali get gpu data failed\n");
 
 	err = platform_device_add_data(device, &mali_gpu_data, sizeof(mali_gpu_data));
 
@@ -76,7 +68,6 @@ int mali_platform_device_init(struct platform_device *device)
 		pm_runtime_set_autosuspend_delay(&device->dev, 1000);
 		pm_runtime_use_autosuspend(&device->dev);
 #endif
-		pm_runtime_enable(&(device->dev));
 		pm_runtime_enable(&device->dev);
 #endif
 		mali_meson_init_finish(device);
@@ -95,7 +86,6 @@ int mali_platform_device_deinit(struct platform_device *device)
 	printk("%s, %d\n", __FILE__, __LINE__);
 	MALI_DEBUG_PRINT(4, ("mali_platform_device_deinit() called\n"));
 
-	mali_core_scaling_term();
 
 	mali_meson_uninit(device);
 

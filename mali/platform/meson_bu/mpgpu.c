@@ -35,14 +35,12 @@
 static ssize_t domain_stat_read(struct class *class,
 		struct class_attribute *attr, char *buf)
 {
-#if 0
 	unsigned int val;
+	mali_plat_info_t* pmali_plat = get_mali_plat_data();
 
-	val = readl((u32 *)(IO_AOBUS_BASE + 0xf0)) & 0xff;
+	val = readl(pmali_plat->reg_base_aobus + 0xf0) & 0xff;
 	return sprintf(buf, "%x\n", val>>4);
-#else
 	return 0;
-#endif
 }
 
 #define PREHEAT_CMD "preheat"
