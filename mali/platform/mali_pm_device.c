@@ -43,6 +43,8 @@ static int mali_os_freeze(struct device *device)
 
 	MALI_DEBUG_PRINT(4, ("mali_os_freeze() called\n"));
 
+	mali_dev_freeze();
+
 	if (NULL != device->driver &&
 	    NULL != device->driver->pm &&
 	    NULL != device->driver->pm->freeze)

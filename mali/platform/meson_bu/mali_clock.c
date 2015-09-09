@@ -11,12 +11,6 @@
 #define AML_CLK_LOCK_ERROR 1
 #endif
 
-#define HHI_MALI_CLK_CNTL 0x6C
-#define mplt_read(r)		readl((pmali_plat->reg_base_hiubus) + ((r)<<2))
-#define mplt_write(r, v)	writel((v), ((pmali_plat->reg_base_hiubus) + ((r)<<2)))
-#define mplt_setbits(r, m)  mplt_write((r), (mplt_read(r) | (m)));
-#define mplt_clrbits(r, m)  mplt_write((r), (mplt_read(r) & (~(m))));
-
 static unsigned gpu_dbg_level = 0;
 module_param(gpu_dbg_level, uint, 0644);
 MODULE_PARM_DESC(gpu_dbg_level, "gpu debug level");

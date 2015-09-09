@@ -518,10 +518,16 @@ void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 	}
 #endif
 }
+static u32 clk_cntl_save = 0;
+void mali_dev_freeze(void)
+{
+	clk_cntl_save = mplt_read(HHI_MALI_CLK_CNTL);
+}
 
 void mali_dev_restore(void)
 {
-	mali_perf_set_num_pp_cores(num_cores_enabled);
+
+	mplt_write(HHI_MALI_CLK_CNTL, clk_cntl_save);
 	if (pmali_plat && pmali_plat->pdev) {
 		mali_clock_init_clk_tree(pmali_plat->pdev);
 	} else {
