@@ -8,6 +8,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/sched.h>
 #include "mali_osk.h"
 #include "mali_osk_list.h"
 #include "mali_session.h"
@@ -87,18 +88,22 @@ u32 mali_session_max_window_num(void)
 	return max_window_num;
 }
 #endif
-
 void mali_session_memory_tracking(_mali_osk_print_ctx *print_ctx)
 {
 	struct mali_session_data *session, *tmp;
+	char task_comm[TASK_COMM_LEN];
+	struct task_struct *ttask;
 	u32 mali_mem_usage;
 	u32 total_mali_mem_size;
 
 	MALI_DEBUG_ASSERT_POINTER(print_ctx);
 	mali_session_lock();
+
 	MALI_SESSION_FOREACH(session, tmp, link) {
-		_mali_osk_ctxprintf(print_ctx, "  %-25s  %-10u  %-10u  %-15u  %-15u  %-10u  %-10u\n",
-				    session->comm, session->pid,
+		ttask = pid_task(find_vpid(session->pid), PIDTYPE_PID);
+		get_task_comm(task_comm, ttask);
+		_mali_osk_ctxprintf(print_ctx, "  %-25s  %-10u %-25s %-10u  %-15u  %-15u  %-10u  %-10u\n",
+				    session->comm, session->pid,  task_comm,
 				    session->mali_mem_array[MALI_MEM_OS] + session->mali_mem_array[MALI_MEM_BLOCK], session->max_mali_mem_allocated,
 				    session->mali_mem_array[MALI_MEM_EXTERNAL], session->mali_mem_array[MALI_MEM_UMP],
 				    session->mali_mem_array[MALI_MEM_DMA_BUF]);

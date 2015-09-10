@@ -880,9 +880,9 @@ static const struct file_operations profiling_events_human_readable_fops = {
 
 static int memory_debugfs_show(struct seq_file *s, void *private_data)
 {
-	seq_printf(s, "  %-25s  %-10s  %-10s  %-15s  %-15s  %-10s  %-10s\n"\
-		   "==============================================================================================================\n",
-		   "Name (:bytes)", "pid", "mali_mem", "max_mali_mem",
+	seq_printf(s, "  %-25s  %-10s %-25s %-10s  %-15s  %-15s  %-10s  %-10s\n"\
+		   "=======================================================================================================================================\n",
+		   "Name (:bytes)", "pid", "pid-name", "mali_mem", "max_mali_mem",
 		   "external_mem", "ump_mem", "dma_mem");
 	mali_session_memory_tracking(s);
 	return 0;
