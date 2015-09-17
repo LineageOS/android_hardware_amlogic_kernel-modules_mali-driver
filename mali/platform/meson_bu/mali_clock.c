@@ -58,9 +58,6 @@ int mali_clock_init_clk_tree(struct platform_device* pdev)
 	  clk_mali_0->name,  clk_mali_0->enable_count,
 	  clk_mali_0_parent->name, clk_mali_0_parent->enable_count);
 
-	printk("pdev->drvdata=%p\n",
-			dev_get_drvdata(&pdev->dev));
-
 	return 0;
 }
 
@@ -96,7 +93,7 @@ static int critical_clock_set(size_t param)
 	clk_mali_x_old  = clk_get_parent(clk_mali);
 
 	if (!clk_mali_x_old) {
-		printk("could not get clk_mali_x_old or clk_mali_x_old\n");
+		printk("gpu: could not get clk_mali_x_old or clk_mali_x_old\n");
 		return 0;
 	}
 	if (clk_mali_x_old == clk_mali_0) {
@@ -104,14 +101,14 @@ static int critical_clock_set(size_t param)
 	} else if (clk_mali_x_old == clk_mali_1) {
 		clk_mali_x = clk_mali_0;
 	} else {
-		printk("unmatched clk_mali_x_old\n");
+		printk("gpu: unmatched clk_mali_x_old\n");
 		return 0;
 	}
 
 	GPU_CLK_DBG("idx=%d, clk_freq=%d\n", idx, dvfs_tbl->clk_freq);
 	clk_mali_x_parent = dvfs_tbl->clkp_handle;
 	if (!clk_mali_x_parent) {
-		printk("could not get clk_mali_x_parent\n");
+		printk("gpu: could not get clk_mali_x_parent\n");
 		return 0;
 	}
 
@@ -184,7 +181,7 @@ u32 get_mali_freq(u32 idx)
 
 void set_str_src(u32 data)
 {
-	printk("%s, %s, %d\n", __FILE__, __func__, __LINE__);
+	printk("gpu: %s, %s, %d\n", __FILE__, __func__, __LINE__);
 }
 
 int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
@@ -203,102 +200,102 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 
 	int ret = 0;
 	if (!gpu_dn) {
-		printk("gpu device node not right\n");
+		dev_notice(&pdev->dev, "gpu device node not right\n");
 		return -ENODEV;
 	}
 
 	ret = of_property_read_u32(gpu_dn,"num_of_pp",
 			&mpdata->cfg_pp);
 	if (ret) {
-		printk("read max pp failed\n");
+		dev_notice(&pdev->dev, "set max pp to default 6\n");
 		mpdata->cfg_pp = 6;
 	}
 	mpdata->scale_info.maxpp = mpdata->cfg_pp;
-	printk("max pp is %d\n", mpdata->scale_info.maxpp);
+	_dev_info(&pdev->dev, "max pp is %d\n", mpdata->scale_info.maxpp);
 
 	ret = of_property_read_u32(gpu_dn,"min_pp",
 			&mpdata->cfg_min_pp);
 	if (ret) {
-		printk("read min pp failed\n");
+		dev_notice(&pdev->dev, "set min pp to default 1\n");
 		mpdata->cfg_min_pp = 1;
 	}
 	mpdata->scale_info.minpp = mpdata->cfg_min_pp;
-	printk("min pp is %d\n", mpdata->scale_info.minpp);
+	_dev_info(&pdev->dev, "min pp is %d\n", mpdata->scale_info.minpp);
 
 	ret = of_property_read_u32(gpu_dn,"min_clk",
 			&mpdata->cfg_min_clock);
 	if (ret) {
-		printk("read min clk failed\n");
+		dev_notice(&pdev->dev, "set min clk default to 0\n");
 		mpdata->cfg_min_clock = 0;
 	}
 	mpdata->scale_info.minclk = mpdata->cfg_min_clock;
-	printk("min clk  is %d\n", mpdata->scale_info.minclk);
+	_dev_info(&pdev->dev, "min clk  is %d\n", mpdata->scale_info.minclk);
 
 	mpdata->reg_base_hiubus = of_iomap(gpu_dn, 1);
-	printk("hiu io source  0x%p\n", mpdata->reg_base_hiubus);
+	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_hiubus);
 
 	mpdata->reg_base_aobus = of_iomap(gpu_dn, 2);
-	printk("hiu io source  0x%p\n", mpdata->reg_base_aobus);
+	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_aobus);
 
 	ret = of_property_read_u32(gpu_dn,"sc_mpp",
 			&mpdata->sc_mpp);
 	if (ret) {
-		printk("read min clk failed\n");
-		mpdata->cfg_min_clock = mpdata->cfg_pp;
+		dev_notice(&pdev->dev, "set pp used most of time default to %d\n", mpdata->cfg_pp);
+		mpdata->sc_mpp = mpdata->cfg_pp;
 	}
-	printk("num of pp used most of time %d\n", mpdata->sc_mpp);
+	_dev_info(&pdev->dev, "num of pp used most of time %d\n", mpdata->sc_mpp);
 
 	of_get_property(gpu_dn, "tbl", &length);
 
 	length = length /sizeof(u32);
-	printk("clock dvfs table size is %d\n", length);
+	_dev_info(&pdev->dev, "clock dvfs table size is %d\n", length);
 
 	ret = of_property_read_u32(gpu_dn,"max_clk",
 			&mpdata->cfg_clock);
 	if (ret) {
-		printk("read max clk failed\n");
+		dev_notice(&pdev->dev, "max clk set %d\n", length-2);
 		mpdata->cfg_clock = length-2;
 	}
 
 	mpdata->cfg_clock_bkup = mpdata->cfg_clock;
 	mpdata->scale_info.maxclk = mpdata->cfg_clock;
-	printk("max clk  is %d\n", mpdata->scale_info.maxclk);
+	_dev_info(&pdev->dev, "max clk  is %d\n", mpdata->scale_info.maxclk);
 
 	ret = of_property_read_u32(gpu_dn,"turbo_clk",
 			&mpdata->turbo_clock);
 	if (ret) {
-		printk("read turbo clk failed\n");
+		dev_notice(&pdev->dev, "turbo clk set to %d\n", length-1);
 		mpdata->turbo_clock = length-1;
 	}
-	printk("turbo clk  is %d\n", mpdata->turbo_clock);
+	_dev_info(&pdev->dev, "turbo clk  is %d\n", mpdata->turbo_clock);
 
 	ret = of_property_read_u32(gpu_dn,"def_clk",
 			&mpdata->def_clock);
 	if (ret) {
-		printk("read default clk failed\n");
+		dev_notice(&pdev->dev, "default clk set to %d\n", length/2-1);
 		mpdata->def_clock = length/2 - 1;
 	}
-	printk("default clk  is %d\n", mpdata->def_clock);
+	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	mpdata->dvfs_table = devm_kzalloc(&pdev->dev,
 								  sizeof(struct mali_dvfs_threshold_table)*length,
 								  GFP_KERNEL);
 	dvfs_tbl = mpdata->dvfs_table;
 	if (mpdata->dvfs_table == NULL) {
-		printk("failed to alloc dvfs table\n");
+		dev_err(&pdev->dev, "failed to alloc dvfs table\n");
 		return -ENOMEM;
 	}
 	mpdata->dvfs_table_size = length;
 	mpdata->clk_sample = devm_kzalloc(&pdev->dev, sizeof(u32)*length, GFP_KERNEL);
 	if (mpdata->clk_sample == NULL) {
-		printk("failed to alloc clk_sample table\n");
+		dev_err(&pdev->dev, "failed to alloc clk_sample table\n");
 		return -ENOMEM;
 	}
 	clk_sample = mpdata->clk_sample;
 ///////////
 	mpdata->clk_items = devm_kzalloc(&pdev->dev, sizeof(struct mali_gpu_clk_item) * length, GFP_KERNEL);
 	if (mpdata->clk_items == NULL) {
-		printk("failed to alloc clk_item table\n");
+		dev_err(&pdev->dev, "failed to alloc clk_item table\n");
 		return -ENOMEM;
 	}
 	clk_item = mpdata->clk_items;
@@ -309,34 +306,34 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		gpu_clk_dn = of_find_node_by_phandle(dvfs_clk_hdl);
 		ret = of_property_read_u32(gpu_clk_dn,"clk_freq", &dvfs_tbl->clk_freq);
 		if (ret) {
-			printk("read clk_freq failed\n");
+			dev_notice(&pdev->dev, "read clk_freq failed\n");
 		}
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
 										&dvfs_tbl->clk_parent);
 		if (ret) {
-			printk("read clk_parent failed\n");
+			dev_notice(&pdev->dev, "read clk_parent failed\n");
 		}
 		dvfs_tbl->clkp_handle = devm_clk_get(&pdev->dev, dvfs_tbl->clk_parent);
 		if (IS_ERR(dvfs_tbl->clkp_handle)) {
-			printk("failed to get %s's clock pointer\n", dvfs_tbl->clk_parent);
+			dev_notice(&pdev->dev, "failed to get %s's clock pointer\n", dvfs_tbl->clk_parent);
 		}
 		ret = of_property_read_u32(gpu_clk_dn,"clkp_freq", &dvfs_tbl->clkp_freq);
 		if (ret) {
-			printk("read clk_parent freq failed\n");
+			dev_notice(&pdev->dev, "read clk_parent freq failed\n");
 		}
 		ret = of_property_read_u32(gpu_clk_dn,"voltage", &dvfs_tbl->voltage);
 		if (ret) {
-			printk("read voltage failed\n");
+			dev_notice(&pdev->dev, "read voltage failed\n");
 		}
 		ret = of_property_read_u32(gpu_clk_dn,"keep_count", &dvfs_tbl->keep_count);
 		if (ret) {
-			printk("read keep_count failed\n");
+			dev_notice(&pdev->dev, "read keep_count failed\n");
 		}
 		//downthreshold and upthreshold shall be u32
 		ret = of_property_read_u32_array(gpu_clk_dn,"threshold",
 		&dvfs_tbl->downthreshold, 2);
 		if (ret) {
-			printk("read threshold failed\n");
+			dev_notice(&pdev->dev, "read threshold failed\n");
 		}
 		dvfs_tbl->freq_index = i;
 		clk_item->clock = dvfs_tbl->clk_freq / 1000000;
@@ -353,8 +350,9 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	dvfs_tbl = mpdata->dvfs_table;
 	clk_sample = mpdata->clk_sample;
 	for (i = 0; i< length; i++) {
-		printk("===============%d=================\n", i);
-		printk("clk_freq=%d\nclk_parent=%s\nvoltage=%d\nkeep_count=%d\nthreshod=<%d %d>\n, clk_sample=%d\n",
+		_dev_info(&pdev->dev, "====================%d====================\n"
+		            "clk_freq=%10d, clk_parent=%9s, voltage=%d, keep_count=%d, threshod=<%d %d>, clk_sample=%d\n",
+					i,
 					dvfs_tbl->clk_freq, dvfs_tbl->clk_parent,
 					dvfs_tbl->voltage,  dvfs_tbl->keep_count,
 					dvfs_tbl->downthreshold, dvfs_tbl->upthreshold, *clk_sample);

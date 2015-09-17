@@ -101,7 +101,8 @@ void mali_session_memory_tracking(_mali_osk_print_ctx *print_ctx)
 
 	MALI_SESSION_FOREACH(session, tmp, link) {
 		ttask = pid_task(find_vpid(session->pid), PIDTYPE_PID);
-		get_task_comm(task_comm, ttask);
+		//get_task_comm(task_comm, ttask);
+		strncpy(task_comm, ttask->comm, sizeof(ttask->comm));
 		_mali_osk_ctxprintf(print_ctx, "  %-25s  %-10u %-25s %-10u  %-15u  %-15u  %-10u  %-10u\n",
 				    session->comm, session->pid,  task_comm,
 				    session->mali_mem_array[MALI_MEM_OS] + session->mali_mem_array[MALI_MEM_BLOCK], session->max_mali_mem_allocated,
