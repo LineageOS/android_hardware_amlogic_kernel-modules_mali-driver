@@ -15,11 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef FRAMEBUFFER_DEVICE_H_
+#define FRAMEBUFFER_DEVICE_H_
+
 
 #include <hardware/hardware.h>
 
 // Create a framebuffer device
 int framebuffer_device_open(hw_module_t const* module, const char* name, hw_device_t** device);
 
-// Initialize the framebuffer (must keep module lock before calling
-int init_frame_buffer_locked(struct private_module_t* module);
+#endif

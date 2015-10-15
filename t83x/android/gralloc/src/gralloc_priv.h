@@ -27,9 +27,12 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include <utils/Log.h>
+
 #include <hardware/gralloc.h>
 #include <cutils/native_handle.h>
 #include "alloc_device.h"
+#include "framebuffer.h"
 #include <utils/Log.h>
 
 #include "format_chooser.h"
@@ -83,7 +86,6 @@ struct fb_dmabuf_export
  * 8 is big enough for "gpu0" & "fb0" currently
  */
 #define MALI_GRALLOC_HARDWARE_MAX_STR_LEN 8
-#define NUM_FB_BUFFERS 3
 
 /* Define number of shared file descriptors */
 #if MALI_AFBC_GRALLOC == 1 && GRALLOC_ARM_DMA_BUF_MODULE
@@ -120,24 +122,32 @@ typedef enum
 
 struct private_handle_t;
 
+//used by gralloc mode to only.
+struct framebuffer_mapper_t{
+    private_handle_t* framebuffer;
+    framebuffer_info_t fb_info;
+    uint32_t numBuffers;
+    uint32_t bufferMask;
+    uint32_t bufferSize;
+};
+
+//TODO: NEED CHANGE NAME TO BE MORE READABLE!!
+struct framebuffer_t{
+    struct framebuffer_device_t base;
+    struct framebuffer_info_t fb_info;
+    struct private_handle_t*  fb_hnd;
+};
+
 struct private_module_t
 {
 	gralloc_module_t base;
 
-	struct private_handle_t* framebuffer;
-	uint32_t flags;
-	uint32_t numBuffers;
-	uint32_t bufferMask;
+	framebuffer_mapper_t fb_primary;
+	framebuffer_mapper_t fb_external;
 	pthread_mutex_t lock;
-	buffer_handle_t currentBuffer;
 	int ion_client;
 	mali_dpy_type dpy_type;
 
-	struct fb_var_screeninfo info;
-	struct fb_fix_screeninfo finfo;
-	float xdpi;
-	float ydpi;
-	float fps;
 	int swapInterval;
 
 	enum
@@ -152,6 +162,10 @@ struct private_module_t
 #endif
 };
 
+
+/*
+ATTENTATION: don't add member in this struct, it is used by other modules.
+*/
 #ifdef __cplusplus
 struct private_handle_t : public native_handle
 {
@@ -165,7 +179,11 @@ struct private_handle_t
 	{
 		PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
 		PRIV_FLAGS_USES_UMP    = 0x00000002,
-		PRIV_FLAGS_USES_ION    = 0x00000004
+		PRIV_FLAGS_USES_ION    = 0x00000004,
+		PRIV_FLAGS_VIDEO_OVERLAY = 0x00000010,
+		PRIV_FLAGS_VIDEO_OMX     = 0x00000020,
+		PRIV_FLAGS_CURSOR = 0x00000040,
+		PRIV_FLAGS_OSD_VIDEO_OMX = 0x00000080,
 	};
 
 	enum
@@ -224,8 +242,9 @@ struct private_handle_t
 
 	mali_gralloc_yuv_info yuv_info;
 
-	// Following members is for framebuffer only
-	int   fd;
+    // Following members is for framebuffer only
+	int     fd; //to mmap osd memory
+    //current buffer offset from framebuffer base
 	union {
 		off_t    offset;
 		uint64_t padding4;

@@ -44,17 +44,35 @@
 
 static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev, size_t size, int usage, buffer_handle_t* pHandle, int* stride, int* byte_stride)
 {
-	private_module_t* m = reinterpret_cast<private_module_t*>(dev->common.module);
+	private_module_t* private_t = reinterpret_cast<private_module_t*>(dev->common.module);
+	framebuffer_mapper_t* m = NULL;
+#ifdef DEBUG_EXTERNAL_DISPLAY_ON_PANEL
+	ALOGD("always alloc from fb0");
+	m = &(private_t->fb_primary);
+#else
+	if (usage & GRALLOC_USAGE_EXTERNAL_DISP)
+	{
+		m = &(private_t->fb_external);
+	}
+	else
+	{
+		m = &(private_t->fb_primary);
+	}
+#endif
 
 	// allocate the framebuffer
 	if (m->framebuffer == NULL)
 	{
+	#if 0//not a good idea to init here. remove it.
 		// initialize the framebuffer, the framebuffer is mapped once and forever.
 		int err = init_frame_buffer_locked(m);
 		if (err < 0)
 		{
 			return err;
 		}
+	#endif
+		AERR("Should register fb before alloc it. display %d ",usage & GRALLOC_USAGE_EXTERNAL_DISP);
+		return -1;
 	}
 
 	const uint32_t bufferMask = m->bufferMask;
@@ -63,10 +81,11 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev, size_t size, in
 	 *                 to the size of the actual framebuffer.
 	 * alignedFramebufferSize is used for allocating a possible internal buffer and 
 	 *                        thus need to consider internal alignment requirements. */
-	const size_t framebufferSize = m->finfo.line_length * m->info.yres;
-	const size_t alignedFramebufferSize = GRALLOC_ALIGN(m->finfo.line_length, 64) * m->info.yres;
+	//const size_t framebufferSize = m->finfo.line_length * m->info.yres;
+	const size_t framebufferSize  = m->bufferSize;
+	const size_t alignedFramebufferSize = GRALLOC_ALIGN(m->fb_info.finfo.line_length, 64) * m->fb_info.info.yres;
 
-	*stride = m->info.xres;
+	*stride = m->fb_info.info.xres;
 
 	if (numBuffers == 1)
 	{
@@ -74,8 +93,9 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev, size_t size, in
 		// we return a regular buffer which will be memcpy'ed to the main
 		// screen when post is called.
 		int newUsage = (usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;
-		AWAR( "fallback to single buffering. Virtual Y-res too small %d", m->info.yres );
-		*byte_stride = GRALLOC_ALIGN(m->finfo.line_length, 64);
+		//AWAR( "fallback to single buffering. Virtual Y-res too small %d", m->info.yres );
+		AWAR("fallback to single buffering. Virtual Y-res too small %d", numBuffers);
+		*byte_stride = GRALLOC_ALIGN(m->fb_info.finfo.line_length, 64);
 		return alloc_backend_alloc(dev, alignedFramebufferSize, newUsage, pHandle);
 	}
 
@@ -97,26 +117,26 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev, size_t size, in
 		framebufferVaddr += framebufferSize;
 	}
 
+	ALOGD("allocate framebufferVaddr %p , framebufferSize %d", framebufferVaddr, framebufferSize);
 	// The entire framebuffer memory is already mapped, now create a buffer object for parts of this memory
-	private_handle_t* hnd = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, usage, size,
-			(void*)framebufferVaddr, 0, dup(m->framebuffer->fd),
-			(framebufferVaddr - (uintptr_t)m->framebuffer->base), 0);
+	private_handle_t* hnd = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, usage, size, (void*)framebufferVaddr,
+	                                             0, m->framebuffer->fd, (framebufferVaddr - (uintptr_t)m->framebuffer->base), 0);
 
 	/*
 	 * Perform allocator specific actions. If these fail we fall back to a regular buffer
 	 * which will be memcpy'ed to the main screen when fb_post is called.
 	 */
-	if (alloc_backend_alloc_framebuffer(m, hnd) == -1)
+	if (alloc_backend_alloc_framebuffer(private_t, hnd) == -1)
 	{
 		delete hnd;
 		int newUsage = (usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;
 		AERR( "Fallback to single buffering. Unable to map framebuffer memory to handle:%p", hnd );
-		*byte_stride = GRALLOC_ALIGN(m->finfo.line_length, 64);
+		*byte_stride = GRALLOC_ALIGN(m->fb_info.finfo.line_length, 64);
 		return alloc_backend_alloc(dev, alignedFramebufferSize, newUsage, pHandle);
 	}
 
 	*pHandle = hnd;
-	*byte_stride = m->finfo.line_length;
+	*byte_stride = m->fb_info.finfo.line_length;
 
 	return 0;
 }
@@ -977,11 +997,24 @@ static int alloc_device_free(alloc_device_t* dev, buffer_handle_t handle)
 	if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)
 	{
 		// free this buffer
-		private_module_t* m = reinterpret_cast<private_module_t*>(dev->common.module);
-		const size_t bufferSize = m->finfo.line_length * m->info.yres;
-		int index = ((uintptr_t)hnd->base - (uintptr_t)m->framebuffer->base) / bufferSize;
+		private_module_t* priv_t = reinterpret_cast<private_module_t*>(dev->common.module);
+		framebuffer_mapper_t* m = NULL;
+#ifdef DEBUG_EXTERNAL_DISPLAY_ON_PANEL
+		ALOGD("always free from fb0");
+		m = &(priv_t->fb_primary);
+#else
+		if (hnd->usage & GRALLOC_USAGE_EXTERNAL_DISP)
+		{
+			m = &(priv_t->fb_external);
+		}
+		else
+		{
+			m = &(priv_t->fb_primary);
+		}
+#endif
+		int index = ((uintptr_t)hnd->base - (uintptr_t)m->framebuffer->base) / m->bufferSize;
 		m->bufferMask &= ~(1<<index); 
-		close(hnd->fd);
+		ALOGD("free frame buffer %d",index);
 	}
 
 #if MALI_AFBC_GRALLOC == 1

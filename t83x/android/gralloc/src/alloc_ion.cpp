@@ -128,9 +128,25 @@ int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_hand
 
 int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd)
 {
+	framebuffer_mapper_t* m_fb = NULL;
+
+#ifdef DEBUG_EXTERNAL_DISPLAY_ON_PANEL
+	ALOGD("always alloc from fb0");
+	m_fb = &(m->fb_primary);
+#else
+	if (hnd->usage & GRALLOC_USAGE_EXTERNAL_DISP)
+	{
+		m_fb = &(m->fb_external);
+	}
+	else
+	{
+		m_fb = &(m->fb_primary);
+	}
+#endif
+
 	struct fb_dmabuf_export fb_dma_buf;
 	int res;
-	res = ioctl( m->framebuffer->fd, FBIOGET_DMABUF, &fb_dma_buf );
+	res = ioctl( m_fb->framebuffer->fd, FBIOGET_DMABUF, &fb_dma_buf );
 	if (res == 0)
 	{
 		hnd->share_fd = fb_dma_buf.fd;
