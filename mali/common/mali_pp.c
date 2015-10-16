@@ -203,6 +203,7 @@ static const u32 mali_wb_registers_reset_values[_MALI_PP_MAX_WB_REGISTERS] = {
 /* Performance Counter 0 Enable Register reset value */
 static const u32 mali_perf_cnt_enable_reset_value = 0;
 
+extern int pp_hardware_reset;
 _mali_osk_errcode_t mali_pp_hard_reset(struct mali_pp_core *core)
 {
 	/* Bus must be stopped before calling this function */
@@ -212,6 +213,7 @@ _mali_osk_errcode_t mali_pp_hard_reset(struct mali_pp_core *core)
 
 	MALI_DEBUG_ASSERT_POINTER(core);
 	MALI_DEBUG_PRINT(2, ("Mali PP: Hard reset of core %s\n", core->hw_core.description));
+	pp_hardware_reset ++;
 
 	/* Set register to a bogus value. The register will be used to detect when reset is complete */
 	mali_hw_core_register_write_relaxed(&core->hw_core, MALI200_REG_ADDR_MGMT_WRITE_BOUNDARY_LOW, reset_invalid_value);

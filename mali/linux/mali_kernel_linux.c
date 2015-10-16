@@ -68,6 +68,13 @@ extern int mali_pdev_dts_init(struct platform_device* mali_gpu_device);
 extern int mpgpu_class_init(void);
 extern void mpgpu_class_exit(void);
 
+int mali_page_fault = 0;
+module_param(mali_page_fault, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(mali_page_fault, "mali_page_fault");
+
+int pp_hardware_reset = 0;
+module_param(pp_hardware_reset, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(pp_hardware_reset, "mali_hardware_reset");
 /* Module parameter to control log level */
 int mali_debug_level = 2;
 module_param(mali_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
