@@ -973,6 +973,10 @@ static int alloc_device_alloc(alloc_device_t* dev, int w, int h, int format, int
 			hnd->yuv_info = MALI_YUV_BT709_WIDE;
 			break;
 	}
+	if (usage & GRALLOC_USAGE_AML_VIDEO_OVERLAY)
+	{
+		hnd->flags |= private_handle_t::PRIV_FLAGS_VIDEO_OVERLAY;
+	}
 
 	hnd->width = w;
 	hnd->height = h;
