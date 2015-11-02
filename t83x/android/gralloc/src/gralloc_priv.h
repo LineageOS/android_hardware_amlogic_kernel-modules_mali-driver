@@ -221,6 +221,7 @@ struct private_handle_t
 	int        size;
 	int        width;
 	int        height;
+    int        format;
 	int        internalWidth;
 	int        internalHeight;
 	int        stride;
@@ -258,6 +259,10 @@ struct private_handle_t
 		uint64_t padding5;
 	};
 #endif
+    uint64_t padding_1;
+    uint64_t padding_2;
+    uint64_t padding_3;
+    uint64_t padding_4;
 
 #ifdef __cplusplus
 	/*
@@ -282,6 +287,7 @@ struct private_handle_t
 		size(size),
 		width(0),
 		height(0),
+		format(0),
 		stride(0),
 		base(base),
 		lockState(lock_state),
@@ -319,6 +325,7 @@ struct private_handle_t
 		size(size),
 		width(0),
 		height(0),
+		format(0),
 		stride(0),
 		base(base),
 		lockState(lock_state),
@@ -358,6 +365,7 @@ struct private_handle_t
 		size(size),
 		width(0),
 		height(0),
+		format(0),
 		stride(0),
 		base(base),
 		lockState(lock_state),
