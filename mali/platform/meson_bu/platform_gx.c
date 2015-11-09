@@ -96,6 +96,11 @@ unsigned int get_mali_max_level(void)
     return mali_plat_data.dvfs_table_size - 1;
 }
 
+int get_gpu_max_clk_level(void)
+{
+    return mali_plat_data.cfg_clock;
+}
+
 #ifdef CONFIG_GPU_THERMAL
 static void set_limit_mali_freq(u32 idx)
 {
@@ -103,6 +108,10 @@ static void set_limit_mali_freq(u32 idx)
         return;
     if (idx > mali_plat_data.turbo_clock || idx < mali_plat_data.scale_info.minclk)
         return;
+    if (idx > mali_plat_data.maxclk_sysfs) {
+        printk("idx > max freq\n");
+        return;
+    }
     mali_plat_data.scale_info.maxclk= idx;
     revise_mali_rt();
 }
@@ -122,6 +131,12 @@ static u32 set_limit_pp_num(u32 num)
     if (num > mali_plat_data.cfg_pp ||
             num < mali_plat_data.scale_info.minpp)
         goto quit;
+
+    if (num > mali_plat_data.maxpp_sysfs) {
+        printk("pp > sysfs set pp\n");
+        goto quit;
+    }
+
     mali_plat_data.scale_info.maxpp = num;
     revise_mali_rt();
     ret = 0;
