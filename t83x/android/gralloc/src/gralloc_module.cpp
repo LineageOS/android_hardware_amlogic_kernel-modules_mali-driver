@@ -110,17 +110,26 @@ static int gralloc_register_buffer(gralloc_module_t const* module, buffer_handle
 			fbMaper->bufferSize = hnd->offset;
 			fbMaper->numBuffers = fbMaper->framebuffer->size / fbMaper->bufferSize;
 			fbMaper->bufferMask = 0;
+			//ALOGE("fbMaper->bufferSize: 0x%08x, fbMaper->numBuffers: %d, fbMaper->framebuffer->size: 0x%08x", fbMaper->bufferSize, fbMaper->numBuffers, fbMaper->framebuffer->size);
 
 			/*
 			* map the framebuffer
 			*/
+#if MALI_AFBC_GRALLOC == 1
+			void* vaddr = mmap(0, fbMaper->bufferSize, PROT_READ|PROT_WRITE, MAP_SHARED, fbMaper->framebuffer->fd, 0);
+#else
 			void* vaddr = mmap(0, fbMaper->framebuffer->size, PROT_READ|PROT_WRITE, MAP_SHARED, fbMaper->framebuffer->fd, 0);
+#endif
 			if (vaddr == MAP_FAILED)
 			{
 				AERR( "Error mapping the framebuffer (%s)", strerror(errno) );
 				return -errno;
 			}
+#if MALI_AFBC_GRALLOC == 1
+			memset(vaddr, 0, fbMaper->bufferSize);
+#else
 			memset(vaddr, 0, fbMaper->framebuffer->size);
+#endif
 			fbMaper->framebuffer->base = vaddr;
 
 			#if GRALLOC_ARM_UMP_MODULE
@@ -184,7 +193,11 @@ static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_hand
 
 			if (fbMaper->framebuffer)
 			{
+#if MALI_AFBC_GRALLOC == 1
+				munmap((void*)fbMaper->framebuffer->base,fbMaper->bufferSize);
+#else
 				munmap((void*)fbMaper->framebuffer->base,fbMaper->framebuffer->size);
+#endif
 				close(fbMaper->framebuffer->fd);
 				//reset framebuffer info
 				delete fbMaper->framebuffer;
