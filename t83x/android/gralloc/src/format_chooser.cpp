@@ -209,12 +209,10 @@ uint64_t gralloc_select_format(int req_format, int usage)
 #if DISABLE_FRAMEBUFFER_HAL != 1
 	/* This is currently a limitation with the display and will be removed eventually
 	 *  We can't allocate fbdev framebuffer buffers in AFBC format */
-#if MALI_AFBC_GRALLOC == 0
 	if (usage & GRALLOC_USAGE_HW_FB)
 	{
 		return new_format;
 	}
-#endif
 #endif
 
 	/* if this format can't be classified in one of the groups we
