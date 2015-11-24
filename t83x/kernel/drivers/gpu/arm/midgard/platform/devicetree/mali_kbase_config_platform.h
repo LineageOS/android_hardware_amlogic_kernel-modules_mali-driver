@@ -74,8 +74,12 @@
  *
  * Attached value: pointer to @ref mali_pa_model_ops
  */
+#ifdef CONFIG_DEVFREQ_THERMAL
+#define POWER_MODEL_CALLBACKS (&t83x_model_ops)
+extern struct devfreq_cooling_ops t83x_model_ops;
+#else
 #define POWER_MODEL_CALLBACKS (NULL)
-
+#endif
 extern struct kbase_pm_callback_conf pm_callbacks;
 
 /**
