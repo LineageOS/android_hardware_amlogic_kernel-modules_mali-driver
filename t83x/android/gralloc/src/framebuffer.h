@@ -42,5 +42,6 @@ int bits_per_pixel();
 
 //for egl to get framebuffer count
 extern unsigned int get_num_fb_buffers();
+extern bool osd_afbcd_enable();
 
 #endif

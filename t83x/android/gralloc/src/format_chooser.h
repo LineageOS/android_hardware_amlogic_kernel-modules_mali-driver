@@ -181,6 +181,7 @@ extern void initialize_blk_conf();
 extern const internal_fmt_info translate_internal_indexed[GRALLOC_ARM_FORMAT_INTERNAL_INDEXED_LAST];
 extern blkinit blklist[];
 extern uint32_t blklist_array_size;
+extern bool osd_afbcd_enable();
 
 #ifdef __cplusplus
 extern "C"

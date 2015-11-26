@@ -68,6 +68,16 @@ int bits_per_pixel()
 	return 16;
 }
 
+bool osd_afbcd_enable()
+{
+	char osd_afbcd[PROPERTY_VALUE_MAX];
+	if (property_get("osd.afbcd.enable", osd_afbcd, NULL ) > 0 && atoi(osd_afbcd) == 0)
+	{
+		return false;
+	}
+	return true;
+}
+
 #ifndef SINGLE_EXTERNAL_DISPLAY_USE_FB1
 int update_cursor_buffer_locked(struct framebuffer_info_t* cbinfo, int xres, int yres)
 {

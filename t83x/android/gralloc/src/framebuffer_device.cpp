@@ -19,6 +19,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 #include "gralloc_priv.h"
@@ -35,6 +36,20 @@
 #include "gralloc_priv.h"
 #include "gralloc_helper.h"
 #include "gralloc_vsync.h"
+
+#define OSD_AFBCD "/sys/class/graphics/fb0/osd_afbcd"
+
+static void write_sys_int(const char *path, int val)
+{
+	char cmd[16];
+	int fd = open(path, O_RDWR);
+
+	if (fd >= 0) {
+		sprintf(cmd, "%d", val);
+		write(fd, cmd, strlen(cmd));
+		close(fd);
+	}
+}
 
 static int fb_set_swap_interval(struct framebuffer_device_t* dev, int interval)
 {
@@ -229,6 +244,11 @@ int framebuffer_device_open(hw_module_t const* module, const char* name, hw_devi
 	return -ENODEV;
 #endif
 
+	if (osd_afbcd_enable()) {
+		write_sys_int(OSD_AFBCD, 1);
+	} else {
+		write_sys_int(OSD_AFBCD, 0);
+	}
 	/*Init the framebuffer data*/
 	framebuffer_t *fb = new framebuffer_t();
 	memset(fb, 0, sizeof(*fb));
