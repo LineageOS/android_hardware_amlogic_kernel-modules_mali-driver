@@ -37,12 +37,11 @@
 
 #include "format_chooser.h"
 
-#ifndef MALI_ION
 #define MALI_ION  1
-#endif
-#if MALI_ION == 1
+
 #define GRALLOC_ARM_UMP_MODULE 0
 #define GRALLOC_ARM_DMA_BUF_MODULE 1
+#define MALI_AFBC_GRALLOC 1
 #if !defined(GRALLOC_OLD_ION_API)
 /* new libion */
 typedef int ion_user_handle_t;
@@ -51,10 +50,6 @@ typedef int ion_user_handle_t;
 typedef struct ion_handle *ion_user_handle_t;
 #define ION_INVALID_HANDLE NULL
 #endif /* GRALLOC_OLD_ION_API */
-#else
-#define GRALLOC_ARM_UMP_MODULE 1
-#define GRALLOC_ARM_DMA_BUF_MODULE 0
-#endif /* MALI_ION */
 
 /* NOTE:
  * If your framebuffer device driver is integrated with UMP, you will have to 
