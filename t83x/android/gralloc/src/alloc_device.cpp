@@ -352,6 +352,27 @@ static bool get_yv12_stride_and_size(int width, int height,
 	return true;
 }
 
+static bool get_blob_stride_and_size(int width, int height, int* pixel_stride, int* byte_stride, size_t* size, AllocType type)
+{
+	int luma_stride;
+	luma_stride = width;
+	if (size != NULL)
+	{
+		*size = ((height * width) + 4095) & (~4095);
+	}
+	if (byte_stride != NULL)
+	{
+		*byte_stride = luma_stride;
+	}
+
+	if (pixel_stride != NULL)
+	{
+		*pixel_stride = luma_stride;
+	}
+
+	return true;
+}
+
 /*
  * Computes the strides and size for an AFBC 8BIT YUV 4:2:2 buffer
  *
@@ -829,6 +850,9 @@ static int alloc_device_alloc(alloc_device_t* dev, int w, int h, int format, int
 				 * Additional custom formats can be added here
 				 * and must fill the variables pixel_stride, byte_stride and size.
 				 */
+			case HAL_PIXEL_FORMAT_BLOB:
+				get_blob_stride_and_size(w, h, &pixel_stride, &byte_stride, &size, type);
+				break;
 			default:
 				return -EINVAL;
 		}
@@ -955,6 +979,7 @@ static int alloc_device_alloc(alloc_device_t* dev, int w, int h, int format, int
 	hnd->req_format = format;
 	hnd->byte_stride = byte_stride;
 	hnd->internal_format = internal_format;
+	hnd->format = format;
 
 	int private_usage = usage & (GRALLOC_USAGE_PRIVATE_0 |
 	                             GRALLOC_USAGE_PRIVATE_1);
