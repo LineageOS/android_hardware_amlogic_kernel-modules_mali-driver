@@ -93,7 +93,7 @@ static int gralloc_register_buffer(gralloc_module_t const* module, buffer_handle
 		}
 		else
 		{
-			AERR("Could not get gralloc module for handle: 0x%x", (unsigned int)hnd);
+			AERR("Could not get gralloc module for handle: 0x%p", hnd);
 			retval = -errno;
 			goto cleanup;
 		}
@@ -205,10 +205,10 @@ static int gralloc_unregister_buffer(gralloc_module_t const* module, buffer_hand
 				fbMaper->bufferMask = 0;
 				fbMaper->numBuffers = 0;
 			} else {
-				AERR("Can't unregister a not exist buffers: 0x%x", (unsigned int)hnd);
+				AERR("Can't unregister a not exist buffers: 0x%p", hnd);
 			}
 		} else {
-			AERR("Could not get gralloc module for handle: 0x%x", (unsigned int)hnd);
+			AERR("Could not get gralloc module for handle: 0x%p", hnd);
 		}
 	// never unmap buffers that were not created in this process
 	} else if (hnd->pid == getpid()) {
