@@ -285,11 +285,13 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		if (ret) {
 			dev_notice(&pdev->dev, "read clk_freq failed\n");
 		}
+#if 0
 #ifdef MESON_CPU_VERSION_OPS
 		if (is_meson_gxbbm_cpu()) {
 			if (dvfs_tbl->clk_freq >= GXBBM_MAX_GPU_FREQ)
 				continue;
 		}
+#endif
 #endif
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
 										&dvfs_tbl->clk_parent);
