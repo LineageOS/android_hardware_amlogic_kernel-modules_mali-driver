@@ -3954,12 +3954,31 @@ static int kbase_device_runtime_idle(struct device *dev)
 	return 1;
 }
 #endif /* KBASE_PM_RUNTIME */
+#ifndef CONFIG_MALI_DEVFREQ
+static int mali_os_freeze(struct device *device)
+{
+	mali_dev_freeze();
+	return kbase_device_suspend(device);
+}
+
+static int mali_os_restore(struct device *device)
+{
+	mali_dev_restore();
+	return kbase_device_resume(device);
+}
+#endif
+
 
 /** The power management operations for the platform driver.
  */
 static const struct dev_pm_ops kbase_pm_ops = {
 	.suspend = kbase_device_suspend,
 	.resume = kbase_device_resume,
+#ifndef CONFIG_MALI_DEVFREQ
+	.freeze = mali_os_freeze,
+	.thaw = kbase_device_resume,
+	.restore = mali_os_restore,
+#endif
 #ifdef KBASE_PM_RUNTIME
 	.runtime_suspend = kbase_device_runtime_suspend,
 	.runtime_resume = kbase_device_runtime_resume,

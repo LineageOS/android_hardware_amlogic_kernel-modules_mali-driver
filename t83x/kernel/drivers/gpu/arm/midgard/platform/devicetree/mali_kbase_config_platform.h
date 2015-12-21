@@ -83,6 +83,9 @@ extern struct devfreq_cooling_ops t83x_model_ops;
 #endif
 extern struct kbase_pm_callback_conf pm_callbacks;
 
+void mali_dev_freeze(void);
+void mali_dev_restore(void);
+
 /**
  * Secure mode switch
  *

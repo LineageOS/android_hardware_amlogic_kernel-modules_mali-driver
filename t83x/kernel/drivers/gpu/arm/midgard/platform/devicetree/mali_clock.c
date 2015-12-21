@@ -199,7 +199,6 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	const __be32 *p;
 	int length = 0, i = 0;
 	u32 u;
-
 	int ret = 0;
 	if (!gpu_dn) {
 		dev_notice(&pdev->dev, "gpu device node not right\n");
@@ -234,11 +233,11 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	mpdata->scale_info.minclk = mpdata->cfg_min_clock;
 	_dev_info(&pdev->dev, "min clk  is %d\n", mpdata->scale_info.minclk);
 
-	mpdata->reg_base_hiubus = of_iomap(gpu_dn, 1);
+	mpdata->reg_base_hiubus = of_iomap(gpu_dn, 3);
 	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_hiubus);
 
 	mpdata->reg_base_aobus = of_iomap(gpu_dn, 2);
-	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_aobus);
+	_dev_info(&pdev->dev, "ao io source  0x%p\n", mpdata->reg_base_aobus);
 
 	ret = of_property_read_u32(gpu_dn,"sc_mpp",
 			&mpdata->sc_mpp);
