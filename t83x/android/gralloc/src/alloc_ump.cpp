@@ -171,7 +171,7 @@ int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_hand
 	}
 }
 
-int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd)
+int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd, uint32_t idx)
 {
 	hnd->ump_id = m->framebuffer->ump_id;
 	/* create a backing ump memory handle if the framebuffer is exposed as a secure ID */

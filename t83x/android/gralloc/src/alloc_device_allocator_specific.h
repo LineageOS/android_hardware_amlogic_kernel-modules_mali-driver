@@ -16,7 +16,7 @@
 
 int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_handle_t* pHandle);
 
-int alloc_backend_alloc_framebuffer(struct private_module_t* m, struct private_handle_t* hnd);
+int alloc_backend_alloc_framebuffer(struct private_module_t* m, struct private_handle_t* hnd, uint32_t idx);
 
 void alloc_backend_alloc_free(struct private_handle_t const* hnd, struct private_module_t* m);
 
