@@ -126,7 +126,8 @@ static int gralloc_alloc_framebuffer_locked(alloc_device_t* dev, size_t size, in
 	 * Perform allocator specific actions. If these fail we fall back to a regular buffer
 	 * which will be memcpy'ed to the main screen when fb_post is called.
 	 */
-	if (alloc_backend_alloc_framebuffer(private_t, hnd) == -1)
+	uint32_t index = (framebufferVaddr - (uintptr_t)m->framebuffer->base) / framebufferSize;
+	if (alloc_backend_alloc_framebuffer(private_t, hnd, index) == -1)
 	{
 		delete hnd;
 		int newUsage = (usage & ~GRALLOC_USAGE_HW_FB) | GRALLOC_USAGE_HW_2D;

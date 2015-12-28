@@ -71,6 +71,7 @@ typedef struct ion_handle *ion_user_handle_t;
 #if GRALLOC_ARM_DMA_BUF_MODULE
 struct fb_dmabuf_export 
 {
+	__u32 buffer_idx;
 	__u32 fd;
 	__u32 flags;
 };

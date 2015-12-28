@@ -133,7 +133,7 @@ int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_hand
 	return -1;
 }
 
-int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd)
+int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd, uint32_t idx)
 {
 	framebuffer_mapper_t* m_fb = NULL;
 
@@ -153,6 +153,8 @@ int alloc_backend_alloc_framebuffer(private_module_t* m, private_handle_t* hnd)
 
 	struct fb_dmabuf_export fb_dma_buf;
 	int res;
+
+	fb_dma_buf.buffer_idx = idx;
 	res = ioctl( m_fb->framebuffer->fd, FBIOGET_DMABUF, &fb_dma_buf );
 	if (res == 0)
 	{
