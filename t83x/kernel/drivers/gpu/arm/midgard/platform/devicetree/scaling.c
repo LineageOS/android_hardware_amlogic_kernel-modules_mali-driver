@@ -30,6 +30,7 @@ static struct work_struct wq_work;
 static mali_plat_info_t* pmali_plat = NULL;
 #endif
 static int  scaling_mode = MALI_PP_FS_SCALING;
+extern int  mali_pm_statue;
 //static int  scaling_mode = MALI_SCALING_DISABLE;
 //static int  scaling_mode = MALI_PP_SCALING;
 
@@ -505,10 +506,8 @@ u32 get_current_frequency(void)
 void mali_gpu_utilization_callback(int utilization_pp)
 {
 #ifndef CONFIG_MALI_DVFS
-#ifdef MESON_DRV_BRING
 	if (mali_pm_statue)
 		return;
-#endif
 
 	switch (scaling_mode) {
 		case MALI_PP_FS_SCALING:

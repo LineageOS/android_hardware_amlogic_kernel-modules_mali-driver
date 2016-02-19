@@ -31,6 +31,7 @@ static mali_plat_info_t* pmali_plat = NULL;
 //static u32 mali_extr_sample_backup = 0;
 struct timeval start;
 struct timeval end;
+int mali_pm_statue = 0;
 
 int mali_clock_init_clk_tree(struct platform_device* pdev)
 {
@@ -171,15 +172,11 @@ void enable_clock(void)
 
 u32 get_mali_freq(u32 idx)
 {
-#ifndef MESON_DRV_BRING
-    return pmali_plat->clk_sample[idx];
-#else
 	if (!mali_pm_statue) {
 		return pmali_plat->clk_sample[idx];
 	} else {
 		return 0;
 	}
-#endif
 }
 
 void set_str_src(u32 data)
