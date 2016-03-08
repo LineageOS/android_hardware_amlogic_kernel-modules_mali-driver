@@ -25,6 +25,9 @@ MODULE_PARM_DESC(gpu_dbg_level, "gpu debug level");
 		gpu_dbg(1, "line(%d), clk_cntl=0x%08x\n" fmt, __LINE__, mplt_read(HHI_MALI_CLK_CNTL), ## arg);\
 	} while (0)
 
+//disable print
+#define _dev_info(...)
+
 //static DEFINE_SPINLOCK(lock);
 static mali_plat_info_t* pmali_plat = NULL;
 //static u32 mali_extr_backup = 0;
@@ -247,35 +250,7 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	of_get_property(gpu_dn, "tbl", &length);
 
 	length = length /sizeof(u32);
-	_dev_info(&pdev->dev, "clock dvfs table size is %d\n", length);
-
-	ret = of_property_read_u32(gpu_dn,"max_clk",
-			&mpdata->cfg_clock);
-	if (ret) {
-		dev_notice(&pdev->dev, "max clk set %d\n", length-2);
-		mpdata->cfg_clock = length-2;
-	}
-
-	mpdata->maxclk_sysfs = mpdata->cfg_clock;
-	mpdata->cfg_clock_bkup = mpdata->cfg_clock;
-	mpdata->scale_info.maxclk = mpdata->cfg_clock;
-	_dev_info(&pdev->dev, "max clk  is %d\n", mpdata->scale_info.maxclk);
-
-	ret = of_property_read_u32(gpu_dn,"turbo_clk",
-			&mpdata->turbo_clock);
-	if (ret) {
-		dev_notice(&pdev->dev, "turbo clk set to %d\n", length-1);
-		mpdata->turbo_clock = length-1;
-	}
-	_dev_info(&pdev->dev, "turbo clk  is %d\n", mpdata->turbo_clock);
-
-	ret = of_property_read_u32(gpu_dn,"def_clk",
-			&mpdata->def_clock);
-	if (ret) {
-		dev_notice(&pdev->dev, "default clk set to %d\n", length/2-1);
-		mpdata->def_clock = length/2 - 1;
-	}
-	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
+	_dev_info(&pdev->dev, "clock dvfs cfg table size is %d\n", length);
 
 	mpdata->dvfs_table = devm_kzalloc(&pdev->dev,
 								  sizeof(struct mali_dvfs_threshold_table)*length,
@@ -285,13 +260,13 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		dev_err(&pdev->dev, "failed to alloc dvfs table\n");
 		return -ENOMEM;
 	}
-	mpdata->dvfs_table_size = length;
 	mpdata->clk_sample = devm_kzalloc(&pdev->dev, sizeof(u32)*length, GFP_KERNEL);
 	if (mpdata->clk_sample == NULL) {
 		dev_err(&pdev->dev, "failed to alloc clk_sample table\n");
 		return -ENOMEM;
 	}
 	clk_sample = mpdata->clk_sample;
+	mpdata->dvfs_table_size = 0;
 
 	of_property_for_each_u32(gpu_dn, "tbl", prop, p, u) {
 		dvfs_clk_hdl = (phandle) u;
@@ -334,11 +309,44 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		dvfs_tbl ++;
 		clk_sample ++;
 		i++;
+		mpdata->dvfs_table_size ++;
 	}
+	dev_notice(&pdev->dev, "dvfs table is %d\n", mpdata->dvfs_table_size);
+	dev_notice(&pdev->dev, "dvfs table addr %p, ele size=%zd\n",
+			mpdata->dvfs_table,
+			sizeof(mpdata->dvfs_table[0]));
+
+	ret = of_property_read_u32(gpu_dn,"max_clk",
+			&mpdata->cfg_clock);
+	if (ret) {
+		dev_notice(&pdev->dev, "max clk set %d\n", mpdata->dvfs_table_size-2);
+		mpdata->cfg_clock = mpdata->dvfs_table_size-2;
+	}
+
+	mpdata->cfg_clock_bkup = mpdata->cfg_clock;
+	mpdata->maxclk_sysfs = mpdata->cfg_clock;
+	mpdata->scale_info.maxclk = mpdata->cfg_clock;
+	_dev_info(&pdev->dev, "max clk  is %d\n", mpdata->scale_info.maxclk);
+
+	ret = of_property_read_u32(gpu_dn,"turbo_clk",
+			&mpdata->turbo_clock);
+	if (ret) {
+		dev_notice(&pdev->dev, "turbo clk set to %d\n", mpdata->dvfs_table_size-1);
+		mpdata->turbo_clock = mpdata->dvfs_table_size-1;
+	}
+	_dev_info(&pdev->dev, "turbo clk  is %d\n", mpdata->turbo_clock);
+
+	ret = of_property_read_u32(gpu_dn,"def_clk",
+			&mpdata->def_clock);
+	if (ret) {
+		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->dvfs_table_size/2-1);
+		mpdata->def_clock = mpdata->dvfs_table_size/2 - 1;
+	}
+	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	dvfs_tbl = mpdata->dvfs_table;
 	clk_sample = mpdata->clk_sample;
-	for (i = 0; i< length; i++) {
+	for (i = 0; i< mpdata->dvfs_table_size; i++) {
 		_dev_info(&pdev->dev, "====================%d====================\n"
 		            "clk_freq=%10d, clk_parent=%9s, voltage=%d, keep_count=%d, threshod=<%d %d>, clk_sample=%d\n",
 					i,
