@@ -409,8 +409,19 @@ static void mali_decide_next_status(int utilization_pp, int* next_fs_idx,
 			*pp_change_flag = -1;
 		}
 	}
+
+	if (decided_fs_idx < 0 ) {
+		printk("gpu debug, next index below 0\n");
+		decided_fs_idx = 0;
+	}
+	if (decided_fs_idx > pmali_plat->scale_info.maxclk) {
+		decided_fs_idx = pmali_plat->scale_info.maxclk;
+		printk("gpu debug, next index above max-1, set to %d\n", decided_fs_idx);
+	}
+
 	if (change_mode)
 		mali_stay_count = pmali_plat->dvfs_table[decided_fs_idx].keep_count;
+
 	*next_fs_idx = decided_fs_idx;
 }
 #endif
