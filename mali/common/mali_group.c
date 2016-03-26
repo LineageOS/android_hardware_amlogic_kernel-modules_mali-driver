@@ -51,7 +51,6 @@ static void mali_group_bottom_half_mmu(void *data);
 static void mali_group_bottom_half_gp(void *data);
 static void mali_group_bottom_half_pp(void *data);
 static void mali_group_timeout(void *data);
-
 static void mali_group_reset_pp(struct mali_group *group);
 static void mali_group_reset_mmu(struct mali_group *group);
 
@@ -526,6 +525,71 @@ MALI_DEBUG_CODE(static void mali_group_print_virtual(struct mali_group *vgroup)
         i++;
         }
         })
+
+static void mali_group_dump_core_status(struct mali_group *group)
+{
+	u32 i;
+
+	MALI_DEBUG_ASSERT_POINTER(group);
+	MALI_DEBUG_ASSERT(NULL != group->gp_core || (NULL != group->pp_core && !mali_group_is_virtual(group)));
+
+	if (NULL != group->gp_core) {
+		MALI_PRINT(("Dump Group %s\n", group->gp_core->hw_core.description));
+
+		for (i = 0; i < 0xA8; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->gp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->gp_core->hw_core, i + 12)));
+		}
+
+
+	} else {
+		MALI_PRINT(("Dump Group %s\n", group->pp_core->hw_core.description));
+
+		for (i = 0; i < 0x5c; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->pp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 12)));
+		}
+
+		/* Ignore some minor registers */
+		for (i = 0x1000; i < 0x1068; i += 0x10) {
+			MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->pp_core->hw_core, i),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 4),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 8),
+				    mali_hw_core_register_read(&group->pp_core->hw_core, i + 12)));
+		}
+	}
+
+	MALI_PRINT(("Dump Group MMU\n"));
+	for (i = 0; i < 0x24; i += 0x10) {
+		MALI_PRINT(("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, mali_hw_core_register_read(&group->mmu->hw_core, i),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 4),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 8),
+			    mali_hw_core_register_read(&group->mmu->hw_core, i + 12)));
+	}
+}
+
+
+/**
+ * @Dump group status
+ */
+void mali_group_dump_status(struct mali_group *group)
+{
+	MALI_DEBUG_ASSERT_POINTER(group);
+
+	if (mali_group_is_virtual(group)) {
+		struct mali_group *group_c;
+		struct mali_group *temp;
+		_MALI_OSK_LIST_FOREACHENTRY(group_c, temp, &group->group_list, struct mali_group, group_list) {
+			mali_group_dump_core_status(group_c);
+		}
+	} else {
+		mali_group_dump_core_status(group);
+	}
+}
 
 /**
  * @brief Add child group to virtual group parent
@@ -1394,6 +1458,15 @@ _mali_osk_errcode_t mali_group_upper_half_mmu(void *data)
     }
 #endif
 
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group)) {
+		/* Not working, so nothing to do */
+		mali_executor_unlock();
+		return _MALI_OSK_ERR_FAULT;
+	}
+#endif
     if (NULL != group->gp_core) {
         _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
                 MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
@@ -1411,8 +1484,39 @@ _mali_osk_errcode_t mali_group_upper_half_mmu(void *data)
                     mali_pp_core_get_id(group->pp_core)),
                 mali_mmu_get_rawstat(group->mmu), 0);
     }
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
 
     ret = mali_executor_interrupt_mmu(group, MALI_TRUE);
+
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
+		/* group complete and on job shedule on it, it already power off */
+		if (NULL != group->gp_core) {
+			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+						      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+						      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+						      0, 0, /* No pid and tid for interrupt handler */
+						      MALI_PROFILING_MAKE_EVENT_DATA_CORE_GP_MMU(0),
+						      0xFFFFFFFF, 0);
+		} else {
+			_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+						      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+						      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+						      0, 0, /* No pid and tid for interrupt handler */
+						      MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP_MMU(
+							      mali_pp_core_get_id(group->pp_core)),
+						      0xFFFFFFFF, 0);
+		}
+
+		mali_executor_unlock();
+		return ret;
+	}
+#endif
 
     if (NULL != group->gp_core) {
         _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
@@ -1430,6 +1534,10 @@ _mali_osk_errcode_t mali_group_upper_half_mmu(void *data)
                     mali_pp_core_get_id(group->pp_core)),
                 mali_mmu_get_rawstat(group->mmu), 0);
     }
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
 
     return ret;
 }
@@ -1504,6 +1612,21 @@ _mali_osk_errcode_t mali_group_upper_half_gp(void *data)
     MALI_DEBUG_ASSERT_POINTER(group->gp_core);
     MALI_DEBUG_ASSERT_POINTER(group->mmu);
 
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
+		/* group complete and on job shedule on it, it already power off */
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+					      0, 0, /* No pid and tid for interrupt handler */
+					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_GP(0),
+					      0xFFFFFFFF, 0);
+		mali_executor_unlock();
+		return ret;
+	}
+#endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
             MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
             MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
@@ -1514,16 +1637,31 @@ _mali_osk_errcode_t mali_group_upper_half_gp(void *data)
     MALI_DEBUG_PRINT(4, ("Group: Interrupt 0x%08X from %s\n",
                 mali_gp_get_rawstat(group->gp_core),
                 mali_group_core_description(group)));
-
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
     ret = mali_executor_interrupt_gp(group, MALI_TRUE);
 
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group)) {
+		/* Not working, so nothing to do */
+		mali_executor_unlock();
+		return _MALI_OSK_ERR_FAULT;
+	}
+#endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
             MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
             MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
             0, 0, /* No pid and tid for interrupt handler */
             MALI_PROFILING_MAKE_EVENT_DATA_CORE_GP(0),
             mali_gp_get_rawstat(group->gp_core), 0);
-
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
     return ret;
 }
 
@@ -1579,6 +1717,22 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
     MALI_DEBUG_ASSERT_POINTER(group);
     MALI_DEBUG_ASSERT_POINTER(group->pp_core);
     MALI_DEBUG_ASSERT_POINTER(group->mmu);
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
+		/* group complete and on job shedule on it, it already power off */
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+					      0, 0, /* No pid and tid for interrupt handler */
+					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP(
+						      mali_pp_core_get_id(group->pp_core)),
+					      0xFFFFFFFF, 0);
+		mali_executor_unlock();
+		return ret;
+	}
+#endif
 
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
             MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
@@ -1591,6 +1745,10 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
     MALI_DEBUG_PRINT(4, ("Group: Interrupt 0x%08X from %s\n",
                 mali_pp_get_rawstat(group->pp_core),
                 mali_group_core_description(group)));
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
 
     ret = mali_executor_interrupt_pp(group, MALI_TRUE);
 
@@ -1600,7 +1758,15 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
     else if (core->core_id == 1)
         PP1_int_cnt++;
 #endif
-
+#if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_lock();
+	if (!mali_group_is_working(group)) {
+		/* Not working, so nothing to do */
+		mali_executor_unlock();
+		return _MALI_OSK_ERR_FAULT;
+	}
+#endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
             MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
             MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
@@ -1609,6 +1775,10 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
                 mali_pp_core_get_id(group->pp_core)),
             mali_pp_get_rawstat(group->pp_core), 0);
 
+#if defined(CONFIG_MALI_SHARED_INTERRUPTS)
+	mali_executor_unlock();
+#endif
+#endif
     return ret;
 }
 

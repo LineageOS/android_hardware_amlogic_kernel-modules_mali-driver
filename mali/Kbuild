@@ -109,6 +109,15 @@ ifeq ($(USING_GPU_UTILIZATION), 1)
     endif
 endif
 
+ifeq ($(MALI_PLATFORM_FILES),)
+ifeq ($(CONFIG_ARCH_EXYNOS4),y)
+EXTRA_DEFINES += -DMALI_FAKE_PLATFORM_DEVICE=1
+export MALI_PLATFORM=exynos4
+export MALI_PLATFORM_FILES_BUILDIN = $(notdir $(wildcard $(src)/platform/$(MALI_PLATFORM)/*.c))
+export MALI_PLATFORM_FILES_ADD_PREFIX = $(addprefix platform/$(MALI_PLATFORM)/,$(MALI_PLATFORM_FILES_BUILDIN)) 
+endif
+endif
+
 mali-y += \
 	linux/mali_osk_atomics.o \
 	linux/mali_osk_irq.o \
@@ -122,16 +131,21 @@ mali-y += \
 	linux/mali_osk_mali.o \
 	linux/mali_osk_notification.o \
 	linux/mali_osk_time.o \
-	linux/mali_osk_timers.o
+	linux/mali_osk_timers.o \
+	linux/mali_osk_bitmap.o
 
 mali-y += linux/mali_memory.o linux/mali_memory_os_alloc.o
 mali-y += linux/mali_memory_external.o
 mali-y += linux/mali_memory_block_alloc.o
+mali-y += linux/mali_memory_swap_alloc.o
 
 mali-y += \
 	linux/mali_memory_manager.o \
 	linux/mali_memory_virtual.o \
-	linux/mali_memory_util.o
+	linux/mali_memory_util.o \
+	linux/mali_memory_cow.o \
+	linux/mali_memory_defer_bind.o
+
 mali-y += \
 	linux/mali_ukk_mem.o \
 	linux/mali_ukk_gp.o \
@@ -139,6 +153,10 @@ mali-y += \
 	linux/mali_ukk_core.o \
 	linux/mali_ukk_soft_job.o \
 	linux/mali_ukk_timeline.o
+
+mali-$(CONFIG_MALI_DEVFREQ) += \
+	linux/mali_devfreq.o \
+	common/mali_pm_metrics.o
 
 # Source files which always are included in a build
 mali-y += \
@@ -231,8 +249,16 @@ mali-$(CONFIG_ARCH_MESONG9BB) += \
 endif
 ##################### end Kasin Added. ###################
 
+ifneq ($(wildcard $(src)/linux/mali_slp_global_lock.c),)
+	mali-y += linux/mali_slp_global_lock.o
+endif
+
 ifneq ($(MALI_PLATFORM_FILES),)
 	mali-y += $(MALI_PLATFORM_FILES:.c=.o)
+endif
+
+ifneq ($(MALI_PLATFORM_FILES_ADD_PREFIX),)
+	mali-y += $(MALI_PLATFORM_FILES_ADD_PREFIX:.c=.o)
 endif
 
 mali-$(CONFIG_MALI400_PROFILING) += linux/mali_ukk_profiling.o
@@ -242,6 +268,7 @@ mali-$(CONFIG_MALI400_INTERNAL_PROFILING) += linux/mali_profiling_internal.o tim
 ccflags-$(CONFIG_MALI400_INTERNAL_PROFILING) += -I$(src)/timestamp-$(TIMESTAMP)
 
 mali-$(CONFIG_DMA_SHARED_BUFFER) += linux/mali_memory_dma_buf.o
+mali-$(CONFIG_DMA_SHARED_BUFFER) += linux/mali_memory_secure.o
 mali-$(CONFIG_SYNC) += linux/mali_sync.o
 ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 
@@ -268,11 +295,16 @@ ifeq ($(MALI_UPPER_HALF_SCHEDULING),1)
 	ccflags-y += -DMALI_UPPER_HALF_SCHEDULING
 endif
 
+#build-in include path is different
+ifeq ($(MALI_PLATFORM_FILES),)
+ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../ump/include/
+else
 ccflags-$(CONFIG_MALI400_UMP) += -I$(src)/../ump/include/ump
 ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
+endif
 
 # Use our defines when compiling
-ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform 
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform  -Wno-data-time
 
 # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
 MALI_RELEASE_NAME=$(shell cat $(TOP_KBUILD_SRC)$(DRIVER_DIR)/.version 2> /dev/null)

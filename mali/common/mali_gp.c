@@ -12,6 +12,7 @@
 #include "mali_hw_core.h"
 #include "mali_group.h"
 #include "mali_osk.h"
+#include "mali_osk_mali.h"
 #include "regs/mali_gp_regs.h"
 #include "mali_kernel_common.h"
 #include "mali_kernel_core.h"
@@ -120,7 +121,7 @@ _mali_osk_errcode_t mali_gp_stop_bus_wait(struct mali_gp_core *core)
 
 void mali_gp_hard_reset(struct mali_gp_core *core)
 {
-	const u32 reset_wait_target_register = MALIGP2_REG_ADDR_MGMT_WRITE_BOUND_LOW;
+	const u32 reset_wait_target_register = MALIGP2_REG_ADDR_MGMT_PERF_CNT_0_LIMIT;
 	const u32 reset_invalid_value = 0xC0FFE000;
 	const u32 reset_check_value = 0xC01A0000;
 	const u32 reset_default_value = 0;
@@ -204,6 +205,11 @@ void mali_gp_job_start(struct mali_gp_core *core, struct mali_gp_job *job)
 	u32 *frame_registers = mali_gp_job_get_frame_registers(job);
 	u32 counter_src0 = mali_gp_job_get_perf_counter_src0(job);
 	u32 counter_src1 = mali_gp_job_get_perf_counter_src1(job);
+
+	/* Disable gpu secure mode. */
+	if (MALI_TRUE == _mali_osk_gpu_secure_mode_is_enabled()) {
+		_mali_osk_gpu_secure_mode_disable();
+	}
 
 	MALI_DEBUG_ASSERT_POINTER(core);
 
@@ -302,7 +308,7 @@ static void mali_gp_irq_probe_trigger(void *data)
 	struct mali_gp_core *core = (struct mali_gp_core *)data;
 
 	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_MASK, MALIGP2_REG_VAL_IRQ_MASK_USED);
-	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_RAWSTAT, MALIGP2_REG_VAL_CMD_FORCE_HANG);
+	mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_RAWSTAT, MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR);
 	_mali_osk_mem_barrier();
 }
 
@@ -312,8 +318,8 @@ static _mali_osk_errcode_t mali_gp_irq_probe_ack(void *data)
 	u32 irq_readout;
 
 	irq_readout = mali_hw_core_register_read(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_STAT);
-	if (MALIGP2_REG_VAL_IRQ_FORCE_HANG & irq_readout) {
-		mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_CLEAR, MALIGP2_REG_VAL_IRQ_FORCE_HANG);
+	if (MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR & irq_readout) {
+		mali_hw_core_register_write(&core->hw_core, MALIGP2_REG_ADDR_MGMT_INT_CLEAR, MALIGP2_REG_VAL_IRQ_AXI_BUS_ERROR);
 		_mali_osk_mem_barrier();
 		return _MALI_OSK_ERR_OK;
 	}
@@ -346,6 +352,7 @@ void mali_gp_update_performance_counters(struct mali_gp_core *core, struct mali_
 
 #if defined(CONFIG_MALI400_PROFILING)
 		_mali_osk_profiling_report_hw_counter(COUNTER_VP_0_C0, val0);
+		_mali_osk_profiling_record_global_counters(COUNTER_VP_0_C0, val0);
 #endif
 
 	}
@@ -356,6 +363,7 @@ void mali_gp_update_performance_counters(struct mali_gp_core *core, struct mali_
 
 #if defined(CONFIG_MALI400_PROFILING)
 		_mali_osk_profiling_report_hw_counter(COUNTER_VP_0_C1, val1);
+		_mali_osk_profiling_record_global_counters(COUNTER_VP_0_C1, val1);
 #endif
 	}
 }
