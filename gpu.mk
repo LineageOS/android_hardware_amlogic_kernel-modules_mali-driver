@@ -64,4 +64,4 @@ $(MALI_KO):
 endef
 endif
 $(info local path is $(LOCAL_PATH))
-include hardware/arm/gpu/lib/lib.mk
+#include hardware/arm/gpu/lib/lib.mk
