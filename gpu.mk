@@ -37,7 +37,7 @@ $(MALI_KO):
 	CONFIG_GPU_THERMAL=y CONFIG_AM_VDEC_H264_4K2K=y modules
 
 	mkdir -p $(PRODUCT_OUT)/root/boot
-	cp $(MALI_OUT)/mali.ko $(PRODUCT_OUT)/root/boot
+	cp $(MALI_OUT)/mali.ko $(PRODUCT_OUT)/root/boot/mali.ko
 endef
 
 else
@@ -58,7 +58,7 @@ $(MALI_KO):
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
 
 	mkdir -p $(PRODUCT_OUT)/root/boot
-	cp $(MALI_OUT)/mali_kbase.ko $(PRODUCT_OUT)/root/boot/
+	cp $(MALI_OUT)/mali_kbase.ko $(PRODUCT_OUT)/root/boot/mali.ko
 	$(cd -)
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
