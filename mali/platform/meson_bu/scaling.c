@@ -57,6 +57,12 @@ static inline void mali_clk_exected(void)
 	uint32_t execStep = currentStep;
 	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[currentStep];
 
+	//if (pdvfs[currentStep].freq_index == pdvfs[lastStep].freq_index) return;
+	if ((pdvfs[execStep].freq_index == pdvfs[lastStep].freq_index) ||
+		(pdvfs[execStep].clk_freq == pdvfs[lastStep].clk_freq)){
+		return;
+	}
+
 	if (0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) {
 		gp_pll_request(gp_pll_user_gpu);
 		if (!is_gp_pll_get) {
@@ -68,11 +74,6 @@ static inline void mali_clk_exected(void)
 		is_gp_pll_get = 0;
 		is_gp_pll_put = 0;
 		gp_pll_release(gp_pll_user_gpu);
-	}
-
-	//if (pdvfs[currentStep].freq_index == pdvfs[lastStep].freq_index) return;
-	if (pdvfs[execStep].freq_index == pdvfs[lastStep].freq_index) {
-		return;
 	}
 
 	//mali_dev_pause();
