@@ -15,7 +15,7 @@
 
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= "r7p0-02rel0"
+MALI_RELEASE_NAME ?= "r11p0-00rel0"
 
 # Paths required for build
 KBASE_PATH = $(src)
@@ -88,7 +88,6 @@ SRC := \
 	mali_kbase_context.c \
 	mali_kbase_pm.c \
 	mali_kbase_config.c \
-	mali_kbase_security.c \
 	mali_kbase_instr.c \
 	mali_kbase_vinstr.c \
 	mali_kbase_softjobs.c \
@@ -111,13 +110,15 @@ SRC := \
 	mali_kbase_debug_job_fault.c \
 	mali_kbase_smc.c \
 	mali_kbase_mem_pool.c \
-	mali_kbase_mem_pool_debugfs.c
+	mali_kbase_mem_pool_debugfs.c \
+	mali_kbase_tlstream.c
 
-ifeq ($(CONFIG_MALI_MIPE_ENABLED),y)
-	SRC += mali_kbase_tlstream.c
-	ifeq ($(MALI_UNIT_TEST),1)
-		SRC += mali_kbase_tlstream_test.c
-	endif
+ifeq ($(MALI_UNIT_TEST),1)
+	SRC += mali_kbase_tlstream_test.c
+endif
+
+ifeq ($(MALI_CUSTOMER_RELEASE),0)
+	SRC += mali_kbase_regs_dump_debugfs.c
 endif
 
 # Job Scheduler Policy: Completely Fair Scheduler
@@ -192,13 +193,6 @@ endif
 endif
 
 ifeq ($(CONFIG_MALI_PLATFORM_DEVICETREE),y)
-	SRC += platform/devicetree/mali_kbase_runtime_pm.c
-	SRC += platform/devicetree/mali_kbase_config_devicetree.c
-	SRC += platform/devicetree/mali_clock.c
-	SRC += platform/devicetree/mpgpu.c
-	SRC += platform/devicetree/meson_main2.c
-	SRC += platform/devicetree/platform_gx.c
-	SRC += platform/devicetree/scaling.c
 	ccflags-y += -I$(src)/platform/devicetree
 endif
 
@@ -232,3 +226,19 @@ mali_kbase-y += $(BACKEND:.c=.o)
 
 ccflags-y += -I$(src)/$(MALI_BACKEND_PATH)/$(CONFIG_MALI_BACKEND_REAL)
 subdir-ccflags-y += -I$(src)/$(MALI_BACKEND_PATH)/$(CONFIG_MALI_BACKEND_REAL)
+
+# Default to devicetree platform if neither a fake platform or a thirdparty
+# platform is configured.
+ifeq ($(CONFIG_MALI_PLATFORM_THIRDPARTY)$(CONFIG_MALI_PLATFORM_FAKE),)
+CONFIG_MALI_PLATFORM_DEVICETREE := y
+endif
+
+mali_kbase-$(CONFIG_MALI_PLATFORM_DEVICETREE) += \
+    platform/devicetree/mali_clock.o \
+    platform/devicetree/mpgpu.o \
+    platform/devicetree/meson_main2.o \
+    platform/devicetree/platform_gx.o \
+    platform/devicetree/scaling.o \
+	platform/devicetree/mali_kbase_runtime_pm.o \
+	platform/devicetree/mali_kbase_config_devicetree.o
+ccflags-$(CONFIG_MALI_PLATFORM_DEVICETREE) += -I$(src)/platform/devicetree
