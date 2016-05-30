@@ -13,7 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+ifneq (,$(wildcard device/amlogic/$(TARGET_PRODUCT)/BoardConfig.mk))
 include device/amlogic/$(TARGET_PRODUCT)/BoardConfig.mk
+else
+ifneq (,$(wildcard device/customer/$(TARGET_PRODUCT)/BoardConfig.mk))
+include device/customer/$(TARGET_PRODUCT)/BoardConfig.mk
+else
+$(error "find the BoardConfig file, then include it")
+endif
+endif
 
 LOCAL_KK=0
 ifeq ($(GPU_TYPE), t82x)
