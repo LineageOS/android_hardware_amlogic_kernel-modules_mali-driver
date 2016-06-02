@@ -51,8 +51,8 @@ $(MALI_KO):
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	CONFIG_GPU_THERMAL=y CONFIG_AM_VDEC_H264_4K2K=y modules
 
-	mkdir -p $(PRODUCT_OUT)/root/boot
-	cp $(MALI_OUT)/mali/mali.ko $(PRODUCT_OUT)/root/boot/mali.ko
+	mkdir -p $(PRODUCT_OUT)/system/lib
+	cp $(MALI_OUT)/mali/mali.ko $(PRODUCT_OUT)/system/lib/mali.ko
 endef
 
 else
@@ -73,8 +73,8 @@ $(MALI_KO):
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
 
-	mkdir -p $(PRODUCT_OUT)/root/boot
-	cp $(MALI_OUT)/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/root/boot/mali.ko
+	mkdir -p $(PRODUCT_OUT)/system/lib
+	cp $(MALI_OUT)/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/system/lib/mali.ko
 	$(cd -)
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
