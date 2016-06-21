@@ -49,29 +49,6 @@
 /* Special value to indicate that the JM_CONFIG reg isn't currently used. */
 #define KBASE_JM_CONFIG_UNUSED (1<<31)
 
-/**
- * enum kbasep_pm_action - Actions that can be performed on a core.
- *
- * This enumeration is private to the file. Its values are set to allow
- * core_type_to_reg() function, which decodes this enumeration, to be simpler
- * and more efficient.
- *
- * @ACTION_PRESENT: The cores that are present
- * @ACTION_READY: The cores that are ready
- * @ACTION_PWRON: Power on the cores specified
- * @ACTION_PWROFF: Power off the cores specified
- * @ACTION_PWRTRANS: The cores that are transitioning
- * @ACTION_PWRACTIVE: The cores that are active
- */
-enum kbasep_pm_action {
-	ACTION_PRESENT = 0,
-	ACTION_READY = (SHADER_READY_LO - SHADER_PRESENT_LO),
-	ACTION_PWRON = (SHADER_PWRON_LO - SHADER_PRESENT_LO),
-	ACTION_PWROFF = (SHADER_PWROFF_LO - SHADER_PRESENT_LO),
-	ACTION_PWRTRANS = (SHADER_PWRTRANS_LO - SHADER_PRESENT_LO),
-	ACTION_PWRACTIVE = (SHADER_PWRACTIVE_LO - SHADER_PRESENT_LO)
-};
-
 static u64 kbase_pm_get_state(
 		struct kbase_device *kbdev,
 		enum kbase_pm_core_type core_type,
@@ -143,7 +120,7 @@ static void mali_cci_flush_l2(struct kbase_device *kbdev)
  * @cores:     A bit mask of cores to perform the action on (low 32 bits)
  * @action:    The action to perform on the cores
  */
-static void kbase_pm_invoke(struct kbase_device *kbdev,
+void kbase_pm_invoke(struct kbase_device *kbdev,
 					enum kbase_pm_core_type core_type,
 					u64 cores,
 					enum kbasep_pm_action action)
@@ -222,6 +199,8 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 	if (hi != 0)
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi, NULL);
 }
+
+KBASE_EXPORT_TEST_API(kbase_pm_invoke);
 
 /**
  * kbase_pm_get_state - Get information about a core set
@@ -485,7 +464,7 @@ static bool kbase_pm_transition_core_type(struct kbase_device *kbdev,
 
 	/* Perform transitions if any */
 	kbase_pm_invoke(kbdev, type, powerup, ACTION_PWRON);
-	kbase_pm_invoke(kbdev, type, powerdown, ACTION_PWROFF);
+	//kbase_pm_invoke(kbdev, type, powerdown, ACTION_PWROFF);
 
 	/* Recalculate cores transitioning on, and re-evaluate our state */
 	powering_on_trans |= powerup;
