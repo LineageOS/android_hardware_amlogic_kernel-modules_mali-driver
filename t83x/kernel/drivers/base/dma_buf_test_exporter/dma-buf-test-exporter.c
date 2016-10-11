@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2012-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -24,6 +24,8 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/atomic.h>
+#include <linux/mm.h>
+#include <linux/highmem.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 #include <linux/dma-attrs.h>
 #include <linux/dma-mapping.h>
@@ -260,8 +262,25 @@ static void *dma_buf_te_kmap_atomic(struct dma_buf *buf, unsigned long page_num)
 
 static void *dma_buf_te_kmap(struct dma_buf *buf, unsigned long page_num)
 {
-	/* IGNORE */
-	return NULL;
+	struct dma_buf_te_alloc *alloc;
+
+	alloc = buf->priv;
+	if (page_num >= alloc->nr_pages)
+		return NULL;
+
+	return kmap(alloc->pages[page_num]);
+}
+static void dma_buf_te_kunmap(struct dma_buf *buf,
+		unsigned long page_num, void *addr)
+{
+	struct dma_buf_te_alloc *alloc;
+
+	alloc = buf->priv;
+	if (page_num >= alloc->nr_pages)
+		return;
+
+	kunmap(alloc->pages[page_num]);
+	return;
 }
 
 static struct dma_buf_ops dma_buf_te_ops = {
@@ -272,10 +291,11 @@ static struct dma_buf_ops dma_buf_te_ops = {
 	.unmap_dma_buf = dma_buf_te_unmap,
 	.release = dma_buf_te_release,
 	.mmap = dma_buf_te_mmap,
+	.kmap = dma_buf_te_kmap,
+	.kunmap = dma_buf_te_kunmap,
 
 	/* nop handlers for mandatory functions we ignore */
-	.kmap_atomic = dma_buf_te_kmap_atomic,
-	.kmap = dma_buf_te_kmap
+	.kmap_atomic = dma_buf_te_kmap_atomic
 };
 
 static int do_dma_buf_te_ioctl_version(struct dma_buf_te_ioctl_version __user *buf)
@@ -546,27 +566,36 @@ static u32 dma_te_buf_fill(struct dma_buf *dma_buf, unsigned int value)
 		goto no_import;
 	}
 
+	ret = dma_buf_begin_cpu_access(dma_buf,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+			0, dma_buf->size,
+#endif
+			DMA_BIDIRECTIONAL);
+	if (ret)
+		goto no_cpu_access;
+
 	for_each_sg(sgt->sgl, sg, sgt->nents, count) {
-		ret = dma_buf_begin_cpu_access(dma_buf, offset, sg_dma_len(sg), DMA_BIDIRECTIONAL);
-		if (ret)
-			goto no_cpu_access;
 		for (i = 0; i < sg_dma_len(sg); i = i + PAGE_SIZE) {
 			void *addr;
 
 			addr = dma_buf_kmap(dma_buf, i >> PAGE_SHIFT);
 			if (!addr) {
 				/* dma_buf_kmap is unimplemented in exynos and returns NULL */
-				dma_buf_end_cpu_access(dma_buf, offset, sg_dma_len(sg), DMA_BIDIRECTIONAL);
 				ret = -EPERM;
-				goto no_cpu_access;
+				goto no_kmap;
 			}
 			memset(addr, value, PAGE_SIZE);
 			dma_buf_kunmap(dma_buf, i >> PAGE_SHIFT, addr);
 		}
-		dma_buf_end_cpu_access(dma_buf, offset, sg_dma_len(sg), DMA_BIDIRECTIONAL);
 		offset += sg_dma_len(sg);
 	}
 
+no_kmap:
+	dma_buf_end_cpu_access(dma_buf,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+			0, dma_buf->size,
+#endif
+			DMA_BIDIRECTIONAL);
 no_cpu_access:
 	dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);
 no_import:

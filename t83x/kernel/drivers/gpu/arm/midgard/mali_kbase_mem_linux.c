@@ -42,10 +42,7 @@
 #include <mali_kbase_mem_linux.h>
 #include <mali_kbase_config_defaults.h>
 #include <mali_kbase_hwaccess_time.h>
-
-#if defined(CONFIG_MALI_MIPE_ENABLED)
 #include <mali_kbase_tlstream.h>
-#endif
 
 static int kbase_tracking_page_setup(struct kbase_context *kctx, struct vm_area_struct *vma);
 static const struct vm_operations_struct kbase_vm_ops;
@@ -519,6 +516,100 @@ void kbase_mem_evictable_deinit(struct kbase_context *kctx)
 	unregister_shrinker(&kctx->reclaim);
 }
 
+struct kbase_mem_zone_cache_entry {
+	/* List head used to link the cache entry to the memory allocation. */
+	struct list_head zone_node;
+	/* The zone the cacheline is for. */
+	struct zone *zone;
+	/* The number of pages in the allocation which belong to this zone. */
+	u64 count;
+};
+
+static bool kbase_zone_cache_builder(struct kbase_mem_phy_alloc *alloc,
+		size_t start_offset)
+{
+	struct kbase_mem_zone_cache_entry *cache = NULL;
+	size_t i;
+	int ret = 0;
+
+	for (i = start_offset; i < alloc->nents; i++) {
+		struct page *p = phys_to_page(alloc->pages[i]);
+		struct zone *zone = page_zone(p);
+		bool create = true;
+
+		if (cache && (cache->zone == zone)) {
+			/*
+			 * Fast path check as most of the time adjacent
+			 * pages come from the same zone.
+			 */
+			create = false;
+		} else {
+			/*
+			 * Slow path check, walk all the cache entries to see
+			 * if we already know about this zone.
+			 */
+			list_for_each_entry(cache, &alloc->zone_cache, zone_node) {
+				if (cache->zone == zone) {
+					create = false;
+					break;
+				}
+			}
+		}
+
+		/* This zone wasn't found in the cache, create an entry for it */
+		if (create) {
+			cache = kmalloc(sizeof(*cache), GFP_KERNEL);
+			if (!cache) {
+				ret = -ENOMEM;
+				goto bail;
+			}
+			cache->zone = zone;
+			cache->count = 0;
+			list_add(&cache->zone_node, &alloc->zone_cache);
+		}
+
+		cache->count++;
+	}
+	return 0;
+
+bail:
+	return ret;
+}
+
+int kbase_zone_cache_update(struct kbase_mem_phy_alloc *alloc,
+		size_t start_offset)
+{
+	/*
+	 * Bail if the zone cache is empty, only update the cache if it
+	 * existed in the first place.
+	 */
+	if (list_empty(&alloc->zone_cache))
+		return 0;
+
+	return kbase_zone_cache_builder(alloc, start_offset);
+}
+
+int kbase_zone_cache_build(struct kbase_mem_phy_alloc *alloc)
+{
+	/* Bail if the zone cache already exists */
+	if (!list_empty(&alloc->zone_cache))
+		return 0;
+
+	return kbase_zone_cache_builder(alloc, 0);
+}
+
+void kbase_zone_cache_clear(struct kbase_mem_phy_alloc *alloc)
+{
+	struct kbase_mem_zone_cache_entry *walker;
+
+	while(!list_empty(&alloc->zone_cache)){
+		walker = list_first_entry(&alloc->zone_cache,
+				struct kbase_mem_zone_cache_entry, zone_node);
+		list_del(&walker->zone_node);
+		kfree(walker);
+	}
+}
+
 /**
  * kbase_mem_evictable_mark_reclaim - Mark the pages as reclaimable.
  * @alloc: The physical allocation
@@ -526,13 +617,28 @@ void kbase_mem_evictable_deinit(struct kbase_context *kctx)
 static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
 	struct kbase_context *kctx = alloc->imported.kctx;
+	struct kbase_mem_zone_cache_entry *zone_cache;
 	int __maybe_unused new_page_count;
-	int i;
+	int err;
 
-	for (i = 0; i < alloc->nents; i++) {
-		struct page *p = phys_to_page(alloc->pages[i]);
+	/* Attempt to build a zone cache of tracking */
+	err = kbase_zone_cache_build(alloc);
+	if (err == 0) {
+		/* Bulk update all the zones */
+		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
+			zone_page_state_add(zone_cache->count,
+					zone_cache->zone, NR_SLAB_RECLAIMABLE);
+		}
+	} else {
+		/* Fall-back to page by page updates */
+		int i;
 
-		zone_page_state_add(1, page_zone(p), NR_SLAB_RECLAIMABLE);
+		for (i = 0; i < alloc->nents; i++) {
+			struct page *p = phys_to_page(alloc->pages[i]);
+			struct zone *zone = page_zone(p);
+
+			zone_page_state_add(1, zone, NR_SLAB_RECLAIMABLE);
+		}
 	}
 
 	kbase_process_page_usage_dec(kctx, alloc->nents);
@@ -540,11 +646,9 @@ static void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 						&kctx->used_pages);
 	kbase_atomic_sub_pages(alloc->nents, &kctx->kbdev->memdev.used_pages);
 
-#if defined(CONFIG_MALI_MIPE_ENABLED)
 	kbase_tlstream_aux_pagesalloc(
 			(u32)kctx->id,
 			(u64)new_page_count);
-#endif
 }
 
 /**
@@ -555,8 +659,9 @@ static
 void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 {
 	struct kbase_context *kctx = alloc->imported.kctx;
+	struct kbase_mem_zone_cache_entry *zone_cache;
 	int __maybe_unused new_page_count;
-	int i;
+	int err;
 
 	new_page_count = kbase_atomic_add_pages(alloc->nents,
 						&kctx->used_pages);
@@ -567,17 +672,29 @@ void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 	 * then remove it from the reclaimable accounting. */
 	kbase_process_page_usage_inc(kctx, alloc->nents);
 
-	for (i = 0; i < alloc->nents; i++) {
-		struct page *p = phys_to_page(alloc->pages[i]);
+	/* Attempt to build a zone cache of tracking */
+	err = kbase_zone_cache_build(alloc);
+	if (err == 0) {
+		/* Bulk update all the zones */
+		list_for_each_entry(zone_cache, &alloc->zone_cache, zone_node) {
+			zone_page_state_add(-zone_cache->count,
+					zone_cache->zone, NR_SLAB_RECLAIMABLE);
+		}
+	} else {
+		/* Fall-back to page by page updates */
+		int i;
 
-		zone_page_state_add(-1, page_zone(p), NR_SLAB_RECLAIMABLE);
+		for (i = 0; i < alloc->nents; i++) {
+			struct page *p = phys_to_page(alloc->pages[i]);
+			struct zone *zone = page_zone(p);
+
+			zone_page_state_add(-1, zone, NR_SLAB_RECLAIMABLE);
+		}
 	}
 
-#if defined(CONFIG_MALI_MIPE_ENABLED)
 	kbase_tlstream_aux_pagesalloc(
 			(u32)kctx->id,
 			(u64)new_page_count);
-#endif
 }
 
 int kbase_mem_evictable_make(struct kbase_mem_phy_alloc *gpu_alloc)
@@ -894,6 +1011,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 	struct kbase_va_region *reg;
 	struct dma_buf *dma_buf;
 	struct dma_buf_attachment *dma_attachment;
+	bool shared_zone = false;
 
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR_OR_NULL(dma_buf))
@@ -914,15 +1032,23 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 	/* ignore SAME_VA */
 	*flags &= ~BASE_MEM_SAME_VA;
 
+	if (*flags & BASE_MEM_IMPORT_SHARED)
+		shared_zone = true;
+
 #ifdef CONFIG_64BIT
 	if (!kctx->is_compat) {
-		/* 64-bit tasks must MMAP anyway, but not expose this address to clients */
+		/*
+		 * 64-bit tasks require us to reserve VA on the CPU that we use
+		 * on the GPU.
+		 */
+		shared_zone = true;
+	}
+#endif
+
+	if (shared_zone) {
 		*flags |= BASE_MEM_NEED_MMAP;
 		reg = kbase_alloc_free_region(kctx, 0, *va_pages, KBASE_REG_ZONE_SAME_VA);
 	} else {
-#else
-	if (1) {
-#endif
 		reg = kbase_alloc_free_region(kctx, 0, *va_pages, KBASE_REG_ZONE_CUSTOM_VA);
 	}
 
@@ -960,7 +1086,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 
 	/* no read or write permission given on import, only on run do we give the right permissions */
 
-	reg->gpu_alloc->type = BASE_MEM_IMPORT_TYPE_UMM;
+	reg->gpu_alloc->type = KBASE_MEM_TYPE_IMPORTED_UMM;
 	reg->gpu_alloc->imported.umm.sgt = NULL;
 	reg->gpu_alloc->imported.umm.dma_buf = dma_buf;
 	reg->gpu_alloc->imported.umm.dma_attachment = dma_attachment;
@@ -989,6 +1115,7 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 	struct kbase_va_region *reg;
 	long faulted_pages;
 	int zone = KBASE_REG_ZONE_CUSTOM_VA;
+	bool shared_zone = false;
 
 	*va_pages = (PAGE_ALIGN(address + size) >> PAGE_SHIFT) -
 		PFN_DOWN(address);
@@ -1002,14 +1129,24 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 	/* SAME_VA generally not supported with imported memory (no known use cases) */
 	*flags &= ~BASE_MEM_SAME_VA;
 
+	if (*flags & BASE_MEM_IMPORT_SHARED)
+		shared_zone = true;
+
 #ifdef CONFIG_64BIT
 	if (!kctx->is_compat) {
-		/* 64-bit tasks must MMAP anyway, but not expose this address to
-		 * clients */
+		/*
+		 * 64-bit tasks require us to reserve VA on the CPU that we use
+		 * on the GPU.
+		 */
+		shared_zone = true;
+	}
+#endif
+
+	if (shared_zone) {
 		*flags |= BASE_MEM_NEED_MMAP;
 		zone = KBASE_REG_ZONE_SAME_VA;
 	}
-#endif
+
 	reg = kbase_alloc_free_region(kctx, 0, *va_pages, zone);
 
 	if (!reg)
@@ -1047,8 +1184,13 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 	/* We can't really store the page list because that would involve */
 	/* keeping the pages pinned - instead we pin/unpin around the job */
 	/* (as part of the external resources handling code) */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
 	faulted_pages = get_user_pages(current, current->mm, address, *va_pages,
 			reg->flags & KBASE_REG_GPU_WR, 0, NULL, NULL);
+#else
+	faulted_pages = get_user_pages(address, *va_pages,
+			reg->flags & KBASE_REG_GPU_WR, 0, NULL, NULL);
+#endif
 	up_read(&current->mm->mmap_sem);
 
 	if (faulted_pages != *va_pages)
@@ -1059,7 +1201,8 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(
 	reg->gpu_alloc->imported.user_buf.nr_pages = faulted_pages;
 	reg->gpu_alloc->imported.user_buf.pages = kmalloc_array(faulted_pages,
 			sizeof(struct page *), GFP_KERNEL);
-	reg->gpu_alloc->imported.user_buf.owner = current;
+	reg->gpu_alloc->imported.user_buf.mm = current->mm;
+	atomic_inc(&current->mm->mm_count);
 
 	if (!reg->gpu_alloc->imported.user_buf.pages)
 		goto no_page_array;
@@ -1513,18 +1656,6 @@ static int kbase_mem_shrink_gpu_mapping(struct kbase_context *kctx,
 
 	ret = kbase_mmu_teardown_pages(kctx,
 			reg->start_pfn + new_pages, delta);
-	if (ret)
-		return ret;
-
-#ifndef CONFIG_MALI_NO_MALI
-	if (kbase_hw_has_issue(kctx->kbdev, BASE_HW_ISSUE_6367)) {
-		/*
-		* Wait for GPU to flush write buffer before freeing
-		* physical pages.
-		 */
-		kbase_wait_write_flush(kctx);
-	}
-#endif
 
 	return ret;
 }
@@ -1576,7 +1707,7 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages, en
 		goto out_unlock;
 	}
 	/* can't grow regions which are ephemeral */
-	if (reg->flags & BASE_MEM_DONT_NEED) {
+	if (reg->flags & KBASE_REG_DONT_NEED) {
 		*failure_reason = BASE_BACKING_THRESHOLD_ERROR_NOT_GROWABLE;
 		goto out_unlock;
 	}
@@ -2312,8 +2443,8 @@ out:
 
 KBASE_EXPORT_TEST_API(kbase_mmap);
 
-void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
-		struct kbase_vmap_struct *map)
+void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
+		      unsigned long prot_request, struct kbase_vmap_struct *map)
 {
 	struct kbase_va_region *reg;
 	unsigned long page_index;
@@ -2351,6 +2482,11 @@ void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 	if (reg->flags & KBASE_REG_DONT_NEED)
 		goto out_unlock;
 
+	/* check access permissions can be satisfied
+	 * Intended only for checking KBASE_REG_{CPU,GPU}_{RD,WR} */
+	if ((reg->flags & prot_request) != prot_request)
+		goto out_unlock;
+
 	page_array = kbase_get_cpu_phy_pages(reg);
 	if (!page_array)
 		goto out_unlock;
@@ -2367,6 +2503,9 @@ void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 		/* Map uncached */
 		prot = pgprot_writecombine(prot);
 	}
+	/* Note: enforcing a RO prot_request onto prot is not done, since:
+	 * - CPU-arch-specific integration required
+	 * - kbase_vmap() requires no access checks to be made/enforced */
 
 	cpu_addr = vmap(pages, page_count, VM_MAP, prot);
 
@@ -2424,6 +2563,17 @@ void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 out_unlock:
 	kbase_gpu_vm_unlock(kctx);
 	return NULL;
+}
+
+void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
+		struct kbase_vmap_struct *map)
+{
+	/* 0 is specified for prot_request to indicate no access checks should
+	 * be made.
+	 *
+	 * As mentioned in kbase_vmap_prot() this means that a kernel-side
+	 * CPU-RO mapping is not enforced to allow this to work */
+	return kbase_vmap_prot(kctx, gpu_addr, size, 0u, map);
 }
 KBASE_EXPORT_TEST_API(kbase_vmap);
 

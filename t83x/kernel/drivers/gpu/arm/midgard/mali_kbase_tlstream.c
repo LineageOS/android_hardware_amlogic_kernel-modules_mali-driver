@@ -29,7 +29,6 @@
 #include <mali_kbase.h>
 #include <mali_kbase_jm.h>
 #include <mali_kbase_tlstream.h>
-#include <backend/gpu/mali_kbase_device_internal.h>
 
 /*****************************************************************************/
 
@@ -140,6 +139,8 @@ enum tl_msg_id_obj {
 	KBASE_TL_RET_ATOM_AS,
 	KBASE_TL_NRET_ATOM_AS,
 	KBASE_TL_DEP_ATOM_ATOM,
+	KBASE_TL_NDEP_ATOM_ATOM,
+	KBASE_TL_RDEP_ATOM_ATOM,
 	KBASE_TL_ATTRIB_ATOM_CONFIG,
 	KBASE_TL_ATTRIB_AS_CONFIG,
 
@@ -404,6 +405,20 @@ static const struct tp_desc tp_desc_obj[] = {
 		KBASE_TL_DEP_ATOM_ATOM,
 		__stringify(KBASE_TL_DEP_ATOM_ATOM),
 		"atom2 depends on atom1",
+		"@pp",
+		"atom1,atom2"
+	},
+	{
+		KBASE_TL_NDEP_ATOM_ATOM,
+		__stringify(KBASE_TL_NDEP_ATOM_ATOM),
+		"atom2 no longer depends on atom1",
+		"@pp",
+		"atom1,atom2"
+	},
+	{
+		KBASE_TL_RDEP_ATOM_ATOM,
+		__stringify(KBASE_TL_RDEP_ATOM_ATOM),
+		"resolved dependecy of atom2 depending on atom1",
 		"@pp",
 		"atom1,atom2"
 	},
@@ -1081,7 +1096,7 @@ static ssize_t kbasep_tlstream_read(
 
 	while (copy_len < size) {
 		enum tl_stream_type stype;
-		unsigned int        rb_idx_raw;
+		unsigned int        rb_idx_raw = 0;
 		unsigned int        rb_idx;
 		size_t              rb_size;
 
@@ -1768,6 +1783,56 @@ void __kbase_tlstream_tl_nret_atom_ctx(void *atom, void *context)
 void __kbase_tlstream_tl_dep_atom_atom(void *atom1, void *atom2)
 {
 	const u32     msg_id = KBASE_TL_DEP_ATOM_ATOM;
+	const size_t  msg_size =
+		sizeof(msg_id) + sizeof(u64) + sizeof(atom1) + sizeof(atom2);
+	unsigned long flags;
+	char          *buffer;
+	size_t        pos = 0;
+
+	buffer = kbasep_tlstream_msgbuf_acquire(
+			TL_STREAM_TYPE_OBJ,
+			msg_size, &flags);
+	KBASE_DEBUG_ASSERT(buffer);
+
+	pos = kbasep_tlstream_write_bytes(buffer, pos, &msg_id, sizeof(msg_id));
+	pos = kbasep_tlstream_write_timestamp(buffer, pos);
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &atom1, sizeof(atom1));
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &atom2, sizeof(atom2));
+	KBASE_DEBUG_ASSERT(msg_size == pos);
+
+	kbasep_tlstream_msgbuf_release(TL_STREAM_TYPE_OBJ, flags);
+}
+
+void __kbase_tlstream_tl_ndep_atom_atom(void *atom1, void *atom2)
+{
+	const u32     msg_id = KBASE_TL_NDEP_ATOM_ATOM;
+	const size_t  msg_size =
+		sizeof(msg_id) + sizeof(u64) + sizeof(atom1) + sizeof(atom2);
+	unsigned long flags;
+	char          *buffer;
+	size_t        pos = 0;
+
+	buffer = kbasep_tlstream_msgbuf_acquire(
+			TL_STREAM_TYPE_OBJ,
+			msg_size, &flags);
+	KBASE_DEBUG_ASSERT(buffer);
+
+	pos = kbasep_tlstream_write_bytes(buffer, pos, &msg_id, sizeof(msg_id));
+	pos = kbasep_tlstream_write_timestamp(buffer, pos);
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &atom1, sizeof(atom1));
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &atom2, sizeof(atom2));
+	KBASE_DEBUG_ASSERT(msg_size == pos);
+
+	kbasep_tlstream_msgbuf_release(TL_STREAM_TYPE_OBJ, flags);
+}
+
+void __kbase_tlstream_tl_rdep_atom_atom(void *atom1, void *atom2)
+{
+	const u32     msg_id = KBASE_TL_RDEP_ATOM_ATOM;
 	const size_t  msg_size =
 		sizeof(msg_id) + sizeof(u64) + sizeof(atom1) + sizeof(atom2);
 	unsigned long flags;

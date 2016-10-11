@@ -1,9 +1,9 @@
 /*
- * Copyright (C) 2011-2015 ARM Limited. All rights reserved.
- *
+ * Copyright (C) 2011-2016 ARM Limited. All rights reserved.
+ * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
- *
+ * 
  * A copy of the licence is included with the program, and can also be obtained from Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
@@ -24,6 +24,7 @@
 #include "mali_broadcast.h"
 #include "mali_scheduler.h"
 #include "mali_osk_profiling.h"
+#include "mali_osk_mali.h"
 #include "mali_pm_domain.h"
 #include "mali_pm.h"
 #include "mali_executor.h"
@@ -54,7 +55,7 @@ static void mali_group_timeout(void *data);
 static void mali_group_reset_pp(struct mali_group *group);
 static void mali_group_reset_mmu(struct mali_group *group);
 
-static void mali_group_activate_page_directory(struct mali_group *group, struct mali_session_data *session);
+static void mali_group_activate_page_directory(struct mali_group *group, struct mali_session_data *session, mali_bool is_reload);
 static void mali_group_recovery_reset(struct mali_group *group);
 
 struct mali_group *mali_group_create(struct mali_l2_cache_core *core,
@@ -815,7 +816,7 @@ void mali_group_reset(struct mali_group *group)
     }
 }
 
-void mali_group_start_gp_job(struct mali_group *group, struct mali_gp_job *job)
+void mali_group_start_gp_job(struct mali_group *group, struct mali_gp_job *job, mali_bool gpu_secure_mode_pre_enabled)
 {
     struct mali_session_data *session;
 
@@ -830,7 +831,23 @@ void mali_group_start_gp_job(struct mali_group *group, struct mali_gp_job *job)
     MALI_DEBUG_ASSERT_POINTER(group->l2_cache_core[0]);
     mali_l2_cache_invalidate_conditional(group->l2_cache_core[0], mali_gp_job_get_cache_order(job));
 
-    mali_group_activate_page_directory(group, session);
+	/* Reset GPU and disable gpu secure mode if needed. */
+	if (MALI_TRUE == _mali_osk_gpu_secure_mode_is_enabled()) {
+		struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
+		_mali_osk_gpu_reset_and_secure_mode_disable();
+		/* Need to disable the pmu interrupt mask register */
+		if (NULL != pmu) {
+			mali_pmu_reset(pmu);
+		}
+	}
+
+	/* Reload mmu page table if needed */
+	if (MALI_TRUE == gpu_secure_mode_pre_enabled) {
+		mali_group_reset(group);
+		mali_group_activate_page_directory(group, session, MALI_TRUE);
+	} else {
+		mali_group_activate_page_directory(group, session, MALI_FALSE);
+	}
 
     mali_gp_job_start(group->gp_core, job);
 
@@ -876,7 +893,7 @@ void mali_group_start_gp_job(struct mali_group *group, struct mali_gp_job *job)
 /* Used to set all the registers except frame renderer list address and fragment shader stack address
  * It means the caller must set these two registers properly before calling this function
  */
-void mali_group_start_pp_job(struct mali_group *group, struct mali_pp_job *job, u32 sub_job)
+void mali_group_start_pp_job(struct mali_group *group, struct mali_pp_job *job, u32 sub_job, mali_bool gpu_secure_mode_pre_enabled)
 {
     struct mali_session_data *session;
 
@@ -897,7 +914,31 @@ void mali_group_start_pp_job(struct mali_group *group, struct mali_pp_job *job, 
         mali_l2_cache_invalidate_conditional(group->l2_cache_core[1], mali_pp_job_get_cache_order(job));
     }
 
-    mali_group_activate_page_directory(group, session);
+	/* Reset GPU and change gpu secure mode if needed. */
+	if (MALI_TRUE == mali_pp_job_is_protected_job(job) && MALI_FALSE == _mali_osk_gpu_secure_mode_is_enabled()) {
+		struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
+		_mali_osk_gpu_reset_and_secure_mode_enable();
+		/* Need to disable the pmu interrupt mask register */
+		if (NULL != pmu) {
+			mali_pmu_reset(pmu);
+		}
+	} else if (MALI_FALSE == mali_pp_job_is_protected_job(job) && MALI_TRUE == _mali_osk_gpu_secure_mode_is_enabled()) {
+		struct mali_pmu_core *pmu = mali_pmu_get_global_pmu_core();
+		_mali_osk_gpu_reset_and_secure_mode_disable();
+		/* Need to disable the pmu interrupt mask register */
+		if (NULL != pmu) {
+			mali_pmu_reset(pmu);
+		}
+	}
+
+	/* Reload the mmu page table if needed */
+	if ((MALI_TRUE == mali_pp_job_is_protected_job(job) && MALI_FALSE == gpu_secure_mode_pre_enabled)
+	    || (MALI_FALSE == mali_pp_job_is_protected_job(job) && MALI_TRUE == gpu_secure_mode_pre_enabled)) {
+		mali_group_reset(group);
+		mali_group_activate_page_directory(group, session, MALI_TRUE);
+	} else {
+		mali_group_activate_page_directory(group, session, MALI_FALSE);
+	}
 
     if (mali_group_is_virtual(group)) {
         struct mali_group *child;
@@ -1262,7 +1303,7 @@ u32 mali_group_get_glob_num_groups(void)
     return mali_global_num_groups;
 }
 
-static void mali_group_activate_page_directory(struct mali_group *group, struct mali_session_data *session)
+static void mali_group_activate_page_directory(struct mali_group *group, struct mali_session_data *session, mali_bool is_reload)
 {
     MALI_DEBUG_PRINT(5, ("Mali group: Activating page directory 0x%08X from session 0x%08X on group %s\n",
                 mali_session_get_page_directory(session), session,
@@ -1270,20 +1311,20 @@ static void mali_group_activate_page_directory(struct mali_group *group, struct 
 
     MALI_DEBUG_ASSERT_EXECUTOR_LOCK_HELD();
 
-    if (group->session != session) {
-        /* Different session than last time, so we need to do some work */
-        MALI_DEBUG_PRINT(5, ("Mali group: Activate session: %08x previous: %08x on group %s\n",
-                    session, group->session,
-                    mali_group_core_description(group)));
-        mali_mmu_activate_page_directory(group->mmu, mali_session_get_page_directory(session));
-        group->session = session;
-    } else {
-        /* Same session as last time, so no work required */
-        MALI_DEBUG_PRINT(4, ("Mali group: Activate existing session 0x%08X on group %s\n",
-                    session->page_directory,
-                    mali_group_core_description(group)));
-        mali_mmu_zap_tlb_without_stall(group->mmu);
-    }
+	if (group->session != session || MALI_TRUE == is_reload) {
+		/* Different session than last time, so we need to do some work */
+		MALI_DEBUG_PRINT(5, ("Mali group: Activate session: %08x previous: %08x on group %s\n",
+				     session, group->session,
+				     mali_group_core_description(group)));
+		mali_mmu_activate_page_directory(group->mmu, mali_session_get_page_directory(session));
+		group->session = session;
+	} else {
+		/* Same session as last time, so no work required */
+		MALI_DEBUG_PRINT(4, ("Mali group: Activate existing session 0x%08X on group %s\n",
+				     session->page_directory,
+				     mali_group_core_description(group)));
+		mali_mmu_zap_tlb_without_stall(group->mmu);
+	}
 }
 
 static void mali_group_recovery_reset(struct mali_group *group)
@@ -1615,16 +1656,10 @@ _mali_osk_errcode_t mali_group_upper_half_gp(void *data)
 #if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
 	mali_executor_lock();
-	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
-		/* group complete and on job shedule on it, it already power off */
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
-					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
-					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
-					      0, 0, /* No pid and tid for interrupt handler */
-					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_GP(0),
-					      0xFFFFFFFF, 0);
+	if (!mali_group_is_working(group)) {
+		/* Not working, so nothing to do */
 		mali_executor_unlock();
-		return ret;
+		return _MALI_OSK_ERR_FAULT;
 	}
 #endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_START |
@@ -1646,10 +1681,16 @@ _mali_osk_errcode_t mali_group_upper_half_gp(void *data)
 #if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
 	mali_executor_lock();
-	if (!mali_group_is_working(group)) {
-		/* Not working, so nothing to do */
+	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
+		/* group complete and on job shedule on it, it already power off */
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+					      0, 0, /* No pid and tid for interrupt handler */
+					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_GP(0),
+					      0xFFFFFFFF, 0);
 		mali_executor_unlock();
-		return _MALI_OSK_ERR_FAULT;
+		return ret;
 	}
 #endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
@@ -1720,17 +1761,10 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 #if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
 	mali_executor_lock();
-	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
-		/* group complete and on job shedule on it, it already power off */
-		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
-					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
-					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
-					      0, 0, /* No pid and tid for interrupt handler */
-					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP(
-						      mali_pp_core_get_id(group->pp_core)),
-					      0xFFFFFFFF, 0);
+	if (!mali_group_is_working(group)) {
+		/* Not working, so nothing to do */
 		mali_executor_unlock();
-		return ret;
+		return _MALI_OSK_ERR_FAULT;
 	}
 #endif
 
@@ -1761,10 +1795,17 @@ _mali_osk_errcode_t mali_group_upper_half_pp(void *data)
 #if defined(CONFIG_MALI400_PROFILING) && defined (CONFIG_TRACEPOINTS)
 #if defined(CONFIG_MALI_SHARED_INTERRUPTS)
 	mali_executor_lock();
-	if (!mali_group_is_working(group)) {
-		/* Not working, so nothing to do */
+	if (!mali_group_is_working(group) && (!mali_group_power_is_on(group))) {
+		/* group complete and on job shedule on it, it already power off */
+		_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |
+					      MALI_PROFILING_EVENT_CHANNEL_SOFTWARE |
+					      MALI_PROFILING_EVENT_REASON_START_STOP_SW_UPPER_HALF,
+					      0, 0, /* No pid and tid for interrupt handler */
+					      MALI_PROFILING_MAKE_EVENT_DATA_CORE_PP(
+						      mali_pp_core_get_id(group->pp_core)),
+					      0xFFFFFFFF, 0);
 		mali_executor_unlock();
-		return _MALI_OSK_ERR_FAULT;
+		return ret;
 	}
 #endif
     _mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_STOP |

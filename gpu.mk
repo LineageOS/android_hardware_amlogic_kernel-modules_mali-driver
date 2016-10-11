@@ -32,42 +32,47 @@ ifeq ($(GPU_TYPE), t83x)
 	LOCAL_KK=1
 endif
 
-$(info test  GPU_TYPE is $(GPU_TYPE))
 ifeq ($(LOCAL_KK),0)
-$(info test  LOCAL_KK is $(LOCAL_KK))
-MALI=hardware/arm/gpu/mali
-MALI_OUT=$(PRODUCT_OUT)/obj/
+GPU_DRV_VERSION?=r6p1
+MALI=hardware/arm/gpu/utgard/${GPU_DRV_VERSION}
+MALI_OUT=$(PRODUCT_OUT)/obj/mali
 KERNEL_ARCH ?= arm
 #TODO rm shell cmd
 define gpu-modules
 
 $(MALI_KO):
-	cp $(MALI) $(MALI_OUT) -rf
+	rm $(MALI_OUT) -rf
+	mkdir -p $(MALI_OUT)
+	cp $(MALI)/* $(MALI_OUT)/ -airf
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH)"
 	@echo "make mali module MALI_OUT is $(MALI_OUT)"
 	@echo "make mali module MAKE is $(MAKE)"
-	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(MALI_OUT)/mali \
+	@echo "GPU_DRV_VERSION is ${GPU_DRV_VERSION}"
+	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(MALI_OUT)/ \
 	ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m 	\
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	CONFIG_GPU_THERMAL=y CONFIG_AM_VDEC_H264_4K2K=y modules
 
 	mkdir -p $(PRODUCT_OUT)/system/lib
-	cp $(MALI_OUT)/mali/mali.ko $(PRODUCT_OUT)/system/lib/mali.ko
+	cp $(MALI_OUT)/mali.ko $(PRODUCT_OUT)/system/lib/mali.ko
 endef
 
 else
 
-$(info test  LOCAL_KK is $(LOCAL_KK))
-MALI=hardware/arm/gpu/t83x
+GPU_DRV_VERSION?=r11p0
+MALI=hardware/arm/gpu/midgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/t83x
 KERNEL_ARCH ?= arm
 
 define gpu-modules
 
 $(MALI_KO):
-	cp $(MALI) $(MALI_OUT) -rf
+	rm $(MALI_OUT) -rf
+	mkdir -p $(MALI_OUT)
+	cp $(MALI)/* $(MALI_OUT)/ -airf
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH) current dir is $(shell pwd)"
 	@echo "MALI is $(MALI), MALI_OUT is $(MALI_OUT)"
+	@echo "GPU_DRV_VERSION is ${GPU_DRV_VERSION}"
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(MALI_OUT)/kernel/drivers/gpu/arm/midgard \
 	ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
@@ -75,7 +80,6 @@ $(MALI_KO):
 
 	mkdir -p $(PRODUCT_OUT)/system/lib
 	cp $(MALI_OUT)/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/system/lib/mali.ko
-	$(cd -)
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 endif

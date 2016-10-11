@@ -29,7 +29,6 @@
 #endif
 #include <mali_kbase_tlstream.h>
 #include <mali_kbase_pm.h>
-#include <mali_kbase_cache_policy.h>
 #include <mali_kbase_config_defaults.h>
 #include <mali_kbase_smc.h>
 #include <mali_kbase_hwaccess_jm.h>
@@ -489,10 +488,12 @@ KBASE_EXPORT_TEST_API(kbase_pm_transition_core_type);
  * @present:       The bit mask of present caches
  * @cores_powered: A bit mask of cores (or L2 caches) that are desired to
  *                 be powered
+ * @tilers_powered: The bit mask of tilers that are desired to be powered
  *
  * Return: A bit mask of the caches that should be turned on
  */
-static u64 get_desired_cache_status(u64 present, u64 cores_powered)
+static u64 get_desired_cache_status(u64 present, u64 cores_powered,
+		u64 tilers_powered)
 {
 	u64 desired = 0;
 
@@ -515,6 +516,10 @@ static u64 get_desired_cache_status(u64 present, u64 cores_powered)
 		present &= ~bit_mask;
 	}
 
+	/* Power up the required L2(s) for the tiler */
+	if (tilers_powered)
+		desired |= 1;
+
 	return desired;
 }
 
@@ -527,6 +532,7 @@ MOCKABLE(kbase_pm_check_transitions_nolock) (struct kbase_device *kbdev)
 	bool in_desired_state = true;
 	u64 desired_l2_state;
 	u64 cores_powered;
+	u64 tilers_powered;
 	u64 tiler_available_bitmap;
 	u64 shader_available_bitmap;
 	u64 shader_ready_bitmap;
@@ -560,6 +566,10 @@ MOCKABLE(kbase_pm_check_transitions_nolock) (struct kbase_device *kbdev)
 
 	cores_powered |= kbdev->pm.backend.desired_shader_state;
 
+	/* Work out which tilers want to be powered */
+	tilers_powered = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_TILER);
+	tilers_powered |= kbdev->pm.backend.desired_tiler_state;
+
 	/* If there are l2 cache users registered, keep all l2s powered even if
 	 * all other cores are off. */
 	if (kbdev->l2_users_count > 0)
@@ -567,17 +577,11 @@ MOCKABLE(kbase_pm_check_transitions_nolock) (struct kbase_device *kbdev)
 
 	desired_l2_state = get_desired_cache_status(
 			kbdev->gpu_props.props.raw_props.l2_present,
-			cores_powered);
+			cores_powered, tilers_powered);
 
 	/* If any l2 cache is on, then enable l2 #0, for use by job manager */
-	if (0 != desired_l2_state) {
+	if (0 != desired_l2_state)
 		desired_l2_state |= 1;
-		/* Also enable tiler if l2 cache is powered */
-		kbdev->pm.backend.desired_tiler_state =
-			kbdev->gpu_props.props.raw_props.tiler_present;
-	} else {
-		kbdev->pm.backend.desired_tiler_state = 0;
-	}
 
 	prev_l2_available_bitmap = kbdev->l2_available_bitmap;
 	in_desired_state &= kbase_pm_transition_core_type(kbdev,
@@ -1087,9 +1091,9 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 		kbdev->hw_quirks_sc |= SC_ENABLE_TEXGRD_FLAGS;
 
 	if (!kbase_hw_has_issue(kbdev, GPUCORE_1619)) {
-		if (prod_id < 0x760 || prod_id == 0x6956) /* T60x, T62x, T72x */
+		if (prod_id < 0x750 || prod_id == 0x6956) /* T60x, T62x, T72x */
 			kbdev->hw_quirks_sc |= SC_LS_ATTR_CHECK_DISABLE;
-		else if (prod_id >= 0x760 && prod_id <= 0x880) /* T76x, T8xx */
+		else if (prod_id >= 0x750 && prod_id <= 0x880) /* T76x, T8xx */
 			kbdev->hw_quirks_sc |= SC_LS_ALLOW_ATTR_TYPES;
 	}
 
@@ -1212,52 +1216,14 @@ void kbase_pm_cache_snoop_disable(struct kbase_device *kbdev)
 	}
 }
 
-int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
+static int kbase_pm_reset_do_normal(struct kbase_device *kbdev)
 {
-	unsigned long irq_flags;
 	struct kbasep_reset_timeout_data rtdata;
 	u64 core_ready;
 	u64 l2_ready;
 	u64 tiler_ready;
 	u32 value;
 
-	KBASE_DEBUG_ASSERT(NULL != kbdev);
-	lockdep_assert_held(&kbdev->pm.lock);
-
-	/* Ensure the clock is on before attempting to access the hardware */
-	if (!kbdev->pm.backend.gpu_powered) {
-		if (kbdev->pm.backend.callback_power_on)
-			kbdev->pm.backend.callback_power_on(kbdev);
-
-		spin_lock_irqsave(&kbdev->pm.backend.gpu_powered_lock,
-								irq_flags);
-		kbdev->pm.backend.gpu_powered = true;
-		spin_unlock_irqrestore(&kbdev->pm.backend.gpu_powered_lock,
-								irq_flags);
-	}
-
-	/* Ensure interrupts are off to begin with, this also clears any
-	 * outstanding interrupts */
-	kbase_pm_disable_interrupts(kbdev);
-	/* Ensure cache snoops are disabled before reset. */
-	kbase_pm_cache_snoop_disable(kbdev);
-	/* Prepare for the soft-reset */
-	kbdev->pm.backend.reset_done = false;
-
-	/* The cores should be made unavailable due to the reset */
-	spin_lock_irqsave(&kbdev->pm.power_change_lock, irq_flags);
-	if (kbdev->shader_available_bitmap != 0u)
-			KBASE_TRACE_ADD(kbdev, PM_CORES_CHANGE_AVAILABLE, NULL,
-						NULL, 0u, (u32)0u);
-	if (kbdev->tiler_available_bitmap != 0u)
-			KBASE_TRACE_ADD(kbdev, PM_CORES_CHANGE_AVAILABLE_TILER,
-						NULL, NULL, 0u, (u32)0u);
-	kbdev->shader_available_bitmap = 0u;
-	kbdev->tiler_available_bitmap = 0u;
-	kbdev->l2_available_bitmap = 0u;
-	spin_unlock_irqrestore(&kbdev->pm.power_change_lock, irq_flags);
-
-	/* Soft reset the GPU */
 	KBASE_TRACE_ADD(kbdev, CORE_GPU_SOFT_RESET, NULL, NULL, 0u, 0);
 #if defined(CONFIG_MALI_MIPE_ENABLED)
 	kbase_tlstream_jd_gpu_soft_reset(kbdev);
@@ -1359,7 +1325,7 @@ int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 		/* GPU has been reset */
 		hrtimer_cancel(&rtdata.timer);
 		destroy_hrtimer_on_stack(&rtdata.timer);
-		goto out;
+		return 0;
 	}
 
 	/* No interrupt has been received - check if the RAWSTAT register says
@@ -1395,7 +1361,7 @@ int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 		/* GPU has been reset */
 		hrtimer_cancel(&rtdata.timer);
 		destroy_hrtimer_on_stack(&rtdata.timer);
-		goto out;
+		return 0;
 	}
 
 	destroy_hrtimer_on_stack(&rtdata.timer);
@@ -1403,10 +1369,75 @@ int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 	dev_err(kbdev->dev, "Failed to hard-reset the GPU (timed out after %d ms)\n",
 								RESET_TIMEOUT);
 
-	/* The GPU still hasn't reset, give up */
 	return -EINVAL;
+}
 
-out:
+static int kbase_pm_reset_do_protected(struct kbase_device *kbdev)
+{
+	KBASE_TRACE_ADD(kbdev, CORE_GPU_SOFT_RESET, NULL, NULL, 0u, 0);
+	kbase_tlstream_jd_gpu_soft_reset(kbdev);
+
+	return kbdev->protected_ops->protected_mode_reset(kbdev);
+}
+
+int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
+{
+	unsigned long irq_flags;
+	int err;
+	bool resume_vinstr = false;
+
+	KBASE_DEBUG_ASSERT(NULL != kbdev);
+	lockdep_assert_held(&kbdev->pm.lock);
+
+	/* Ensure the clock is on before attempting to access the hardware */
+	if (!kbdev->pm.backend.gpu_powered) {
+		if (kbdev->pm.backend.callback_power_on)
+			kbdev->pm.backend.callback_power_on(kbdev);
+
+		spin_lock_irqsave(&kbdev->pm.backend.gpu_powered_lock,
+								irq_flags);
+		kbdev->pm.backend.gpu_powered = true;
+		spin_unlock_irqrestore(&kbdev->pm.backend.gpu_powered_lock,
+								irq_flags);
+	}
+
+	/* Ensure interrupts are off to begin with, this also clears any
+	 * outstanding interrupts */
+	kbase_pm_disable_interrupts(kbdev);
+	/* Ensure cache snoops are disabled before reset. */
+	kbase_pm_cache_snoop_disable(kbdev);
+	/* Prepare for the soft-reset */
+	kbdev->pm.backend.reset_done = false;
+
+	/* The cores should be made unavailable due to the reset */
+	spin_lock_irqsave(&kbdev->pm.power_change_lock, irq_flags);
+	if (kbdev->shader_available_bitmap != 0u)
+			KBASE_TRACE_ADD(kbdev, PM_CORES_CHANGE_AVAILABLE, NULL,
+						NULL, 0u, (u32)0u);
+	if (kbdev->tiler_available_bitmap != 0u)
+			KBASE_TRACE_ADD(kbdev, PM_CORES_CHANGE_AVAILABLE_TILER,
+						NULL, NULL, 0u, (u32)0u);
+	kbdev->shader_available_bitmap = 0u;
+	kbdev->tiler_available_bitmap = 0u;
+	kbdev->l2_available_bitmap = 0u;
+	spin_unlock_irqrestore(&kbdev->pm.power_change_lock, irq_flags);
+
+	/* Soft reset the GPU */
+	if (kbdev->protected_mode_support &&
+			kbdev->protected_ops->protected_mode_reset)
+		err = kbase_pm_reset_do_protected(kbdev);
+	else
+		err = kbase_pm_reset_do_normal(kbdev);
+
+	spin_lock_irqsave(&kbdev->js_data.runpool_irq.lock, irq_flags);
+	if (kbdev->protected_mode)
+		resume_vinstr = true;
+	kbdev->protected_mode_transition = false;
+	kbdev->protected_mode = false;
+	spin_unlock_irqrestore(&kbdev->js_data.runpool_irq.lock, irq_flags);
+
+	if (err)
+		goto exit;
 
 	if (flags & PM_HW_ISSUES_DETECT)
 		kbase_pm_hw_issues_detect(kbdev);
@@ -1415,12 +1446,12 @@ out:
 
 	kbase_cache_set_coherency_mode(kbdev, kbdev->system_coherency);
 
+	/* Sanity check protected mode was left after reset */
 	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_MODE)) {
 		u32 gpu_status = kbase_reg_read(kbdev,
 				GPU_CONTROL_REG(GPU_STATUS), NULL);
 
-		kbdev->secure_mode = (gpu_status &
-				GPU_STATUS_PROTECTED_MODE_ACTIVE) != 0;
+		WARN_ON(gpu_status & GPU_STATUS_PROTECTED_MODE_ACTIVE);
 	}
 
 	/* If cycle counter was in use re-enable it, enable_irqs will only be
@@ -1449,7 +1480,12 @@ out:
 	if (flags & PM_ENABLE_IRQS)
 		kbase_pm_enable_interrupts(kbdev);
 
-	return 0;
+exit:
+	/* If GPU is leaving protected mode resume vinstr operation. */
+	if (kbdev->vinstr_ctx && resume_vinstr)
+		kbase_vinstr_resume(kbdev->vinstr_ctx);
+
+	return err;
 }
 
 /**
