@@ -18,6 +18,7 @@
 #include <linux/file.h>
 #include <linux/seq_file.h>
 #include <linux/module.h>
+#include <asm-generic/fcntl.h>
 
 struct mali_sync_pt {
 	struct sync_pt         sync_pt;
@@ -306,7 +307,7 @@ s32 mali_sync_fence_fd_alloc(struct sync_fence *sync_fence)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 	fd = get_unused_fd();
 #else
-	fd = get_unused_fd_flags(0);
+	fd = get_unused_fd_flags(O_CLOEXEC);
 #endif
 
 	if (fd < 0) {

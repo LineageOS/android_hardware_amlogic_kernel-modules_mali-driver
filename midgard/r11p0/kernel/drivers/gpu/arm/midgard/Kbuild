@@ -194,6 +194,7 @@ endif
 
 ifeq ($(CONFIG_MALI_PLATFORM_DEVICETREE),y)
 	ccflags-y += -I$(src)/platform/devicetree
+    include $(src)/platform/devicetree/Kbuild
 endif
 
 # Tell the Linux build system from which .o file to create the kernel module
@@ -232,13 +233,3 @@ subdir-ccflags-y += -I$(src)/$(MALI_BACKEND_PATH)/$(CONFIG_MALI_BACKEND_REAL)
 ifeq ($(CONFIG_MALI_PLATFORM_THIRDPARTY)$(CONFIG_MALI_PLATFORM_FAKE),)
 CONFIG_MALI_PLATFORM_DEVICETREE := y
 endif
-
-mali_kbase-$(CONFIG_MALI_PLATFORM_DEVICETREE) += \
-    platform/devicetree/mali_clock.o \
-    platform/devicetree/mpgpu.o \
-    platform/devicetree/meson_main2.o \
-    platform/devicetree/platform_gx.o \
-    platform/devicetree/scaling.o \
-	platform/devicetree/mali_kbase_runtime_pm.o \
-	platform/devicetree/mali_kbase_config_devicetree.o
-ccflags-$(CONFIG_MALI_PLATFORM_DEVICETREE) += -I$(src)/platform/devicetree

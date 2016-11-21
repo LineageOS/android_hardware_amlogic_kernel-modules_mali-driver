@@ -21,7 +21,7 @@
 #include <mali_osk_profiling.h>
 #include <linux/time.h>
 
-#include <linux/amlogic/amports/gp_pll.h>
+//#include <linux/amlogic/amports/gp_pll.h>
 #include "meson_main2.h"
 
 

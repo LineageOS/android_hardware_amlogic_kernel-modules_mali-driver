@@ -9,29 +9,7 @@
 #
 
 # This file is called by the Linux build system.
-############## Kasin Added, for platform. ################
-
-ifndef CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH
-    ccflags-y += -DCONFIG_MALI_DMA_BUF_MAP_ON_ATTACH=y
-endif
-#ifeq ($(CONFIG_ARCH_MESON),y)
-#ccflags-y += -DCONFIG_MALI450=y
-#ifeq ($(CONFIG_MALI450),m)
-#ccflags-y += -DCONFIG_MALI450=y
-#endif
-#ifeq ($(CONFIG_MALI450),y)
-#ccflags-y += -DCONFIG_MALI450=y
-#endif
-ccflags-y += -DCONFIG_MALI_DT=y
-ccflags-y += -DMESON_CPU_TYPE=0x80
-ccflags-y += -DMESON_CPU_TYPE_MESON6=0x60
-ccflags-y += -DMESON_CPU_TYPE_MESON6TVD=0x75
-ccflags-y += -DMESON_CPU_TYPE_MESON8=0x80
-ccflags-y += -DMESON_CPU_TYPE_MESON8B=0x8B
-#endif
-
-##################### end Kasin Added. ###################
-
+include $(src)/Kbuild.amlogic
 # set up defaults if not defined by the user
 TIMESTAMP ?= default
 ifeq ($(CONFIG_UMP), m)
@@ -305,7 +283,7 @@ ccflags-$(CONFIG_MALI400_DEBUG) += -DDEBUG
 endif
 
 # Use our defines when compiling
-ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform  -Wno-data-time
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/common -I$(src)/linux -I$(src)/platform
 
 # Get subversion revision number, fall back to only ${MALI_RELEASE_NAME} if no svn info is available
 MALI_RELEASE_NAME=$(shell cat $(TOP_KBUILD_SRC)$(DRIVER_DIR)/.version 2> /dev/null)
