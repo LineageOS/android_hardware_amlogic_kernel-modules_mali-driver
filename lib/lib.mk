@@ -1,6 +1,9 @@
 
 MALI_LIB_PREBUILT=true
 #build in hardware/amlogic/ddk
+ifneq (,$(wildcard vendor/arm))
+MALI_LIB_PREBUILT=false
+endif
 ifneq (,$(wildcard hardware/amlogic/ddk))
 MALI_LIB_PREBUILT=false
 endif
