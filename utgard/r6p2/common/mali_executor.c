@@ -2652,6 +2652,7 @@ void mali_executor_running_status_print(void)
 			MALI_PRINT(("\tchild group(%s) running job: %p\n", group->pp_core->hw_core.description, group->pp_running_job));
 			MALI_PRINT(("\tchild group(%s)->status: %d\n", group->pp_core->hw_core.description, group->state));
 			MALI_PRINT(("\tchild group(%s) SW power: %s\n", group->pp_core->hw_core.description, group->power_is_on ? "On" : "Off"));
+#if MALI_STATE_TRACKING
 			if (group->pm_domain) {
 				MALI_PRINT(("\tPower domain: id %u\n", mali_pm_domain_get_id(group->pm_domain)));
 				MALI_PRINT(("\tMask:0x%04x \n", mali_pm_domain_get_mask(group->pm_domain)));
@@ -2659,12 +2660,14 @@ void mali_executor_running_status_print(void)
 				MALI_PRINT(("\tCurrent power status:%s \n", (mali_pm_domain_get_mask(group->pm_domain)& mali_pm_get_current_mask()) ? "On" : "Off"));
 				MALI_PRINT(("\tWanted  power status:%s \n", (mali_pm_domain_get_mask(group->pm_domain)& mali_pm_get_wanted_mask()) ? "On" : "Off"));
 			}
+#endif
 
 			for (i = 0; i < 2; i++) {
 				if (NULL != group->l2_cache_core[i]) {
 					struct mali_pm_domain *domain;
 					domain = mali_l2_cache_get_pm_domain(group->l2_cache_core[i]);
 					MALI_PRINT(("\t L2(index %d) group SW power: %s\n", i, group->l2_cache_core[i]->power_is_on ? "On" : "Off"));
+#if MALI_STATE_TRACKING
 					if (domain) {
 						MALI_PRINT(("\tL2 Power domain: id %u\n", mali_pm_domain_get_id(domain)));
 						MALI_PRINT(("\tL2 Mask:0x%04x \n", mali_pm_domain_get_mask(domain)));
@@ -2672,6 +2675,7 @@ void mali_executor_running_status_print(void)
 						MALI_PRINT(("\tL2 Current power status:%s \n", (mali_pm_domain_get_mask(domain) & mali_pm_get_current_mask()) ? "On" : "Off"));
 						MALI_PRINT(("\tL2 Wanted  power status:%s \n", (mali_pm_domain_get_mask(domain) & mali_pm_get_wanted_mask()) ? "On" : "Off"));
 					}
+#endif
 				}
 			}
 		}
