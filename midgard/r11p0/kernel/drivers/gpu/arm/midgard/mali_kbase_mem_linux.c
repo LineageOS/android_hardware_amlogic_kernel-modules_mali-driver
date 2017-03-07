@@ -30,7 +30,9 @@
 #include <linux/fs.h>
 #include <linux/version.h>
 #include <linux/dma-mapping.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	#include <linux/dma-mapping.h>
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	#include <linux/dma-attrs.h>
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)  */
 #ifdef CONFIG_DMA_SHARED_BUFFER
@@ -2569,7 +2571,7 @@ void *kbase_va_alloc(struct kbase_context *kctx, u32 size, struct kbase_hwc_dma_
 	dma_addr_t  dma_pa;
 	struct kbase_va_region *reg;
 	phys_addr_t *page_array;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))&&(LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0))
 	DEFINE_DMA_ATTRS(attrs);
 #endif
 
@@ -2585,7 +2587,10 @@ void *kbase_va_alloc(struct kbase_context *kctx, u32 size, struct kbase_hwc_dma_
 		goto err;
 
 	/* All the alloc calls return zeroed memory */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	va = dma_alloc_attrs(kctx->kbdev->dev, size, &dma_pa, GFP_KERNEL,
+							DMA_ATTR_WRITE_COMBINE);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &attrs);
 	va = dma_alloc_attrs(kctx->kbdev->dev, size, &dma_pa, GFP_KERNEL, &attrs);
 #else
@@ -2634,7 +2639,9 @@ no_mmap:
 no_alloc:
 	kfree(reg);
 no_reg:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	dma_free_attrs(kctx->kbdev->dev, size, va, dma_pa, DMA_ATTR_WRITE_COMBINE);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	dma_free_attrs(kctx->kbdev->dev, size, va, dma_pa, &attrs);
 #else
 	dma_free_writecombine(kctx->kbdev->dev, size, va, dma_pa);
@@ -2648,7 +2655,7 @@ void kbase_va_free(struct kbase_context *kctx, struct kbase_hwc_dma_mapping *han
 {
 	struct kbase_va_region *reg;
 	int err;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))&&(LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0))
 	DEFINE_DMA_ATTRS(attrs);
 #endif
 
@@ -2666,7 +2673,11 @@ void kbase_va_free(struct kbase_context *kctx, struct kbase_hwc_dma_mapping *han
 	kbase_mem_phy_alloc_put(reg->gpu_alloc);
 	kfree(reg);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	dma_free_attrs(kctx->kbdev->dev, handle->size,
+			handle->cpu_va, handle->dma_pa,
+			DMA_ATTR_WRITE_COMBINE);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
 	dma_set_attr(DMA_ATTR_WRITE_COMBINE, &attrs);
 	dma_free_attrs(kctx->kbdev->dev, handle->size,
 			handle->cpu_va, handle->dma_pa, &attrs);
