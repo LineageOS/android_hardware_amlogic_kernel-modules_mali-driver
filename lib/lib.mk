@@ -11,6 +11,9 @@ endif
 ifneq (,$(wildcard hardware/arm/gpu/ddk))
 MALI_LIB_PREBUILT=false
 endif
+ifneq (,$(wildcard vendor/arm/t83x))
+MALI_LIB_PREBUILT=false
+endif
 #already in hardware/arm/gpu/lib
 
 ifeq ($(MALI_LIB_PREBUILT),true)

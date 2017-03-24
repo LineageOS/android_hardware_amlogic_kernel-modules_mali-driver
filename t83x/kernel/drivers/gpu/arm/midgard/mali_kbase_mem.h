@@ -69,10 +69,8 @@ struct kbase_cpu_mapping {
 	struct   kbase_mem_phy_alloc *alloc;
 	struct   kbase_context *kctx;
 	struct   kbase_va_region *region;
-	pgoff_t  page_off;
 	int      count;
-	unsigned long vm_start;
-	unsigned long vm_end;
+	int      free_on_close;
 };
 
 enum kbase_memory_type {
@@ -248,9 +246,6 @@ struct kbase_va_region {
 /* CPU read access */
 #define KBASE_REG_CPU_RD            (1ul<<14)
 
-/* Aligned for GPU EX in SAME_VA */
-#define KBASE_REG_ALIGNED           (1ul<<15)
-
 /* Index of chosen MEMATTR for this region (0..7) */
 #define KBASE_REG_MEMATTR_MASK      (7ul << 16)
 #define KBASE_REG_MEMATTR_INDEX(x)  (((x) & 7) << 16)
@@ -400,7 +395,8 @@ static inline int kbase_reg_prepare_native(struct kbase_va_region *reg,
 		return -ENOMEM;
 	reg->cpu_alloc->imported.kctx = kctx;
 	INIT_LIST_HEAD(&reg->cpu_alloc->evict_node);
-	if (kctx->infinite_cache_active && (reg->flags & KBASE_REG_CPU_CACHED)) {
+	if (kbase_ctx_flag(kctx, KCTX_INFINITE_CACHE)
+	    && (reg->flags & KBASE_REG_CPU_CACHED)) {
 		reg->gpu_alloc = kbase_alloc_create(reg->nr_pages,
 				KBASE_MEM_TYPE_NATIVE);
 		reg->gpu_alloc->imported.kctx = kctx;
@@ -487,7 +483,7 @@ void kbase_mem_pool_term(struct kbase_mem_pool *pool);
  * 1. If there are free pages in the pool, allocate a page from @pool.
  * 2. Otherwise, if @next_pool is not NULL and has free pages, allocate a page
  *    from @next_pool.
- * 3. Finally, allocate a page from the kernel.
+ * 3. Return NULL if no memory in the pool
  *
  * Return: Pointer to allocated page, or NULL if allocation failed.
  */
@@ -573,18 +569,38 @@ static inline size_t kbase_mem_pool_max_size(struct kbase_mem_pool *pool)
 void kbase_mem_pool_set_max_size(struct kbase_mem_pool *pool, size_t max_size);
 
 /**
+ * kbase_mem_pool_grow - Grow the pool
+ * @pool:       Memory pool to grow
+ * @nr_to_grow: Number of pages to add to the pool
+ *
+ * Adds @nr_to_grow pages to the pool. Note that this may cause the pool to
+ * become larger than the maximum size specified.
+ *
+ * Returns: 0 on success, -ENOMEM if unable to allocate sufficent pages
+ */
+int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow);
+
+/**
  * kbase_mem_pool_trim - Grow or shrink the pool to a new size
  * @pool:     Memory pool to trim
  * @new_size: New number of pages in the pool
  *
  * If @new_size > @cur_size, fill the pool with new pages from the kernel, but
- * not above @max_size.
+ * not above the max_size for the pool.
  * If @new_size < @cur_size, shrink the pool by freeing pages to the kernel.
- *
- * Return: The new size of the pool
  */
-size_t kbase_mem_pool_trim(struct kbase_mem_pool *pool, size_t new_size);
+void kbase_mem_pool_trim(struct kbase_mem_pool *pool, size_t new_size);
 
+/*
+ * kbase_mem_alloc_page - Allocate a new page for a device
+ * @kbdev: The kbase device
+ *
+ * Most uses should use kbase_mem_pool_alloc to allocate a page. However that
+ * function can fail in the event the pool is empty.
+ *
+ * Return: A new page or NULL if no memory
+ */
+struct page *kbase_mem_alloc_page(struct kbase_device *kbdev);
 
 int kbase_region_tracker_init(struct kbase_context *kctx);
 int kbase_region_tracker_init_jit(struct kbase_context *kctx, u64 jit_va_pages);
@@ -605,7 +621,20 @@ int kbase_add_va_region(struct kbase_context *kctx, struct kbase_va_region *reg,
 
 bool kbase_check_alloc_flags(unsigned long flags);
 bool kbase_check_import_flags(unsigned long flags);
-void kbase_update_region_flags(struct kbase_context *kctx,
+
+/**
+ * kbase_update_region_flags - Convert user space flags to kernel region flags
+ *
+ * @kctx:  kbase context
+ * @reg:   The region to update the flags on
+ * @flags: The flags passed from user space
+ *
+ * The user space flag BASE_MEM_COHERENT_SYSTEM_REQUIRED will be rejected and
+ * this function will fail if the system does not support system coherency.
+ *
+ * Return: 0 if successful, -EINVAL if the flags are not supported
+ */
+int kbase_update_region_flags(struct kbase_context *kctx,
 		struct kbase_va_region *reg, unsigned long flags);
 
 void kbase_gpu_vm_lock(struct kbase_context *kctx);
@@ -647,8 +676,8 @@ int kbase_gpu_munmap(struct kbase_context *kctx, struct kbase_va_region *reg);
 
 /**
  * The caller has the following locking conditions:
- * - It must hold kbase_as::transaction_mutex on kctx's address space
- * - It must hold the kbasep_js_device_data::runpool_irq::lock
+ * - It must hold kbase_device->mmu_hw_mutex
+ * - It must hold the hwaccess_lock
  */
 void kbase_mmu_update(struct kbase_context *kctx);
 
@@ -660,8 +689,8 @@ void kbase_mmu_update(struct kbase_context *kctx);
  * data from provided kbase context from the GPU caches.
  *
  * The caller has the following locking conditions:
- * - It must hold kbase_as::transaction_mutex on kctx's address space
- * - It must hold the kbasep_js_device_data::runpool_irq::lock
+ * - It must hold kbase_device->mmu_hw_mutex
+ * - It must hold the hwaccess_lock
  */
 void kbase_mmu_disable(struct kbase_context *kctx);
 
@@ -674,7 +703,7 @@ void kbase_mmu_disable(struct kbase_context *kctx);
  * This function must only be called during reset/power-up and it used to
  * ensure the registers are in a known state.
  *
- * The caller must hold kbdev->as[as_nr].transaction_mutex.
+ * The caller must hold kbdev->mmu_hw_mutex.
  */
 void kbase_mmu_disable_as(struct kbase_device *kbdev, int as_nr);
 
@@ -753,31 +782,24 @@ static inline void kbase_process_page_usage_dec(struct kbase_context *kctx, int 
 }
 
 /**
- * @brief Find the offset of the CPU mapping of a memory allocation containing
- *        a given address range
+ * kbasep_find_enclosing_cpu_mapping_offset() - Find the offset of the CPU
+ * mapping of a memory allocation containing a given address range
  *
- * Searches for a CPU mapping of any part of the region starting at @p gpu_addr
- * that fully encloses the CPU virtual address range specified by @p uaddr and
- * @p size. Returns a failure indication if only part of the address range lies
- * within a CPU mapping, or the address range lies within a CPU mapping of a
- * different region.
+ * Searches for a CPU mapping of any part of any region that fully encloses the
+ * CPU virtual address range specified by @uaddr and @size. Returns a failure
+ * indication if only part of the address range lies within a CPU mapping.
  *
- * @param[in,out] kctx      The kernel base context used for the allocation.
- * @param[in]     gpu_addr  GPU address of the start of the allocated region
- *                          within which to search.
- * @param[in]     uaddr     Start of the CPU virtual address range.
- * @param[in]     size      Size of the CPU virtual address range (in bytes).
- * @param[out]    offset    The offset from the start of the allocation to the
- *                          specified CPU virtual address.
+ * @kctx:      The kernel base context used for the allocation.
+ * @uaddr:     Start of the CPU virtual address range.
+ * @size:      Size of the CPU virtual address range (in bytes).
+ * @offset:    The offset from the start of the allocation to the specified CPU
+ *             virtual address.
  *
- * @return 0 if offset was obtained successfully. Error code
- *         otherwise.
+ * Return: 0 if offset was obtained successfully. Error code otherwise.
  */
-int kbasep_find_enclosing_cpu_mapping_offset(struct kbase_context *kctx,
-							u64 gpu_addr,
-							unsigned long uaddr,
-							size_t size,
-							u64 *offset);
+int kbasep_find_enclosing_cpu_mapping_offset(
+		struct kbase_context *kctx,
+		unsigned long uaddr, size_t size, u64 *offset);
 
 enum hrtimer_restart kbasep_as_poke_timer_callback(struct hrtimer *timer);
 void kbase_as_poking_timer_retain_atom(struct kbase_device *kbdev, struct kbase_context *kctx, struct kbase_jd_atom *katom);
@@ -894,10 +916,10 @@ void kbase_sync_single_for_cpu(struct kbase_device *kbdev, dma_addr_t handle,
 
 #ifdef CONFIG_DEBUG_FS
 /**
- * kbase_jit_debugfs_add - Add per context debugfs entry for JIT.
+ * kbase_jit_debugfs_init - Add per context debugfs entry for JIT.
  * @kctx: kbase context
  */
-void kbase_jit_debugfs_add(struct kbase_context *kctx);
+void kbase_jit_debugfs_init(struct kbase_context *kctx);
 #endif /* CONFIG_DEBUG_FS */
 
 /**

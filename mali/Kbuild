@@ -45,7 +45,7 @@ ifeq ($(CONFIG_MALI400_DEBUG),y)
 	BUILD ?= debug
 else
 	BUILD ?= release
-	ldflags-y += --strip-debug
+	#ldflags-y += --strip-debug
 
 endif
 ##################### end Kasin Added. ###################

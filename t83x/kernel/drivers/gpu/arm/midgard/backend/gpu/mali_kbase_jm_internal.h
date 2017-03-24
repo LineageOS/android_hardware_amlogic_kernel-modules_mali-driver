@@ -40,7 +40,7 @@
  * calling this.
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpoool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbase_job_submit_nolock(struct kbase_device *kbdev,
 					struct kbase_jd_atom *katom, int js);
@@ -57,9 +57,10 @@ void kbase_job_done_slot(struct kbase_device *kbdev, int s, u32 completion_code,
 					u64 job_tail, ktime_t *end_timestamp);
 
 #ifdef CONFIG_GPU_TRACEPOINTS
-static inline char *kbasep_make_job_slot_string(int js, char *js_string)
+static inline char *kbasep_make_job_slot_string(int js, char *js_string,
+						size_t js_size)
 {
-	sprintf(js_string, "job_slot_%i", js);
+	snprintf(js_string, js_size, "job_slot_%i", js);
 	return js_string;
 }
 #endif
@@ -74,7 +75,7 @@ static inline char *kbasep_make_job_slot_string(int js, char *js_string)
  * calling this.
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpoool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbase_job_hw_submit(struct kbase_device *kbdev,
 				struct kbase_jd_atom *katom,
@@ -91,7 +92,7 @@ void kbase_job_hw_submit(struct kbase_device *kbdev,
  * @target_katom:	Atom to stop
  *
  * The following locking conditions are made on the caller:
- * - it must hold the kbasep_js_device_data::runpool_irq::lock
+ * - it must hold the hwaccess_lock
  */
 void kbasep_job_slot_soft_or_hard_stop_do_action(struct kbase_device *kbdev,
 					int js,
@@ -151,5 +152,13 @@ void kbase_job_slot_halt(struct kbase_device *kbdev);
  * Called on driver termination
  */
 void kbase_job_slot_term(struct kbase_device *kbdev);
+
+/**
+ * kbase_gpu_cacheclean - Cause a GPU cache clean & flush
+ * @kbdev: Device pointer
+ *
+ * Caller must not be in IRQ context
+ */
+void kbase_gpu_cacheclean(struct kbase_device *kbdev);
 
 #endif /* _KBASE_JM_HWACCESS_H_ */
