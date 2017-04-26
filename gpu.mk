@@ -19,7 +19,11 @@ else
 ifneq (,$(wildcard device/customer/$(TARGET_PRODUCT)/BoardConfig.mk))
 include device/customer/$(TARGET_PRODUCT)/BoardConfig.mk
 else
+ifneq (,$(wildcard $(TARGET_DEVICE_DIR)/BoardConfig.mk))
+include $(TARGET_DEVICE_DIR)/BoardConfig.mk
+else
 $(error "find the BoardConfig file, then include it")
+endif
 endif
 endif
 
@@ -34,6 +38,7 @@ endif
 
 ifeq ($(LOCAL_KK),0)
 GPU_DRV_VERSION?=r6p1
+GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
 MALI=hardware/arm/gpu/utgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/mali
 KERNEL_ARCH ?= arm
@@ -60,6 +65,7 @@ endef
 else
 
 GPU_DRV_VERSION?=r11p0
+GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
 MALI=hardware/arm/gpu/midgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/t83x
 KERNEL_ARCH ?= arm
