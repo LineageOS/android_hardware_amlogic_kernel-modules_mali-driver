@@ -39,6 +39,7 @@ endif
 ifeq ($(LOCAL_KK),0)
 GPU_DRV_VERSION?=r6p1
 GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
+MALI_PLAT=hardware/arm/gpu/utgard/platform
 MALI=hardware/arm/gpu/utgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/mali
 KERNEL_ARCH ?= arm
@@ -49,12 +50,13 @@ $(MALI_KO):
 	rm $(MALI_OUT) -rf
 	mkdir -p $(MALI_OUT)
 	cp $(MALI)/* $(MALI_OUT)/ -airf
+	cp $(MALI_PLAT) $(MALI_OUT)/ -airf
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH)"
 	@echo "make mali module MALI_OUT is $(MALI_OUT)"
 	@echo "make mali module MAKE is $(MAKE)"
 	@echo "GPU_DRV_VERSION is ${GPU_DRV_VERSION}"
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(MALI_OUT)/ \
-	ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m 	\
+	ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m    \
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	CONFIG_GPU_THERMAL=y CONFIG_AM_VDEC_H264_4K2K=y modules
 
