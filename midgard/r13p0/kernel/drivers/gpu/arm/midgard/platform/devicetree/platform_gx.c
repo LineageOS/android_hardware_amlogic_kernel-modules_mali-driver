@@ -121,6 +121,7 @@ static u32 get_limit_mali_freq(void)
     return mali_plat_data.scale_info.maxclk;
 }
 
+#ifdef CONFIG_DEVFREQ_THERMAL
 static u32 get_mali_utilization(void)
 {
 #ifndef MESON_DRV_BRING
@@ -129,6 +130,7 @@ static u32 get_mali_utilization(void)
     return (_mali_ukk_utilization_pp() * 100) / 256;
 #endif
 }
+#endif
 #endif
 
 #ifdef CONFIG_GPU_THERMAL
@@ -152,6 +154,7 @@ static u32 set_limit_pp_num(u32 num)
 quit:
     return ret;
 }
+#ifdef CONFIG_DEVFREQ_THERMAL
 static u32 mali_get_online_pp(void)
 {
     unsigned int val;
@@ -167,6 +170,7 @@ static u32 mali_get_online_pp(void)
     return mali_executor_get_num_cores_enabled();
 #endif
 }
+#endif
 #endif
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
@@ -208,11 +212,15 @@ void mali_post_init(void)
         gcdev->get_gpu_max_level = get_mali_max_level;
         gcdev->set_gpu_freq_idx = set_limit_mali_freq;
         gcdev->get_gpu_current_max_level = get_limit_mali_freq;
+#ifdef CONFIG_DEVFREQ_THERMAL
         gcdev->get_gpu_freq = get_mali_freq;
         gcdev->get_gpu_loading = get_mali_utilization;
         gcdev->get_online_pp = mali_get_online_pp;
+#endif
         err = gpufreq_cooling_register(gcdev);
+#ifdef CONFIG_DEVFREQ_THERMAL
         aml_thermal_min_update(gcdev->cool_dev);
+#endif
         if (err < 0)
             printk("register GPU  cooling error\n");
         printk("gpu cooling register okay with err=%d\n",err);
@@ -227,7 +235,9 @@ void mali_post_init(void)
         gccdev->max_gpu_core_num=mali_plat_data.cfg_pp;
         gccdev->set_max_pp_num=set_limit_pp_num;
         err = (int)gpucore_cooling_register(gccdev);
+#ifdef CONFIG_DEVFREQ_THERMAL
         aml_thermal_min_update(gccdev->cool_dev);
+#endif
         if (err < 0)
             printk("register GPU  cooling error\n");
         printk("gpu core cooling register okay with err=%d\n",err);
