@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -le 25 && echo OK),OK)
 ifneq (,$(wildcard device/amlogic/$(TARGET_PRODUCT)/BoardConfig.mk))
 include device/amlogic/$(TARGET_PRODUCT)/BoardConfig.mk
 else
@@ -23,6 +24,7 @@ ifneq (,$(wildcard $(TARGET_DEVICE_DIR)/BoardConfig.mk))
 include $(TARGET_DEVICE_DIR)/BoardConfig.mk
 else
 $(error "find the BoardConfig file, then include it")
+endif
 endif
 endif
 endif
