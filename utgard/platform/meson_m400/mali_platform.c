@@ -1,17 +1,21 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from AMLOGIC, INC.
- * (C) COPYRIGHT 2011 AMLOGIC, INC.
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from AMLOGIC, INC.
- */
-
-/**
  * @file mali_platform.c
  * Platform specific Mali driver functions for meson platform
+ *
+ * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
  */
+
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/slab.h>
