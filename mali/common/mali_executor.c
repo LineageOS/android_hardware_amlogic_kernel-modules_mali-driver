@@ -463,7 +463,7 @@ void mali_executor_zap_all_active(struct mali_session_data *session)
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
 				mali_scheduler_complete_pp_job(pp_job, 0,
-							       MALI_FALSE, MALI_TRUE);
+							       MALI_TRUE, MALI_TRUE);
 			}
 		}
 	}
@@ -481,7 +481,7 @@ void mali_executor_zap_all_active(struct mali_session_data *session)
 				if (NULL != pp_job) {
 					/* PP job completed, free it */
 					mali_scheduler_complete_pp_job(pp_job,
-								       0, MALI_FALSE,
+								       0, MALI_TRUE,
 								       MALI_TRUE);
 				}
 			}
@@ -986,7 +986,7 @@ void mali_executor_abort_session(struct mali_session_data *session)
 
 			/* GP job completed, make sure it is freed */
 			mali_scheduler_complete_gp_job(gp_job, MALI_FALSE,
-						       MALI_FALSE, MALI_TRUE);
+						       MALI_TRUE, MALI_TRUE);
 		} else {
 			/* Same session, but not working, so just clear it */
 			mali_group_clear_session(gp_group);
@@ -1003,7 +1003,7 @@ void mali_executor_abort_session(struct mali_session_data *session)
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
 				mali_scheduler_complete_pp_job(pp_job, 0,
-							       MALI_FALSE, MALI_TRUE);
+							       MALI_TRUE, MALI_TRUE);
 			}
 		}
 	}
@@ -1018,7 +1018,7 @@ void mali_executor_abort_session(struct mali_session_data *session)
 			if (NULL != pp_job) {
 				/* PP job completed, make sure it is freed */
 				mali_scheduler_complete_pp_job(pp_job, 0,
-							       MALI_FALSE, MALI_TRUE);
+							       MALI_TRUE, MALI_TRUE);
 			}
 		}
 	}

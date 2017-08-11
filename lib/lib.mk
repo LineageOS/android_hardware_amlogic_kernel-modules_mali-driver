@@ -35,6 +35,9 @@ else
 GPU_DRV_VERSION?=r6p1
 endif
 
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
+LOCAL_ANDROID_VERSION_NUM:=o-${GPU_DRV_VERSION}
+else
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 24 && echo OK),OK)
 LOCAL_ANDROID_VERSION_NUM:=n-${GPU_DRV_VERSION}
 else
@@ -45,6 +48,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 22 && echo OK),OK)
 LOCAL_ANDROID_VERSION_NUM:=l-${GPU_DRV_VERSION}
 else
 LOCAL_ANDROID_VERSION_NUM:=k-${GPU_DRV_VERSION}
+endif
 endif
 endif
 endif
