@@ -48,6 +48,7 @@ static unsigned long mali_mem_os_shrink_count(struct shrinker *shrinker, struct 
 #endif
 #endif
 static void mali_mem_os_trim_pool(struct work_struct *work);
+extern void show_mem(unsigned int flags);
 
 struct mali_mem_os_allocator mali_mem_os_allocator = {
 	.pool_lock = __SPIN_LOCK_UNLOCKED(pool_lock),
@@ -227,6 +228,10 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		if (unlikely(new_page == NULL)) {
 			/* Calculate the number of pages actually allocated, and free them. */
+#ifdef AML_MALI_DEBUG
+			MALI_PRINT_ERROR(("alloc_page() return NULL\n"));
+			show_mem(SHOW_MEM_FILTER_NODES);
+#endif
 			os_mem->count = (page_count - remaining) + i;
 			atomic_add(os_mem->count, &mali_mem_os_allocator.allocated_pages);
 			mali_mem_os_free(&os_mem->pages, os_mem->count, MALI_FALSE);
@@ -254,6 +259,9 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		m_page = _mali_page_node_allocate(MALI_PAGE_NODE_OS);
 		if (unlikely(m_page == NULL)) {
+#ifdef AML_MALI_DEBUG
+			show_mem(SHOW_MEM_FILTER_NODES);
+#endif
 			MALI_PRINT_ERROR(("OS Mem: Can't allocate mali_page node!\n"));
 			dma_unmap_page(&mali_platform_device->dev, page_private(new_page),
 				       _MALI_OSK_MALI_PAGE_SIZE, DMA_TO_DEVICE);
@@ -544,6 +552,12 @@ _mali_osk_errcode_t mali_mem_os_get_table_page(mali_dma_addr *phys, mali_io_addr
 			*phys = (mali_dma_addr)tmp_phys;
 		}
 	}
+#ifdef AML_MALI_DEBUG
+		if (ret != _MALI_OSK_ERR_OK) {
+			MALI_PRINT_ERROR(("dma_alloc_attrs() return NULL\n"));
+			show_mem(SHOW_MEM_FILTER_NODES);
+		}
+#endif
 
 	return ret;
 }

@@ -45,6 +45,7 @@
 #include "mali_ukk.h"
 #include "mali_memory_swap_alloc.h"
 
+#define AML_MALI_DEBUG 1
 /*
 * New memory system interface
 */
@@ -52,6 +53,8 @@
 /*inti idr for backend memory */
 struct idr mali_backend_idr;
 struct mutex mali_idr_mutex;
+
+extern void show_mem(unsigned int flags);
 
 /* init allocation manager */
 int mali_memory_manager_init(struct mali_allocation_manager *mgr)
@@ -87,8 +90,12 @@ static mali_mem_allocation *mali_mem_allocation_struct_create(struct mali_sessio
 
 	/* Allocate memory */
 	mali_allocation = (mali_mem_allocation *)kzalloc(sizeof(mali_mem_allocation), GFP_KERNEL);
-	if (mali_allocation == NULL) {
-		MALI_DEBUG_PRINT(1, ("mali_mem_allocation_struct_create: descriptor was NULL\n"));
+	if (NULL == mali_allocation) {
+#ifdef AML_MALI_DEBUG
+		MALI_PRINT_ERROR(("mali_mem_allocation_struct_create: descriptor was NULL\n"));
+		show_mem(SHOW_MEM_FILTER_NODES);
+#endif
+
 		return NULL;
 	}
 
@@ -130,8 +137,11 @@ int mali_mem_backend_struct_create(mali_mem_backend **backend, u32 psize)
 	s32 ret = -ENOSPC;
 	s32 index = -1;
 	*backend = (mali_mem_backend *)kzalloc(sizeof(mali_mem_backend), GFP_KERNEL);
-	if (*backend == NULL) {
-		MALI_DEBUG_PRINT(1, ("mali_mem_backend_struct_create: backend descriptor was NULL\n"));
+	if (NULL == *backend) {
+#ifdef AML_MALI_DEBUG
+		MALI_PRINT_ERROR(("mali_mem_backend_struct_create: backend descriptor was NULL\n"));
+		show_mem(SHOW_MEM_FILTER_NODES);
+#endif
 		return -1;
 	}
 	mem_backend = *backend;
