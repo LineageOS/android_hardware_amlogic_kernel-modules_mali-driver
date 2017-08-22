@@ -45,7 +45,10 @@
 #include "mali_ukk.h"
 #include "mali_memory_swap_alloc.h"
 
+#if (LINUX_VERSION_CODE == KERNEL_VERSION(3, 14, 0)) || (LINUX_VERSION_CODE == KERNEL_VERSION(4, 9, 0))
 #define AML_MALI_DEBUG 1
+#endif
+
 /*
 * New memory system interface
 */
