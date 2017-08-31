@@ -50,37 +50,47 @@ static void mali_mem_vma_open(struct vm_area_struct *vma)
 }
 static void mali_mem_vma_close(struct vm_area_struct *vma)
 {
-
-	struct file *filp = NULL;
-	struct mali_session_data *session = NULL;
-
 	/* If need to share the allocation, unref ref_count here */
 	mali_mem_allocation *alloc = (mali_mem_allocation *)vma->vm_private_data;
 
-	filp = vma->vm_file;
-	MALI_DEBUG_ASSERT(filp);
-	session = (struct mali_session_data *)filp->private_data;
-	MALI_DEBUG_ASSERT(session);
+	if (NULL        != alloc) {
+		struct file *filp = NULL;
+		struct mali_session_data *session = NULL;
 
-	mali_session_memory_lock(session);
-	vma->vm_private_data = NULL;
-	mali_session_memory_unlock(session);
+		filp = vma->vm_file;
+		MALI_DEBUG_ASSERT(filp);
+		session = (struct mali_session_data *)filp->private_data;
+		MALI_DEBUG_ASSERT(session);
 
-	mali_allocation_unref(&alloc);
+		mali_session_memory_lock(session);
+		vma->vm_private_data = NULL;
+		mali_session_memory_unlock(session);
+
+		mali_allocation_unref(&alloc);
+	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+static int mali_mem_vma_fault(struct vm_fault *vmf)
+#else
 static int mali_mem_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+#endif
 {
 	struct file *filp = NULL;
 	struct mali_session_data *session = NULL;
 	mali_mem_allocation *alloc = NULL;
-
 	mali_mem_backend *mem_bkend = NULL;
 	int ret;
 	int prefetch_num = MALI_VM_NUM_FAULT_PREFETCH;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+	struct vm_area_struct *vma = vmf->vma;
+#endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	unsigned long address = (unsigned long)vmf->address;
+#else
 	unsigned long address = (unsigned long)vmf->virtual_address;
-
+#endif
 	filp = vma->vm_file;
 	MALI_DEBUG_ASSERT(filp);
 	session = (struct mali_session_data *)filp->private_data;
@@ -240,6 +250,11 @@ int mali_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EFAULT;
 	}
 	mutex_unlock(&mali_idr_mutex);
+
+	if ((vma->vm_start + mem_bkend->size) > vma->vm_end) {
+		MALI_PRINT_ERROR(("mali_mmap: out of memory mapping map_size %d, physical_size %d\n",  vma->vm_end - vma->vm_start, mem_bkend->size));
+		return -EFAULT;
+	}
 
 	if (!(MALI_MEM_SWAP == mali_alloc->type ||
 	      (MALI_MEM_COW == mali_alloc->type && (mem_bkend->flags & MALI_MEM_BACKEND_FLAG_SWAP_COWED)))) {

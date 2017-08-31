@@ -23,8 +23,11 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+#include <linux/dma-fence.h>
+#else
 #include <linux/fence.h>
-
+#endif
 struct mali_internal_sync_timeline;
 struct mali_internal_sync_point;
 struct mali_internal_sync_fence;
@@ -49,13 +52,22 @@ struct mali_internal_sync_timeline {
 };
 
 struct mali_internal_sync_point {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+	struct dma_fence base;
+#else
 	struct fence base;
+#endif
 	struct list_head	sync_pt_list;
 };
 
 struct mali_internal_sync_fence_cb {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+        struct dma_fence_cb cb;
+        struct dma_fence *base;
+#else
         struct fence_cb cb;
         struct fence *base;
+#endif
         struct mali_internal_sync_fence *sync_fence;
 };
 

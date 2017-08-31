@@ -9,7 +9,12 @@
  */
 
 #include <linux/fs.h>      /* file system operations */
-#include <asm/uaccess.h>        /* user space access */
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+#include <linux/uaccess.h>
+#else
+#include <asm/uaccess.h>
+#endif
 #include <linux/dma-buf.h>
 #include <linux/scatterlist.h>
 #include <linux/rbtree.h>
@@ -40,7 +45,7 @@ static int mali_dma_buf_map(mali_mem_backend *mem_backend)
 	struct mali_page_directory *pagedir;
 	_mali_osk_errcode_t err;
 	struct scatterlist *sg;
-	u32 virt, flags;
+	u32 virt, flags, unmap_dma_size;
 	int i;
 
 	MALI_DEBUG_ASSERT_POINTER(mem_backend);
@@ -50,7 +55,8 @@ static int mali_dma_buf_map(mali_mem_backend *mem_backend)
 
 	mem = mem_backend->dma_buf.attachment;
 	MALI_DEBUG_ASSERT_POINTER(mem);
-
+	MALI_DEBUG_ASSERT_POINTER(mem->buf);
+	unmap_dma_size = mem->buf->size;
 	session = alloc->session;
 	MALI_DEBUG_ASSERT_POINTER(session);
 	MALI_DEBUG_ASSERT(mem->session == session);
@@ -94,6 +100,7 @@ static int mali_dma_buf_map(mali_mem_backend *mem_backend)
 			u32 size = sg_dma_len(sg);
 			dma_addr_t phys = sg_dma_address(sg);
 
+			unmap_dma_size -= size;
 			/* sg must be page aligned. */
 			MALI_DEBUG_ASSERT(0 == size % MALI_MMU_PAGE_SIZE);
 			MALI_DEBUG_ASSERT(0 == (phys & ~(uintptr_t)0xFFFFFFFF));
@@ -112,6 +119,12 @@ static int mali_dma_buf_map(mali_mem_backend *mem_backend)
 		}
 
 		mem->is_mapped = MALI_TRUE;
+
+		if (0 != unmap_dma_size) {
+			MALI_DEBUG_PRINT_ERROR(("The dma buf size isn't equal to the total scatterlists' dma length.\n"));
+			mali_session_memory_unlock(session);
+			return -EFAULT;
+		}
 
 		/* Wake up any thread waiting for buffer to become mapped */
 		wake_up_all(&mem->wait_queue);
