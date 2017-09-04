@@ -38,6 +38,7 @@ ifeq ($(GPU_TYPE), t83x)
 	LOCAL_KK=1
 endif
 
+GPU_MODS_OUT?=system/lib
 ifeq ($(LOCAL_KK),0)
 GPU_DRV_VERSION?=r6p1
 GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
@@ -62,8 +63,9 @@ $(MALI_KO):
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	CONFIG_GPU_THERMAL=y CONFIG_AM_VDEC_H264_4K2K=y modules
 
-	mkdir -p $(PRODUCT_OUT)/system/lib
-	cp $(MALI_OUT)/mali.ko $(PRODUCT_OUT)/system/lib/mali.ko
+	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
+	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
+	cp $(MALI_OUT)/mali.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
 endef
 
 else
@@ -88,8 +90,9 @@ $(MALI_KO):
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
 
-	mkdir -p $(PRODUCT_OUT)/system/lib
-	cp $(MALI_OUT)/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/system/lib/mali.ko
+	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
+	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
+	cp $(MALI_OUT)/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 endif
