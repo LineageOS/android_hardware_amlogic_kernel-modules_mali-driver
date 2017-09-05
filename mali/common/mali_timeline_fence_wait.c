@@ -112,10 +112,15 @@ static mali_bool mali_timeline_fence_wait_check_status(struct mali_timeline_syst
 		if (likely(NULL != sync_fence)) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 			if (0 == sync_fence->status) {
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
+			if (0 < atomic_read(&sync_fence->status)) {
 #else
-			if (0 == atomic_read(&sync_fence->status)) {
+			if (0 == sync_fence->fence->ops->signaled(sync_fence->fence)) {
 #endif
 				ret = MALI_FALSE;
+
+			} else {
+				ret = MALI_TRUE;
 			}
 		} else {
 			MALI_PRINT_ERROR(("Mali Timeline: failed to get sync fence from fd %d\n", fence->sync_fd));

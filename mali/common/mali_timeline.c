@@ -1495,8 +1495,10 @@ static void mali_timeline_do_sync_fence_callback(void *arg)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 		fence_status = sync_fence->status;
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 		fence_status = atomic_read(&sync_fence->status);
+#else
+		fence_status = sync_fence->fence->ops->signaled(sync_fence->fence);
 #endif
 
 		system = tracker->system;
@@ -1704,11 +1706,11 @@ void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker, _m
 	if (0 != tracker->trigger_ref_count) {
 		if (print_ctx)
 			_mali_osk_ctxprintf(print_ctx, "TL:  %s %u %c - ref_wait:%u [%s(%u),%s(%u),%s(%u), fd:%d, fence:(0x%08X)]  job:(0x%08X)\n",
-					    tracker_type, tracker->point, state_char, tracker->trigger_ref_count,
-					    is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
-					    is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
-					    is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
-					    tracker->fence.sync_fd, (unsigned int)(uintptr_t)(tracker->sync_fence), (unsigned int)(uintptr_t)(tracker->job));
+					     tracker_type, tracker->point, state_char, tracker->trigger_ref_count,
+					     is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
+					     is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
+					     is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
+					     tracker->fence.sync_fd, (unsigned int)(uintptr_t)(tracker->sync_fence), (unsigned int)(uintptr_t)(tracker->job));
 		else
 			MALI_DEBUG_PRINT(2, ("TL:  %s %u %c - ref_wait:%u [%s(%u),%s(%u),%s(%u), fd:%d, fence:(0x%08X)]  job:(0x%08X)\n",
 					    tracker_type, tracker->point, state_char, tracker->trigger_ref_count,
@@ -1746,8 +1748,8 @@ void mali_timeline_debug_print_tracker(struct mali_timeline_tracker *tracker, _m
 	} else {
 		if (print_ctx)
 			_mali_osk_ctxprintf(print_ctx, "TL:  %s %u %c  job:(0x%08X)\n",
-					    tracker_type, tracker->point, state_char,
-					    (unsigned int)(uintptr_t)(tracker->job));
+					     tracker_type, tracker->point, state_char,
+					     (unsigned int)(uintptr_t)(tracker->job)));
 		else
 			MALI_DEBUG_PRINT(2, ("TL:  %s %u %c  job:(0x%08X)\n",
 					    tracker_type, tracker->point, state_char,
@@ -1798,11 +1800,11 @@ void mali_timeline_debug_direct_print_tracker(struct mali_timeline_tracker *trac
 #else
 	if (0 != tracker->trigger_ref_count) {
 		MALI_PRINT(("TL:  %s %u %c - ref_wait:%u [%s(%u),%s(%u),%s(%u)]  job:(0x%08X)\n",
-					     tracker_type, tracker->point, state_char, tracker->trigger_ref_count,
-					     is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
-					     is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
-					     is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
-					     tracker->fence.sync_fd, (unsigned int)(uintptr_t)(tracker->sync_fence), (unsigned int)(uintptr_t)(tracker->job)));
+			    tracker_type, tracker->point, state_char, tracker->trigger_ref_count,
+			    is_waiting_on_timeline(tracker, MALI_TIMELINE_GP) ? "WaitGP" : " ", tracker->fence.points[0],
+			    is_waiting_on_timeline(tracker, MALI_TIMELINE_PP) ? "WaitPP" : " ", tracker->fence.points[1],
+			    is_waiting_on_timeline(tracker, MALI_TIMELINE_SOFT) ? "WaitSOFT" : " ", tracker->fence.points[2],
+			    tracker->job));
 	} else {
 		MALI_PRINT(("TL:  %s %u %c  job:(0x%08X)\n",
 			    tracker_type, tracker->point, state_char,
