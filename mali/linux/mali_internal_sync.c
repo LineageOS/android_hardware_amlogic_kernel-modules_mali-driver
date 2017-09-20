@@ -80,7 +80,6 @@ static void mali_internal_fence_check_cb_func(struct dma_fence *fence, struct dm
 	int ret;
 	MALI_DEBUG_ASSERT_POINTER(cb);
 	MALI_IGNORE(fence);
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 	check = container_of(cb, struct mali_internal_sync_fence_cb, cb);
 	sync_fence = check->sync_file;
@@ -587,9 +586,9 @@ int mali_internal_sync_fence_cancel_async(struct mali_internal_sync_fence *sync_
 
 	if (0 == ret) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-        	dma_fence_remove_callback(sync_fence->fence, &waiter->cb);
+        dma_fence_remove_callback(sync_fence->fence, &waiter->cb);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
-        	fence_remove_callback(sync_fence->fence, &waiter->cb);
+        fence_remove_callback(sync_fence->fence, &waiter->cb);
 #endif
 
 	}
