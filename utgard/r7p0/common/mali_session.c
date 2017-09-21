@@ -115,6 +115,7 @@ void mali_session_memory_tracking(_mali_osk_print_ctx *print_ctx)
 {
 	struct mali_session_data *session, *tmp;
 	char task_comm[TASK_COMM_LEN];
+	char task_default[] = "not found";
 	struct task_struct *ttask;
 	u32 mali_mem_usage;
 	u32 total_mali_mem_size;
@@ -128,7 +129,10 @@ void mali_session_memory_tracking(_mali_osk_print_ctx *print_ctx)
 
 	MALI_SESSION_FOREACH(session, tmp, link) {
 		ttask = pid_task(find_vpid(session->pid), PIDTYPE_PID);
-		strncpy(task_comm, ttask->comm, sizeof(ttask->comm));
+		if (ttask)
+			strncpy(task_comm, ttask->comm, sizeof(ttask->comm));
+		else
+			strncpy(task_comm, task_default, sizeof(task_default));
 #ifdef MALI_MEM_SWAP_TRACKING
 		_mali_osk_ctxprintf(print_ctx, "  %-25s  %-10u %-25s %-10u  %-15u  %-15u  %-10u  %-10u %-10u\n",
 				    session->comm, session->pid, task_comm,
