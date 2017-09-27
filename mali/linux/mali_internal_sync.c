@@ -289,6 +289,10 @@ struct mali_internal_sync_fence *mali_internal_sync_fence_merge(
 		return NULL;
 	}
 
+	fence_remove_callback(new_sync_fence->cb[0].fence, &new_sync_fence->cb[0].cb);
+	new_sync_fence->num_fences = 0;
+	atomic_dec(&new_sync_fence->status);
+
 	for (; i < num_fence1 && j < num_fence2;) {
 		struct fence *fence1 = sync_fence1->cbs[i].fence;
 		struct fence *fence2 = sync_fence2->cbs[j].fence;
@@ -468,7 +472,13 @@ struct mali_internal_sync_fence *mali_internal_sync_fence_merge(
 			MALI_PRINT_ERROR(("Mali internal sync:Failed to  create the mali internal sync fence when merging sync fence.\n"));
 			goto sync_fence_alloc_failed;
 		}
-	
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+		fence_put(fences[0]);
+#else
+		dma_fence_put(fences[0]);
+#endif
+
 		if (mali_internal_sync_fence_set_fence_array(sync_fence, fences, real_num_fences) < 0) {
 			MALI_PRINT_ERROR(("Mali internal sync:Failed to  set fence for sync fence.\n"));
 			goto sync_fence_set_failed;

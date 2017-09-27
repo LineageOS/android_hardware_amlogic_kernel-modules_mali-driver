@@ -613,6 +613,12 @@ struct mali_internal_sync_fence *mali_sync_flag_create_fence(struct mali_sync_fl
 		return NULL;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
+	fence_put(&sync_pt->base);
+#else
+	dma_fence_put(&sync_pt->base);
+#endif
+
 	return sync_fence;
 }
 #endif
