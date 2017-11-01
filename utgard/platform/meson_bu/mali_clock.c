@@ -358,6 +358,8 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->dvfs_table_size/2-1);
 		mpdata->def_clock = mpdata->dvfs_table_size/2 - 1;
 	}
+	if (mpdata->def_clock > mpdata->scale_info.maxclk)
+		mpdata->def_clock = mpdata->scale_info.maxclk;
 	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	dvfs_tbl = mpdata->dvfs_table;
@@ -642,6 +644,8 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->dvfs_table_size/2-1);
 		mpdata->def_clock = mpdata->dvfs_table_size/2 - 1;
 	}
+	if (mpdata->def_clock > mpdata->scale_info.maxclk)
+		mpdata->def_clock = mpdata->scale_info.maxclk;
 	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	dvfs_tbl = mpdata->dvfs_table;
