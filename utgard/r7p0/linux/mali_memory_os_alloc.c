@@ -226,10 +226,15 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		new_page = alloc_page(flags);
 
+		if (new_page == NULL) {
+			MALI_PRINT_ERROR(("alloc_page() return NULL! try again!\n"));
+			new_page = alloc_page(flags | GFP_KERNEL);
+		}
+
 		if (unlikely(new_page == NULL)) {
 			/* Calculate the number of pages actually allocated, and free them. */
+			MALI_PRINT_ERROR(("alloc_page() return NULL at last\n"));
 #ifdef AML_MALI_DEBUG
-			MALI_PRINT_ERROR(("alloc_page() return NULL\n"));
 			show_mem(SHOW_MEM_FILTER_NODES);
 #endif
 			os_mem->count = (page_count - remaining) + i;
@@ -552,12 +557,12 @@ _mali_osk_errcode_t mali_mem_os_get_table_page(mali_dma_addr *phys, mali_io_addr
 			*phys = (mali_dma_addr)tmp_phys;
 		}
 	}
-#ifdef AML_MALI_DEBUG
 		if (ret != _MALI_OSK_ERR_OK) {
 			MALI_PRINT_ERROR(("dma_alloc_attrs() return NULL\n"));
+#ifdef AML_MALI_DEBUG
 			show_mem(SHOW_MEM_FILTER_NODES);
-		}
 #endif
+		}
 
 	return ret;
 }
