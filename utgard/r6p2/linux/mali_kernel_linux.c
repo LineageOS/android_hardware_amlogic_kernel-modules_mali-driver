@@ -366,7 +366,7 @@ void mali_init_cpu_time_counters_on_all_cpus(int print_only)
 	int jiffies_trigger;
 	int jiffies_wait;
 
-	jiffies_wait = msecs_to_jiffies(20);
+	jiffies_wait = _mali_osk_time_mstoticks(20);
 	jiffies_trigger = jiffies + jiffies_wait;
 
 	for (i = 0 ; i < 8 ; i++) {

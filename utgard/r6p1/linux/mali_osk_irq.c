@@ -93,7 +93,7 @@ static _mali_osk_errcode_t test_interrupt(u32 irqnum,
 	init_waitqueue_head(&data.wq);
 
 	trigger_func(probe_data);
-	wait_event_timeout(data.wq, data.interrupt_received, 100);
+	wait_event_timeout(data.wq, data.interrupt_received, _mali_osk_time_mstoticks(1000));
 
 	free_irq(irqnum, &data);
 
