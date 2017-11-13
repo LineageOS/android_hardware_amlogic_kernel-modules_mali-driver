@@ -657,8 +657,14 @@ static void mali_internal_fence_release(struct fence *fence)
 
 
 	spin_lock_irqsave(fence->lock, flags);
+#if 0
 	if (WARN_ON_ONCE(!list_empty(&sync_pt->sync_pt_list)))
 		list_del(&sync_pt->sync_pt_list);
+#else
+	//sync_pt_list empty is possible, dont show warn.
+	if (!list_empty(&sync_pt->sync_pt_list))
+		list_del(&sync_pt->sync_pt_list);
+#endif
 	spin_unlock_irqrestore(fence->lock, flags);
 
 	if (parent->ops->free_pt)
