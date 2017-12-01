@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010, 2012-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010, 2012-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -37,11 +37,22 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 		u64 *gpu_va);
 int kbase_mem_query(struct kbase_context *kctx, u64 gpu_addr, int query, u64 *const pages);
 int kbase_mem_import(struct kbase_context *kctx, enum base_mem_import_type type,
-		void __user *phandle, u64 *gpu_va, u64 *va_pages,
+		void __user *phandle, u32 padding, u64 *gpu_va, u64 *va_pages,
 		u64 *flags);
 u64 kbase_mem_alias(struct kbase_context *kctx, u64 *flags, u64 stride, u64 nents, struct base_mem_aliasing_info *ai, u64 *num_pages);
 int kbase_mem_flags_change(struct kbase_context *kctx, u64 gpu_addr, unsigned int flags, unsigned int mask);
-int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages, enum base_backing_threshold_status *failure_reason);
+
+/**
+ * kbase_mem_commit - Change the physical backing size of a region
+ *
+ * @kctx: The kernel context
+ * @gpu_addr: Handle to the memory region
+ * @new_pages: Number of physical pages to back the region with
+ *
+ * Return: 0 on success or error code
+ */
+int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages);
+
 int kbase_mmap(struct file *file, struct vm_area_struct *vma);
 
 /**
@@ -114,11 +125,11 @@ struct kbase_vmap_struct {
 	u64 gpu_addr;
 	struct kbase_mem_phy_alloc *cpu_alloc;
 	struct kbase_mem_phy_alloc *gpu_alloc;
-	phys_addr_t *cpu_pages;
-	phys_addr_t *gpu_pages;
+	struct tagged_addr *cpu_pages;
+	struct tagged_addr *gpu_pages;
 	void *addr;
 	size_t size;
-	bool is_cached;
+	bool sync_needed;
 };
 
 
@@ -158,6 +169,9 @@ struct kbase_vmap_struct {
  * when userspace code was expecting only the GPU to access the memory (e.g. HW
  * workarounds).
  *
+ * All cache maintenance operations shall be ignored if the
+ * memory region has been imported.
+ *
  */
 void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 		      unsigned long prot_request, struct kbase_vmap_struct *map);
@@ -181,6 +195,9 @@ void *kbase_vmap_prot(struct kbase_context *kctx, u64 gpu_addr, size_t size,
  *
  * kbase_vmap_prot() should be used in preference, since kbase_vmap() makes no
  * checks to ensure the security of e.g. imported user bufs from RO SHM.
+ *
+ * Note: All cache maintenance operations shall be ignored if the memory region
+ * has been imported.
  */
 void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
 		struct kbase_vmap_struct *map);
@@ -196,6 +213,9 @@ void *kbase_vmap(struct kbase_context *kctx, u64 gpu_addr, size_t size,
  * required, dependent on the CPU mapping for the memory region.
  *
  * The reference taken on pages during kbase_vmap() is released.
+ *
+ * Note: All cache maintenance operations shall be ignored if the memory region
+ * has been imported.
  */
 void kbase_vunmap(struct kbase_context *kctx, struct kbase_vmap_struct *map);
 

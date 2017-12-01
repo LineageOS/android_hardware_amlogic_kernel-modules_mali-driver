@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2014-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -87,8 +87,8 @@ void mali_dev_freeze(void);
 void mali_dev_restore(void);
 
 /**
- * Protected mode switch
+ * Autosuspend delay
  *
- * Attached value: pointer to @ref kbase_protected_ops
+ * The delay time (in milliseconds) to be used for autosuspend
  */
-#define PROTECTED_CALLBACKS (NULL)
+#define AUTO_SUSPEND_DELAY (100)

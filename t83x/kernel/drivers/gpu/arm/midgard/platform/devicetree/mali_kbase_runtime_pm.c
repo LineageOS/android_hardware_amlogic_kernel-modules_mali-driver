@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015, 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -17,17 +17,17 @@
 
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
-#include <backend/gpu/mali_kbase_device_internal.h>
-#include <backend/gpu/mali_kbase_pm_internal.h>
 #include <linux/pm_runtime.h>
-#include <linux/suspend.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <backend/gpu/mali_kbase_device_internal.h>
+#include "mali_kbase_config_platform.h"
 
 void *reg_base_hiubus = NULL;
 u32  override_value_aml = 0;
 static int first = 1;
 
+extern u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type type);
 static void  Mali_pwr_on_with_kdev ( struct kbase_device *kbdev, uint32_t  mask)
 {
     uint32_t    part1_done;
@@ -65,7 +65,8 @@ static void gpu_power_main( struct kbase_device *kbdev) {
 
 static int pm_callback_power_on(struct kbase_device *kbdev)
 {
-	int ret;
+	int ret = 1; /* Assume GPU has been powered off */
+	int error;
 	struct platform_device *pdev = to_platform_device(kbdev->dev);
 	struct resource *reg_res;
 	u64 core_ready;
@@ -147,8 +148,15 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
     first = 0;
     //printk("%s, %d\n", __FILE__, __LINE__);
 ret:
-	ret = pm_runtime_get_sync(kbdev->dev);
-    udelay(100);
+	error = pm_runtime_get_sync(kbdev->dev);
+	if (error == 1) {
+		/*
+		 * Let core know that the chip has not been
+		 * powered off, so we can save on re-initialization.
+		 */
+		ret = 0;
+	}
+	udelay(100);
 #if 1
 
     core_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
@@ -156,49 +164,51 @@ ret:
     tiler_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_TILER);
     //printk("core_ready=%llx, l2_ready=%llx, tiler_ready=%llx\n", core_ready, l2_ready, tiler_ready);
 #endif
-	dev_dbg(kbdev->dev, "pm_runtime_get returned %d\n", ret);
+	dev_dbg(kbdev->dev, "pm_runtime_get_sync returned %d\n", error);
 
-	return 1;
+	return ret;
 }
 
 static void pm_callback_power_off(struct kbase_device *kbdev)
 {
+	dev_dbg(kbdev->dev, "pm_callback_power_off\n");
     //printk("%s, %d\n", __FILE__, __LINE__);
 #if 0
     iounmap(reg_base_hiubus);
     reg_base_hiubus = NULL;
 #endif
-	u64 core_ready  = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
-	u64 l2_ready    = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2);
-	u64 tiler_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_TILER);
-
-	dev_dbg(kbdev->dev, "pm_callback_power_off\n");
-	if (core_ready)
-		kbase_pm_invoke(kbdev, KBASE_PM_CORE_SHADER, core_ready, ACTION_PWROFF);
-
-	if (l2_ready)
-		kbase_pm_invoke(kbdev, KBASE_PM_CORE_L2, l2_ready, ACTION_PWROFF);
-
-	if (tiler_ready)
-		kbase_pm_invoke(kbdev, KBASE_PM_CORE_TILER, tiler_ready, ACTION_PWROFF);
-
+	pm_runtime_mark_last_busy(kbdev->dev);
 	pm_runtime_put_autosuspend(kbdev->dev);
 }
 
-int kbase_device_runtime_init(struct kbase_device *kbdev)
+#ifdef KBASE_PM_RUNTIME
+static int kbase_device_runtime_init(struct kbase_device *kbdev)
 {
+	int ret = 0;
+
+	dev_dbg(kbdev->dev, "kbase_device_runtime_init\n");
+	
+	pm_runtime_set_autosuspend_delay(kbdev->dev, AUTO_SUSPEND_DELAY);
+	pm_runtime_use_autosuspend(kbdev->dev);
+	pm_runtime_set_active(kbdev->dev);
+	
 	dev_dbg(kbdev->dev, "kbase_device_runtime_init\n");
 	pm_runtime_enable(kbdev->dev);
 
-	return 0;
+	if (!pm_runtime_enabled(kbdev->dev)) {
+		dev_warn(kbdev->dev, "pm_runtime not enabled");
+		ret = -ENOSYS;
+	}
+
+	return ret;
 }
 
-void kbase_device_runtime_disable(struct kbase_device *kbdev)
+static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "kbase_device_runtime_disable\n");
 	pm_runtime_disable(kbdev->dev);
 }
-
+#endif
 static int pm_callback_runtime_on(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "pm_callback_runtime_on\n");

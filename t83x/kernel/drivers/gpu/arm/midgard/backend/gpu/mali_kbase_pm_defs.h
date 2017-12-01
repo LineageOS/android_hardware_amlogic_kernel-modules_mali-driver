@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2014-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -23,6 +23,7 @@
 #define _KBASE_PM_HWACCESS_DEFS_H_
 
 #include "mali_kbase_pm_ca_fixed.h"
+#include "mali_kbase_pm_ca_devfreq.h"
 #if !MALI_CUSTOMER_RELEASE
 #include "mali_kbase_pm_ca_random.h"
 #include "mali_kbase_pm_ca_demand.h"
@@ -132,6 +133,7 @@ union kbase_pm_policy_data {
 
 union kbase_pm_ca_policy_data {
 	struct kbasep_pm_ca_policy_fixed fixed;
+	struct kbasep_pm_ca_policy_devfreq devfreq;
 #if !MALI_CUSTOMER_RELEASE
 	struct kbasep_pm_ca_policy_random random;
 	struct kbasep_pm_ca_policy_demand demand;
@@ -412,10 +414,8 @@ struct kbase_pm_policy {
 
 enum kbase_pm_ca_policy_id {
 	KBASE_PM_CA_POLICY_ID_FIXED = 1,
-#if !MALI_CUSTOMER_RELEASE
-	KBASE_PM_CA_POLICY_ID_RANDOM,
-	KBASE_PM_CA_POLICY_ID_DEMAND,
-#endif
+	KBASE_PM_CA_POLICY_ID_DEVFREQ,
+	KBASE_PM_CA_POLICY_ID_RANDOM
 };
 
 typedef u32 kbase_pm_ca_policy_flags;

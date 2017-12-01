@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2013-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,16 +27,6 @@
 
 /* Include mandatory definitions per platform */
 #include <mali_kbase_config_platform.h>
-
-/**
- * Irq throttle. It is the minimum desired time in between two
- * consecutive gpu interrupts (given in 'us'). The irq throttle
- * gpu register will be configured after this, taking into
- * account the configured max frequency.
- *
- * Attached value: number in micro seconds
- */
-#define DEFAULT_IRQ_THROTTLE_TIME_US 20
 
 /**
 * Boolean indicating whether the driver is configured to be secure at
@@ -84,6 +74,35 @@ enum {
 	KBASE_AID_4  = 0x1
 };
 
+enum {
+	/**
+	 * Use unrestricted Address ID width on the AXI bus.
+	 * Restricting ID width will reduce performance & bus load due to GPU.
+	 */
+	KBASE_3BIT_AID_32 = 0x0,
+
+	/* Restrict GPU to 7/8 of maximum Address ID count. */
+	KBASE_3BIT_AID_28 = 0x1,
+
+	/* Restrict GPU to 3/4 of maximum Address ID count. */
+	KBASE_3BIT_AID_24 = 0x2,
+
+	/* Restrict GPU to 5/8 of maximum Address ID count. */
+	KBASE_3BIT_AID_20 = 0x3,
+
+	/* Restrict GPU to 1/2 of maximum Address ID count.  */
+	KBASE_3BIT_AID_16 = 0x4,
+
+	/* Restrict GPU to 3/8 of maximum Address ID count. */
+	KBASE_3BIT_AID_12 = 0x5,
+
+	/* Restrict GPU to 1/4 of maximum Address ID count. */
+	KBASE_3BIT_AID_8  = 0x6,
+
+	/* Restrict GPU to 1/8 of maximum Address ID count. */
+	KBASE_3BIT_AID_4  = 0x7
+};
+
 /**
  * Default setting for read Address ID limiting on AXI bus.
  *
@@ -109,6 +128,22 @@ enum {
  * may limit to a lower value.
  */
 #define DEFAULT_AWID_LIMIT KBASE_AID_32
+
+/**
+ * Default setting for read Address ID limiting on AXI bus.
+ *
+ * Default value: KBASE_3BIT_AID_32 (no limit). Note hardware implementation
+ * may limit to a lower value.
+ */
+#define DEFAULT_3BIT_ARID_LIMIT KBASE_3BIT_AID_32
+
+/**
+ * Default setting for write Address ID limiting on AXI.
+ *
+ * Default value: KBASE_3BIT_AID_32 (no limit). Note hardware implementation
+ * may limit to a lower value.
+ */
+#define DEFAULT_3BIT_AWID_LIMIT KBASE_3BIT_AID_32
 
 /**
  * Default UMP device mapping. A UMP_DEVICE_<device>_SHIFT value which
@@ -180,7 +215,7 @@ enum {
  * Default timeout for some software jobs, after which the software event wait
  * jobs will be cancelled.
  */
-#define DEFAULT_JS_SOFT_JOB_TIMEOUT ((u32)3000) /* 3s */
+#define DEFAULT_JS_SOFT_JOB_TIMEOUT (3000) /* 3s */
 
 /*
  * Default minimum number of scheduling ticks before the GPU is reset to clear a

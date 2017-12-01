@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -32,6 +32,7 @@
 #include <mali_kbase_config_defaults.h>
 #include <mali_kbase_smc.h>
 #include <mali_kbase_hwaccess_jm.h>
+#include <mali_kbase_ctx_sched.h>
 #include <backend/gpu/mali_kbase_cache_policy_backend.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
@@ -283,10 +284,8 @@ u64 kbase_pm_get_present_cores(struct kbase_device *kbdev,
 		return kbdev->gpu_props.props.raw_props.shader_present;
 	case KBASE_PM_CORE_TILER:
 		return kbdev->gpu_props.props.raw_props.tiler_present;
-#ifdef CONFIG_MALI_CORESTACK
 	case KBASE_PM_CORE_STACK:
 		return kbdev->gpu_props.props.raw_props.stack_present;
-#endif /* CONFIG_MALI_CORESTACK */
 	default:
 		break;
 	}
@@ -564,7 +563,7 @@ u64 kbase_pm_core_stack_mask(u64 cores)
 		if (test_bit(i, (unsigned long *)&cores)) {
 			/* Every core which ID >= 16 is filled to stacks 4-7
 			 * instead of 0-3 */
-			size_t const stack_num = (i > 16) ?
+			size_t const stack_num = (i >= 16) ?
 				(i % NUM_CORES_PER_STACK) + 4 :
 				(i % NUM_CORES_PER_STACK);
 			set_bit(stack_num, (unsigned long *)&stack_mask);
@@ -1005,7 +1004,6 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 	bool reset_required = is_resume;
 	struct kbasep_js_device_data *js_devdata = &kbdev->js_data;
 	unsigned long flags;
-	int i;
 
 	KBASE_DEBUG_ASSERT(NULL != kbdev);
 	lockdep_assert_held(&js_devdata->runpool_mutex);
@@ -1047,18 +1045,9 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 	}
 
 	mutex_lock(&kbdev->mmu_hw_mutex);
-	/* Reprogram the GPU's MMU */
-	for (i = 0; i < kbdev->nr_hw_address_spaces; i++) {
-		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-
-		if (js_devdata->runpool_irq.per_as_data[i].kctx)
-			kbase_mmu_update(
-				js_devdata->runpool_irq.per_as_data[i].kctx);
-		else
-			kbase_mmu_disable_as(kbdev, i);
-
-		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-	}
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	kbase_ctx_sched_restore_all_as(kbdev);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 	mutex_unlock(&kbdev->mmu_hw_mutex);
 
 	/* Lastly, enable the interrupts */
@@ -1203,6 +1192,10 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 			kbdev->hw_quirks_sc |= SC_LS_ALLOW_ATTR_TYPES;
 	}
 
+	if (!kbdev->hw_quirks_sc)
+		kbdev->hw_quirks_sc = kbase_reg_read(kbdev,
+				GPU_CONTROL_REG(SHADER_CONFIG), NULL);
+
 	kbdev->hw_quirks_tiler = kbase_reg_read(kbdev,
 			GPU_CONTROL_REG(TILER_CONFIG), NULL);
 
@@ -1214,15 +1207,25 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 	kbdev->hw_quirks_mmu = kbase_reg_read(kbdev,
 			GPU_CONTROL_REG(L2_MMU_CONFIG), NULL);
 
-	/* Limit read ID width for AXI */
-	kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_LIMIT_EXTERNAL_READS);
-	kbdev->hw_quirks_mmu |= (DEFAULT_ARID_LIMIT & 0x3) <<
+
+	/* Limit read & write ID width for AXI */
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_3BIT_EXT_RW_L2_MMU_CONFIG)) {
+		kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_3BIT_LIMIT_EXTERNAL_READS);
+		kbdev->hw_quirks_mmu |= (DEFAULT_3BIT_ARID_LIMIT & 0x7) <<
+				L2_MMU_CONFIG_3BIT_LIMIT_EXTERNAL_READS_SHIFT;
+
+		kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_3BIT_LIMIT_EXTERNAL_WRITES);
+		kbdev->hw_quirks_mmu |= (DEFAULT_3BIT_AWID_LIMIT & 0x7) <<
+				L2_MMU_CONFIG_3BIT_LIMIT_EXTERNAL_WRITES_SHIFT;
+	} else {
+		kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_LIMIT_EXTERNAL_READS);
+		kbdev->hw_quirks_mmu |= (DEFAULT_ARID_LIMIT & 0x3) <<
 				L2_MMU_CONFIG_LIMIT_EXTERNAL_READS_SHIFT;
 
-	/* Limit write ID width for AXI */
-	kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_LIMIT_EXTERNAL_WRITES);
-	kbdev->hw_quirks_mmu |= (DEFAULT_AWID_LIMIT & 0x3) <<
+		kbdev->hw_quirks_mmu &= ~(L2_MMU_CONFIG_LIMIT_EXTERNAL_WRITES);
+		kbdev->hw_quirks_mmu |= (DEFAULT_AWID_LIMIT & 0x3) <<
 				L2_MMU_CONFIG_LIMIT_EXTERNAL_WRITES_SHIFT;
+	}
 
 	if (kbdev->system_coherency == COHERENCY_ACE) {
 		/* Allow memory configuration disparity to be ignored, we
@@ -1231,7 +1234,7 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 		kbdev->hw_quirks_mmu |= L2_MMU_CONFIG_ALLOW_SNOOP_DISPARITY;
 	}
 
-	kbdev->hw_quirks_jm = JM_CONFIG_UNUSED;
+	kbdev->hw_quirks_jm = 0;
 	/* Only for T86x/T88x-based products after r2p0 */
 	if (prod_id >= 0x860 && prod_id <= 0x880 && major >= 2) {
 
@@ -1253,7 +1256,7 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 		}
 
 		/* Aggregate to one integer. */
-		kbdev->hw_quirks_jm = (jm_values[0] ?
+		kbdev->hw_quirks_jm |= (jm_values[0] ?
 				JM_TIMESTAMP_OVERRIDE : 0);
 		kbdev->hw_quirks_jm |= (jm_values[1] ?
 				JM_CLOCK_GATE_OVERRIDE : 0);
@@ -1276,11 +1279,18 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 		 */
 		if (coherency_features ==
 				COHERENCY_FEATURE_BIT(COHERENCY_ACE)) {
-			kbdev->hw_quirks_jm =
+			kbdev->hw_quirks_jm |=
 				(COHERENCY_ACE_LITE | COHERENCY_ACE) <<
 				JM_FORCE_COHERENCY_FEATURES_SHIFT;
 		}
 	}
+
+	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_TLS_HASHING))
+		kbdev->hw_quirks_sc |= SC_TLS_HASH_ENABLE;
+
+	if (!kbdev->hw_quirks_jm)
+		kbdev->hw_quirks_jm = kbase_reg_read(kbdev,
+				GPU_CONTROL_REG(JM_CONFIG), NULL);
 
 #ifdef CONFIG_MALI_CORESTACK
 #define MANUAL_POWER_CONTROL ((u32)(1 << 8))
@@ -1290,9 +1300,8 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 
 static void kbase_pm_hw_issues_apply(struct kbase_device *kbdev)
 {
-	if (kbdev->hw_quirks_sc)
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(SHADER_CONFIG),
-				kbdev->hw_quirks_sc, NULL);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(SHADER_CONFIG),
+			kbdev->hw_quirks_sc, NULL);
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(TILER_CONFIG),
 			kbdev->hw_quirks_tiler, NULL);
@@ -1300,10 +1309,8 @@ static void kbase_pm_hw_issues_apply(struct kbase_device *kbdev)
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(L2_MMU_CONFIG),
 			kbdev->hw_quirks_mmu, NULL);
 
-
-	if (kbdev->hw_quirks_jm != JM_CONFIG_UNUSED)
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(JM_CONFIG),
-				kbdev->hw_quirks_jm, NULL);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(JM_CONFIG),
+			kbdev->hw_quirks_jm, NULL);
 
 }
 
@@ -1334,7 +1341,7 @@ void kbase_pm_cache_snoop_disable(struct kbase_device *kbdev)
 	}
 }
 
-static int kbase_pm_reset_do_normal(struct kbase_device *kbdev)
+static int kbase_pm_do_reset(struct kbase_device *kbdev)
 {
 	struct kbasep_reset_timeout_data rtdata;
 	u64 core_ready;
@@ -1470,13 +1477,28 @@ static int kbase_pm_reset_do_normal(struct kbase_device *kbdev)
 	return -EINVAL;
 }
 
-static int kbase_pm_reset_do_protected(struct kbase_device *kbdev)
+static int kbasep_protected_mode_enable(struct protected_mode_device *pdev)
 {
-	KBASE_TRACE_ADD(kbdev, CORE_GPU_SOFT_RESET, NULL, NULL, 0u, 0);
-	KBASE_TLSTREAM_JD_GPU_SOFT_RESET(kbdev);
+	struct kbase_device *kbdev = pdev->data;
 
-	return kbdev->protected_ops->protected_mode_reset(kbdev);
+	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
+		GPU_COMMAND_SET_PROTECTED_MODE, NULL);
+	return 0;
 }
+
+static int kbasep_protected_mode_disable(struct protected_mode_device *pdev)
+{
+	struct kbase_device *kbdev = pdev->data;
+
+	lockdep_assert_held(&kbdev->pm.lock);
+
+	return kbase_pm_do_reset(kbdev);
+}
+
+struct protected_mode_ops kbase_native_protected_ops = {
+	.protected_mode_enable = kbasep_protected_mode_enable,
+	.protected_mode_disable = kbasep_protected_mode_disable
+};
 
 int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 {
@@ -1521,19 +1543,17 @@ int kbase_pm_init_hw(struct kbase_device *kbdev, unsigned int flags)
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, irq_flags);
 
 	/* Soft reset the GPU */
-	if (kbdev->protected_mode_support &&
-			kbdev->protected_ops->protected_mode_reset)
-		err = kbase_pm_reset_do_protected(kbdev);
+	if (kbdev->protected_mode_support)
+		err = kbdev->protected_ops->protected_mode_disable(
+				kbdev->protected_dev);
 	else
-		err = kbase_pm_reset_do_normal(kbdev);
+		err = kbase_pm_do_reset(kbdev);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, irq_flags);
 	if (kbdev->protected_mode)
 		resume_vinstr = true;
 	kbdev->protected_mode = false;
-#ifdef CONFIG_DEVFREQ_THERMAL
 	kbase_ipa_model_use_configured_locked(kbdev);
-#endif
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, irq_flags);
 
