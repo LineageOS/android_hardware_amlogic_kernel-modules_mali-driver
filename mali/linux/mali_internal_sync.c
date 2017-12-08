@@ -355,15 +355,15 @@ static void mali_internal_add_fence_array(struct dma_fence **fences, int *num_fe
 {
 	fences[*num_fences] = fence;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-//	if (!fence_is_signaled(fence)) {
+	if (!fence_is_signaled(fence)) {
 		fence_get(fence);
 		(*num_fences)++;
-//	}
+	}
 #else
-//	if (!dma_fence_is_signaled(fence)) {
+	if (!dma_fence_is_signaled(fence)) {
 		dma_fence_get(fence);
 		(*num_fences)++;
-//	}
+	}
 #endif
 }
 
