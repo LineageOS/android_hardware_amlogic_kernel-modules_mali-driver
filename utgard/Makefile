@@ -3,7 +3,7 @@ $(warning MAKEFILE_LIST is $(MAKEFILE_LIST))
 
 GPU_DRV_VERSION?=r7p0
 
-KDIR?=/home/jiyu.yang/source/br-wayland/output/meson8b_m201/build/linux/
+KDIR?=${HOME}/source/br-wayland/output/meson8b_m201/build/linux/
 ARCH?=arm
 CROSS_COMPILE?=arm-linux-gnueabihf-
 MALI400?=m

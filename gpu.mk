@@ -37,13 +37,14 @@ endif
 ifeq ($(GPU_TYPE), t83x)
 	LOCAL_KK=1
 endif
-
+TEST_DIR=$(dir $(lastword $(MAKEFILE_LIST)))
+MESON_GPU_DIR?=hardware/arm/gpu
 GPU_MODS_OUT?=system/lib
 ifeq ($(LOCAL_KK),0)
 GPU_DRV_VERSION?=r6p1
 GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
-MALI_PLAT=hardware/arm/gpu/utgard/platform
-MALI=hardware/arm/gpu/utgard/${GPU_DRV_VERSION}
+MALI_PLAT=$(MESON_GPU_DIR)/utgard/platform
+MALI=$(MESON_GPU_DIR)/utgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/mali
 KERNEL_ARCH ?= arm
 #TODO rm shell cmd
@@ -54,6 +55,7 @@ $(MALI_KO):
 	mkdir -p $(MALI_OUT)
 	cp $(MALI)/* $(MALI_OUT)/ -airf
 	cp $(MALI_PLAT) $(MALI_OUT)/ -airf
+	@echo "test dir is $(TEST_DIR)"
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH)"
 	@echo "make mali module MALI_OUT is $(MALI_OUT)"
 	@echo "make mali module MAKE is $(MAKE)"
@@ -72,7 +74,7 @@ else
 
 GPU_DRV_VERSION?=r11p0
 GPU_DRV_VERSION:=$(strip $(GPU_DRV_VERSION))
-MALI=hardware/arm/gpu/midgard/${GPU_DRV_VERSION}
+MALI=$(MESON_GPU_DIR)/midgard/${GPU_DRV_VERSION}
 MALI_OUT=$(PRODUCT_OUT)/obj/t83x
 KERNEL_ARCH ?= arm
 
