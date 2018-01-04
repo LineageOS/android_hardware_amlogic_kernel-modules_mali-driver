@@ -32,6 +32,8 @@
 //#include "mali_pp_scheduler.h"
 #include "meson_main.h"
 
+extern int mali_l2_max_reads;
+
 #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8
 static ssize_t domain_stat_read(struct class *class,
 		struct class_attribute *attr, char *buf)
@@ -313,6 +315,29 @@ static ssize_t current_pp_write(struct class *class,
 	return count;
 }
 
+static ssize_t l2_max_reads_read(struct class *class,
+		struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", mali_l2_max_reads);
+}
+
+static ssize_t l2_max_reads_write(struct class *class,
+		struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+	{
+		return -EINVAL;
+	}
+	mali_l2_max_reads  = val;
+
+	return 0;
+}
+
+
 static struct class_attribute mali_class_attrs[] = {
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
 	__ATTR(mpgpucmd,	0644, NULL,		mpgpu_write),
@@ -323,6 +348,7 @@ static struct class_attribute mali_class_attrs[] = {
 	__ATTR(max_pp,		0644, max_pp_read,	max_pp_write),
 	__ATTR(cur_freq,	0644, freq_read,	freq_write),
 	__ATTR(cur_pp,		0644, current_pp_read,	current_pp_write),
+	__ATTR(l2_max_reads,	0644, l2_max_reads_read,l2_max_reads_write),
 };
 
 static struct class mpgpu_class = {
