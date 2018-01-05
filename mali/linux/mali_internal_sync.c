@@ -695,7 +695,7 @@ static bool mali_internal_fence_signaled(struct fence *fence)
 
 	ret = parent->ops->has_signaled(sync_pt);
 	if (0 > ret)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 68)
 		fence->error = ret;
 #else
 		fence->status = ret;
