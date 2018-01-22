@@ -506,7 +506,7 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	mpdata->scale_info.minclk = mpdata->cfg_min_clock;
 	_dev_info(&pdev->dev, "min clk  is %d\n", mpdata->scale_info.minclk);
 
-	mpdata->reg_base_hiubus = of_iomap(gpu_dn, 1);
+	mpdata->reg_base_hiubus = of_iomap(gpu_dn, 3);
 	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_hiubus);
 
 	mpdata->reg_base_aobus = of_iomap(gpu_dn, 2);
