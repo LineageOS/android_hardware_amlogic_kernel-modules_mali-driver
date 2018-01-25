@@ -122,8 +122,10 @@ _mali_osk_errcode_t mali_mmu_pagedir_map(struct mali_page_directory *pagedir, u3
 	mali_dma_addr pde_phys;
 	int i, page_count;
 	u32 start_address;
-	if (last_pde < first_pde)
+	if (last_pde < first_pde) {
+		MALI_PRINT_ERROR((" last_pde < first_pde\n"));
 		return _MALI_OSK_ERR_INVALID_ARGS;
+	}
 
 	for (i = first_pde; i <= last_pde; i++) {
 		if (0 == (_mali_osk_mem_ioread32(pagedir->page_directory_mapped,

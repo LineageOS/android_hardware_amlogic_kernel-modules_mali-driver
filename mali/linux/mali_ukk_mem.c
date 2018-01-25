@@ -37,6 +37,7 @@ int mem_alloc_wrapper(struct mali_session_data *session_data, _mali_uk_alloc_mem
 	err = _mali_ukk_mem_allocate(&kargs);
 
 	if (_MALI_OSK_ERR_OK != err) {
+		MALI_PRINT_ERROR(("_mali_ukk_mem_allocate return ERROR\n"));
 		return map_errcode(err);
 	}
 

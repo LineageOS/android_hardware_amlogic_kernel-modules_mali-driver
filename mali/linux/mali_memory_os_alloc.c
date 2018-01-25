@@ -168,7 +168,7 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 	MALI_DEBUG_ASSERT_POINTER(os_mem);
 
 	if (atomic_read(&mali_mem_os_allocator.allocated_pages) * _MALI_OSK_MALI_PAGE_SIZE + size > mali_mem_os_allocator.allocation_limit) {
-		MALI_DEBUG_PRINT(2, ("Mali Mem: Unable to allocate %u bytes. Currently allocated: %lu, max limit %lu\n",
+		MALI_PRINT_ERROR( ("Mali Mem: Unable to allocate %u bytes. Currently allocated: %lu, max limit %lu\n",
 				     size,
 				     atomic_read(&mali_mem_os_allocator.allocated_pages) * _MALI_OSK_MALI_PAGE_SIZE,
 				     mali_mem_os_allocator.allocation_limit));
@@ -224,8 +224,11 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 #endif
 
 		new_page = alloc_page(flags);
-
+		if (new_page == NULL) {
+			new_page = alloc_page(flags | GFP_KERNEL);
+		}
 		if (unlikely(NULL == new_page)) {
+			MALI_PRINT_ERROR(("alloc_page() return NULL at last! Please check kernel memory!"));
 			/* Calculate the number of pages actually allocated, and free them. */
 #ifdef AML_MALI_DEBUG
 			MALI_PRINT_ERROR(("alloc_page() return NULL\n"));
@@ -247,7 +250,7 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 
 		err = dma_mapping_error(&mali_platform_device->dev, dma_addr);
 		if (unlikely(err)) {
-			MALI_DEBUG_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
+			MALI_PRINT_ERROR(("OS Mem: Failed to DMA map page %p: %u",
 						new_page, err));
 			__free_page(new_page);
 			os_mem->count = (page_count - remaining) + i;
@@ -283,7 +286,7 @@ int mali_mem_os_alloc_pages(mali_mem_os_mem *os_mem, u32 size)
 	atomic_add(page_count, &mali_mem_os_allocator.allocated_pages);
 
 	if (MALI_OS_MEMORY_KERNEL_BUFFER_SIZE_IN_PAGES > mali_mem_os_allocator.pool_count) {
-		MALI_DEBUG_PRINT(4, ("OS Mem: Stopping pool trim timer, only %u pages on pool\n", mali_mem_os_allocator.pool_count));
+//		MALI_PRINT_ERROR( ("OS Mem: Stopping pool trim timer, only %u pages on pool\n", mali_mem_os_allocator.pool_count));
 		cancel_delayed_work(&mali_mem_os_allocator.timed_shrinker);
 	}
 

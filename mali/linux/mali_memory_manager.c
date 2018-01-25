@@ -94,11 +94,7 @@ static mali_mem_allocation *mali_mem_allocation_struct_create(struct mali_sessio
 	/* Allocate memory */
 	mali_allocation = (mali_mem_allocation *)kzalloc(sizeof(mali_mem_allocation), GFP_KERNEL);
 	if (NULL == mali_allocation) {
-#ifdef AML_MALI_DEBUG
 		MALI_PRINT_ERROR(("mali_mem_allocation_struct_create: descriptor was NULL\n"));
-		show_mem(SHOW_MEM_FILTER_NODES);
-#endif
-
 		return NULL;
 	}
 
@@ -141,10 +137,7 @@ int mali_mem_backend_struct_create(mali_mem_backend **backend, u32 psize)
 	s32 index = -1;
 	*backend = (mali_mem_backend *)kzalloc(sizeof(mali_mem_backend), GFP_KERNEL);
 	if (NULL == *backend) {
-#ifdef AML_MALI_DEBUG
-		MALI_PRINT_ERROR(("mali_mem_backend_struct_create: backend descriptor was NULL\n"));
-		show_mem(SHOW_MEM_FILTER_NODES);
-#endif
+		MALI_PRINT_ERROR( ("mali_mem_backend_struct_create: backend descriptor was NULL\n"));
 		return -1;
 	}
 	mem_backend = *backend;
@@ -177,7 +170,7 @@ again:
 	mutex_unlock(&mali_idr_mutex);
 	index = ret;
 	if (ret < 0) {
-		MALI_DEBUG_PRINT(1, ("mali_mem_backend_struct_create: Can't allocate idr for backend! \n"));
+		MALI_PRINT_ERROR(("mali_mem_backend_struct_create: Can't allocate idr for backend! \n"));
 		kfree(mem_backend);
 		return -ENOSPC;
 	}
@@ -419,7 +412,6 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 	int retval = 0;
 	mali_mem_allocation *mali_allocation = NULL;
 	struct mali_vma_node *mali_vma_node = NULL;
-
 	MALI_DEBUG_PRINT(4, (" _mali_ukk_mem_allocate, vaddr=0x%x, size =0x%x! \n", args->gpu_vaddr, args->psize));
 
 	if (args->vsize < args->psize) {
@@ -438,7 +430,7 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 	mali_vma_node = mali_vma_offset_search(&session->allocation_mgr, args->gpu_vaddr, 0);
 
 	if (unlikely(mali_vma_node)) {
-		MALI_DEBUG_PRINT_ERROR(("The mali virtual address has already been used ! \n"));
+		MALI_PRINT_ERROR(("The mali virtual address has already been used ! \n"));
 		return _MALI_OSK_ERR_FAULT;
 	}
 	/**
@@ -448,7 +440,8 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 	mali_allocation = mali_mem_allocation_struct_create(session);
 
 	if (mali_allocation == NULL) {
-		MALI_DEBUG_PRINT(1, ("_mali_ukk_mem_allocate: Failed to create allocation struct! \n"));
+		MALI_PRINT_ERROR((" _mali_ukk_mem_allocate, vaddr=0x%x, size =0x%x! %s, %d\n", args->gpu_vaddr, args->psize, __FILE__, __LINE__));
+		MALI_PRINT_ERROR(("_mali_ukk_mem_allocate: Failed to create allocation struct! \n"));
 		return _MALI_OSK_ERR_NOMEM;
 	}
 	mali_allocation->psize = args->psize;
@@ -479,11 +472,11 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 	mali_allocation->mali_vma_node.vm_node.size = args->vsize;
 
 	mali_vma_offset_add(&session->allocation_mgr, &mali_allocation->mali_vma_node);
-
 	mali_allocation->backend_handle = mali_mem_backend_struct_create(&mem_backend, args->psize);
 	if (mali_allocation->backend_handle < 0) {
 		ret = _MALI_OSK_ERR_NOMEM;
-		MALI_DEBUG_PRINT(1, ("mali_allocation->backend_handle < 0! \n"));
+		MALI_PRINT_ERROR(("mali_allocation->psize = %d mali_allocation->vsize = %d mali_allocation->type = %d \n",  mali_allocation->psize, mali_allocation->vsize, mali_allocation->type));
+		MALI_PRINT_ERROR(("mali_allocation->backend_handle < 0! \n"));
 		goto failed_alloc_backend;
 	}
 
@@ -502,6 +495,8 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 		ret = mali_mem_mali_map_prepare(mali_allocation);
 		if (0 != ret) {
 			_mali_osk_mutex_signal(session->memory_lock);
+			MALI_PRINT_ERROR(("mali_allocation->psize = %d mali_allocation->vsize = %d mali_allocation->type = %d \n",  mali_allocation->psize, mali_allocation->vsize, mali_allocation->type));
+			MALI_PRINT_ERROR(("Aml-------%s, %d\n", __FILE__, __LINE__));
 			goto failed_prepare_map;
 		}
 		_mali_osk_mutex_signal(session->memory_lock);
@@ -529,12 +524,12 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 #if defined(CONFIG_DMA_SHARED_BUFFER)
 			ret = mali_mem_secure_attach_dma_buf(&mem_backend->secure_mem, mem_backend->size, args->secure_shared_fd);
 			if (_MALI_OSK_ERR_OK != ret) {
-				MALI_DEBUG_PRINT(1, ("Failed to attach dma buf for secure memory! \n"));
+				MALI_PRINT_ERROR(("Failed to attach dma buf for secure memory! \n"));
 				goto failed_alloc_pages;
 			}
 #else
 			ret = _MALI_OSK_ERR_UNSUPPORTED;
-			MALI_DEBUG_PRINT(1, ("DMA not supported for mali secure memory! \n"));
+			MALI_PRINT_ERROR(("DMA not supported for mali secure memory! \n"));
 			goto failed_alloc_pages;
 #endif
 		} else {
@@ -560,7 +555,8 @@ _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args)
 
 			if (retval) {
 				ret = _MALI_OSK_ERR_NOMEM;
-				MALI_DEBUG_PRINT(1, (" can't allocate enough pages! \n"));
+				MALI_PRINT_ERROR(("mali_allocation->psize = %d mali_allocation->vsize = %d mali_allocation->type = %d \n",  mali_allocation->psize, mali_allocation->vsize, mali_allocation->type));
+				MALI_PRINT_ERROR((" can't allocate enough pages! \n"));
 				goto failed_alloc_pages;
 			}
 		}
