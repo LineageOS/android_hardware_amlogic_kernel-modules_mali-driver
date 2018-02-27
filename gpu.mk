@@ -37,6 +37,7 @@ endif
 ifeq ($(GPU_TYPE), t83x)
 	LOCAL_KK=1
 endif
+
 TEST_DIR=$(dir $(lastword $(MAKEFILE_LIST)))
 MESON_GPU_DIR?=hardware/arm/gpu
 GPU_MODS_OUT?=system/lib
