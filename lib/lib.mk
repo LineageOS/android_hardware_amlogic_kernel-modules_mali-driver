@@ -14,6 +14,9 @@ endif
 ifneq (,$(wildcard vendor/arm/t83x))
 MALI_LIB_PREBUILT=false
 endif
+ifneq (,$(wildcard vendor/amlogic/meson_mali))
+MALI_LIB_PREBUILT=false
+endif
 #already in hardware/arm/gpu/lib
 
 ifeq ($(MALI_LIB_PREBUILT),true)
@@ -52,6 +55,12 @@ endif
 endif
 endif
 endif
+
+ifeq ($(GRALLOC_USE_GRALLOC1_API),1)
+LOCAL_ANDROID_VERSION_NUM:=${LOCAL_ANDROID_VERSION_NUM}gralloc1
+endif
+
+#$(info source is $(LOCAL_ANDROID_VERSION_NUM))
 LOCAL_MODULE := libGLES_mali
 LOCAL_MULTILIB := both
 LOCAL_MODULE_SUFFIX := .so
