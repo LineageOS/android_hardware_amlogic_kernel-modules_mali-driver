@@ -374,12 +374,17 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 #else
 int mali_clock_init_clk_tree(struct platform_device* pdev)
 {
-	//mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[pmali_plat->def_clock];
+	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[pmali_plat->def_clock];
 	struct clk *clk_mali = pmali_plat->clk_mali;
 
+	if ((0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) &&
+			!IS_ERR(dvfs_tbl->clkp_handle) &&
+			(0 != dvfs_tbl->clkp_freq)) {
+		clk_prepare_enable(dvfs_tbl->clkp_handle);
+		clk_set_rate(dvfs_tbl->clkp_handle, dvfs_tbl->clkp_freq);
+	}
 	clk_prepare_enable(clk_mali);
-    clk_set_rate(clk_mali, 500000000);
-    clk_set_rate(clk_mali, 667000000);
+	clk_set_rate(clk_mali, dvfs_tbl->clk_freq);
 
 	return 0;
 }
