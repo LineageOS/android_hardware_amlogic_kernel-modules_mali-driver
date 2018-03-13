@@ -95,7 +95,8 @@ static void mali_internal_fence_check_cb_func(struct dma_fence *fence, struct dm
 	ret =sync_fence->fence->ops->signaled(sync_fence->fence);
 
 	if (0 > ret)
-		MALI_PRINT_ERROR(("Mali internal sync:Failed to wait fence  0x%x for sync_fence 0x%x.\n", fence, sync_fence));
+		trace_printk("Mali internal sync:fence signaled? ret=%d, fence  0x%p for sync_fence 0x%p.\n", ret, fence, sync_fence);
+
 	if (1 == ret)
 		wake_up_all(&sync_fence->wq);
 #endif
@@ -549,8 +550,10 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 	else
 		err = -1;
 
-	if (0 > err)
+	if (0 > err) {
+		trace_printk("Mali, line%d, signal error\n", __LINE__);
 		return err;
+	}
 
 	if (1 == err)
 		return err;
@@ -561,8 +564,12 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 	err = fence_add_callback(sync_fence->fence, &waiter->cb, mali_internal_fence_check_cb_func);
 #endif
 
-	if (0 != err)
+	if (0 != err) {
+		trace_printk("Mali, fence_add_callback error %d\n", err);
+		if (-ENOENT == err)
+			err = 1;
 		return err;
+	}
 
 	init_waitqueue_func_entry(&waiter->work, mali_internal_sync_fence_wake_up_wq);
 	waiter->work.private = sync_fence;
@@ -572,7 +579,10 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 
 	if (0 == err)
 		__add_wait_queue_tail(&sync_fence->wq, &waiter->work);
+
 	spin_unlock_irqrestore(&sync_fence->wq.lock, flags);
+	if ((1 != err) && (0 != err))
+		trace_printk("Mali, line%d, signal error\n", __LINE__);
 
 	return err;
 #endif
