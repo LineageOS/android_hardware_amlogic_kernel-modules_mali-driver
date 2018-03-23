@@ -19,8 +19,15 @@
 #include <mach/io.h>
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
+#if defined(CONFIG_GPU_THERMAL)
 #include <linux/gpu_cooling.h>
 #include <linux/gpucore_cooling.h>
+#endif
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL)
+#include <linux/amlogic/gpu_cooling.h>
+#include <linux/amlogic/gpucore_cooling.h>
+#endif
+
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
 #include <common/mali_pmu.h>
@@ -433,7 +440,7 @@ int mali_deep_resume(struct device *device)
 
 void mali_post_init(void)
 {
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL) || defined(CONFIG_GPU_THERMAL)
     int err;
     struct gpufreq_cooling_device *gcdev = NULL;
     struct gpucore_cooling_device *gccdev = NULL;

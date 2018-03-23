@@ -21,9 +21,13 @@
 #endif
 #include <asm/io.h>
 #include <linux/mali/mali_utgard.h>
-#ifdef CONFIG_GPU_THERMAL
+#if defined (CONFIG_GPU_THERMAL)
 #include <linux/gpu_cooling.h>
 #include <linux/gpucore_cooling.h>
+#endif
+#if defined (CONFIG_AMLOGIC_GPU_THERMAL)
+#include <linux/amlogic/gpu_cooling.h>
+#include <linux/amlogic/gpucore_cooling.h>
 #endif
 #include <common/mali_kernel_common.h>
 #include <common/mali_osk_profiling.h>
@@ -184,7 +188,7 @@ static struct resource mali_gpu_resources[] =
             INT_MALI_PP)
 };
 
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL) || defined(CONFIG_GPU_THERMAL)
 static void set_limit_mali_freq(u32 idx)
 {
     if (mali_plat_data.limit_on == 0)
@@ -201,7 +205,7 @@ static u32 get_limit_mali_freq(void)
 }
 #endif
 
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL) || defined(CONFIG_GPU_THERMAL)
 static u32 set_limit_pp_num(u32 num)
 {
     u32 ret = -1;
@@ -450,7 +454,7 @@ int mali_deep_resume(struct device *device)
 
 void mali_post_init(void)
 {
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL) || defined(CONFIG_GPU_THERMAL)
     int err;
     struct gpufreq_cooling_device *gcdev = NULL;
     struct gpucore_cooling_device *gccdev = NULL;

@@ -20,9 +20,14 @@
 #include <mach/io.h>
 #endif
 #include <asm/io.h>
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_GPU_THERMAL)
 #include <linux/gpu_cooling.h>
 #include <linux/gpucore_cooling.h>
+#include <linux/amlogic/aml_thermal_hw.h>
+#endif
+#if defined(CONFIG_AMLOGIC_GPU_THERMAL)
+#include <linux/amlogic/gpu_cooling.h>
+#include <linux/amlogic/gpucore_cooling.h>
 #include <linux/amlogic/aml_thermal_hw.h>
 #endif
 
@@ -101,7 +106,7 @@ int get_gpu_max_clk_level(void)
     return mali_plat_data.cfg_clock;
 }
 
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_GPU_THERMAL) || defined(CONFIG_AMLOGIC_GPU_THERMAL)
 static void set_limit_mali_freq(u32 idx)
 {
     if (mali_plat_data.limit_on == 0)
@@ -133,7 +138,7 @@ static u32 get_mali_utilization(void)
 #endif
 #endif
 
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_GPU_THERMAL) || defined(CONFIG_AMLOGIC_GPU_THERMAL)
 static u32 set_limit_pp_num(u32 num)
 {
     u32 ret = -1;
@@ -196,7 +201,7 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev)
 
 void mali_post_init(void)
 {
-#ifdef CONFIG_GPU_THERMAL
+#if defined(CONFIG_GPU_THERMAL) || defined(CONFIG_AMLOGIC_GPU_THERMAL)
     int err;
     struct gpufreq_cooling_device *gcdev = NULL;
     struct gpucore_cooling_device *gccdev = NULL;
