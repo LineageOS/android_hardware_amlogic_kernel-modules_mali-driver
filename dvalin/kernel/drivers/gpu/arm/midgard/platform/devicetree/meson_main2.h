@@ -33,5 +33,6 @@ void mali_gpu_utilization_callback(int utilization_pp);
 u32 mpgpu_get_utilization(void);
 u32 mpgpu_get_util_gl_share(void);
 u32 mpgpu_get_util_cl_share(u32 *util);
+u32 mpgpu_get_gpu_err_count(void);
 
 #endif /* MESON_MAIN_H_ */

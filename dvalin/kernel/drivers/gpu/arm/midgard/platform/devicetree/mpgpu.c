@@ -26,7 +26,11 @@
 #include <asm/io.h>
 #endif
 
+//#include <mali_kbase.h>
 #include "meson_main2.h"
+
+int meson_gpu_data_invalid_count = 0;
+int meson_gpu_fault = 0;
 
 static ssize_t domain_stat_read(struct class *class,
 		struct class_attribute *attr, char *buf)
@@ -239,6 +243,32 @@ static ssize_t util_cl_share_read(struct class *class,
 	return sprintf(buf, "%d  %d\n", val[0], val[1]);
 }
 
+u32 mpgpu_get_gpu_err_count(void)
+{
+    return (meson_gpu_fault + meson_gpu_data_invalid_count);
+}
+
+static ssize_t meson_gpu_get_err_count(struct class *class,
+		struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", mpgpu_get_gpu_err_count());
+}
+
+static ssize_t mpgpu_set_err_count(struct class *class,
+		struct class_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int val;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (0 != ret)
+		return -EINVAL;
+
+	meson_gpu_fault = val;
+
+	return count;
+}
+
 static struct class_attribute mali_class_attrs[] = {
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
 	__ATTR(mpgpucmd,	0644, NULL,		mpgpu_write),
@@ -249,6 +279,7 @@ static struct class_attribute mali_class_attrs[] = {
 	__ATTR(utilization,	0644, utilization_read, NULL),
 	__ATTR(util_gl,	    0644, util_gl_share_read, NULL),
 	__ATTR(util_cl,	    0644, util_cl_share_read, NULL),
+	__ATTR(gpu_err,	    0644, meson_gpu_get_err_count, mpgpu_set_err_count),
 };
 
 static struct class mpgpu_class = {

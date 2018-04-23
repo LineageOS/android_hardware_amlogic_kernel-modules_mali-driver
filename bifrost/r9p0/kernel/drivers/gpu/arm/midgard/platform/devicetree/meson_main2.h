@@ -29,5 +29,6 @@ int mali_meson_uninit(struct platform_device* ptr_plt_dev);
 int mpgpu_class_init(void);
 void mpgpu_class_exit(void);
 void mali_gpu_utilization_callback(int utilization_pp);
+u32 mpgpu_get_gpu_err_count(void);
 
 #endif /* MESON_MAIN_H_ */
