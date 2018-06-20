@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2016-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -26,6 +26,7 @@
 #include "mali_kbase_ipa.h"
 #include "mali_kbase_ipa_debugfs.h"
 #include "mali_kbase_ipa_simple.h"
+#include "backend/gpu/mali_kbase_pm_internal.h"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0))
 #include <linux/pm_opp.h>
@@ -38,10 +39,14 @@
 
 #define KBASE_IPA_FALLBACK_MODEL_NAME "mali-simple-power-model"
 #define KBASE_IPA_G71_MODEL_NAME      "mali-g71-power-model"
+#define KBASE_IPA_G72_MODEL_NAME      "mali-g72-power-model"
+#define KBASE_IPA_TNOX_MODEL_NAME     "mali-tnox-power-model"
 
 static struct kbase_ipa_model_ops *kbase_ipa_all_model_ops[] = {
 	&kbase_simple_ipa_model_ops,
-	&kbase_g71_ipa_model_ops
+	&kbase_g71_ipa_model_ops,
+	&kbase_g72_ipa_model_ops,
+	&kbase_tnox_ipa_model_ops
 };
 
 int kbase_ipa_model_recalculate(struct kbase_ipa_model *model)
@@ -98,6 +103,15 @@ const char *kbase_ipa_model_name_from_id(u32 gpu_id)
 		switch (GPU_ID2_MODEL_MATCH_VALUE(prod_id)) {
 		case GPU_ID2_PRODUCT_TMIX:
 			return KBASE_IPA_G71_MODEL_NAME;
+		case GPU_ID2_PRODUCT_THEX:
+			return KBASE_IPA_G72_MODEL_NAME;
+		case GPU_ID2_PRODUCT_TNOX:
+			return KBASE_IPA_TNOX_MODEL_NAME;
+		case GPU_ID2_PRODUCT_TGOX:
+			if ((gpu_id & GPU_ID2_VERSION_MAJOR) ==
+					(0 << GPU_ID2_VERSION_MAJOR_SHIFT))
+				/* TGOX r0 shares a power model with TNOX */
+				return KBASE_IPA_TNOX_MODEL_NAME;
 		default:
 			return KBASE_IPA_FALLBACK_MODEL_NAME;
 		}
@@ -304,14 +318,6 @@ int kbase_ipa_init(struct kbase_device *kbdev)
 
 	/* The simple IPA model must *always* be present.*/
 	ops = kbase_ipa_model_ops_find(kbdev, KBASE_IPA_FALLBACK_MODEL_NAME);
-
-	if (!ops->do_utilization_scaling_in_framework) {
-		dev_err(kbdev->dev,
-			"Fallback IPA model %s should not account for utilization\n",
-			ops->name);
-		err = -EINVAL;
-		goto end;
-	}
 
 	default_model = kbase_ipa_init_model(kbdev, ops);
 	if (!default_model) {
@@ -532,7 +538,7 @@ static unsigned long kbase_get_dynamic_power(unsigned long freq,
 
 	model = kbdev->ipa.fallback_model;
 
-	err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+	err = model->ops->get_dynamic_coeff(model, &power_coeff);
 
 	if (!err)
 		power = kbase_scale_dynamic_power(power_coeff, freq, voltage);
@@ -551,48 +557,63 @@ static unsigned long kbase_get_dynamic_power(unsigned long freq,
 	return power;
 }
 
-int kbase_get_real_power(struct devfreq *df, u32 *power,
+int kbase_get_real_power_locked(struct kbase_device *kbdev, u32 *power,
 				unsigned long freq,
 				unsigned long voltage)
 {
 	struct kbase_ipa_model *model;
 	u32 power_coeff = 0;
 	int err = 0;
-	struct kbase_device *kbdev = dev_get_drvdata(&df->dev);
+	struct kbasep_pm_metrics diff;
+	u64 total_time;
 
-	mutex_lock(&kbdev->ipa.lock);
+	lockdep_assert_held(&kbdev->ipa.lock);
+
+	kbase_pm_get_dvfs_metrics(kbdev, &kbdev->ipa.last_metrics, &diff);
 
 	model = get_current_model(kbdev);
 
-	err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+	err = model->ops->get_dynamic_coeff(model, &power_coeff);
 
-	/* If we switch to protected model between get_current_model() and
-	 * get_dynamic_coeff(), counter reading could fail. If that happens
-	 * (unlikely, but possible), revert to the fallback model. */
+	/* If the counter model returns an error (e.g. switching back to
+	 * protected mode and failing to read counters, or a counter sample
+	 * with too few cycles), revert to the fallback model.
+	 */
 	if (err && model != kbdev->ipa.fallback_model) {
 		model = kbdev->ipa.fallback_model;
-		err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+		err = model->ops->get_dynamic_coeff(model, &power_coeff);
 	}
 
 	if (err)
-		goto exit_unlock;
+		return err;
 
 	*power = kbase_scale_dynamic_power(power_coeff, freq, voltage);
 
-	if (model->ops->do_utilization_scaling_in_framework) {
-		struct devfreq_dev_status *status = &df->last_status;
-		unsigned long total_time = max(status->total_time, 1ul);
-		u64 busy_time = min(status->busy_time, total_time);
-
-		*power = div_u64((u64) *power * (u64) busy_time, total_time);
-	}
+	/* time_busy / total_time cannot be >1, so assigning the 64-bit
+	 * result of div_u64 to *power cannot overflow.
+	 */
+	total_time = diff.time_busy + (u64) diff.time_idle;
+	*power = div_u64(*power * (u64) diff.time_busy,
+			 max(total_time, 1ull));
 
 	*power += get_static_power_locked(kbdev, model, voltage);
 
-exit_unlock:
+	return err;
+}
+KBASE_EXPORT_TEST_API(kbase_get_real_power_locked);
+
+int kbase_get_real_power(struct devfreq *df, u32 *power,
+				unsigned long freq,
+				unsigned long voltage)
+{
+	int ret;
+	struct kbase_device *kbdev = dev_get_drvdata(&df->dev);
+
+	mutex_lock(&kbdev->ipa.lock);
+	ret = kbase_get_real_power_locked(kbdev, power, freq, voltage);
 	mutex_unlock(&kbdev->ipa.lock);
 
-	return err;
+	return ret;
 }
 KBASE_EXPORT_TEST_API(kbase_get_real_power);
 

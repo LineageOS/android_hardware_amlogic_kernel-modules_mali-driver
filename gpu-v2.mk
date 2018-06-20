@@ -83,12 +83,6 @@ define bifrost-modules
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 
-$(shell  if [ x${GPU_ARCH} = xutgard]; then utgard=1 else utgard=0;)
-$(shell  if [ x${GPU_ARCH} = xmidgard]; then  midgard=1 else midgard=0;)
-#meson_gpu:
-#	$(if ${utgard},$(call utgard-modules))
-#	$(if ${midgard}, $(call midgard-modules))
-#
 bifrost.ko:
 	$(call bifrost-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/bifrost/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
 

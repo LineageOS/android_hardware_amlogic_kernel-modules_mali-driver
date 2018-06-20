@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,9 +35,6 @@
 #endif
 
 #include <linux/kref.h>
-#ifdef CONFIG_UMP
-#include <linux/ump.h>
-#endif				/* CONFIG_UMP */
 #include "mali_base_kernel.h"
 #include <mali_kbase_hw.h>
 #include "mali_kbase_pm.h"
@@ -77,7 +74,6 @@ struct kbase_cpu_mapping {
 
 enum kbase_memory_type {
 	KBASE_MEM_TYPE_NATIVE,
-	KBASE_MEM_TYPE_IMPORTED_UMP,
 	KBASE_MEM_TYPE_IMPORTED_UMM,
 	KBASE_MEM_TYPE_IMPORTED_USER_BUF,
 	KBASE_MEM_TYPE_ALIAS,
@@ -133,9 +129,6 @@ struct kbase_mem_phy_alloc {
 
 	/* member in union valid based on @a type */
 	union {
-#ifdef CONFIG_UMP
-		ump_dd_handle ump_handle;
-#endif /* CONFIG_UMP */
 #if defined(CONFIG_DMA_SHARED_BUFFER)
 		struct {
 			struct dma_buf *dma_buf;
@@ -204,8 +197,7 @@ static inline void kbase_mem_phy_alloc_gpu_unmapped(struct kbase_mem_phy_alloc *
  */
 static inline bool kbase_mem_is_imported(enum kbase_memory_type type)
 {
-	return (type == KBASE_MEM_TYPE_IMPORTED_UMP) ||
-		(type == KBASE_MEM_TYPE_IMPORTED_UMM) ||
+	return (type == KBASE_MEM_TYPE_IMPORTED_UMM) ||
 		(type == KBASE_MEM_TYPE_IMPORTED_USER_BUF);
 }
 
@@ -319,7 +311,9 @@ struct kbase_va_region {
 #define KBASE_REG_ZONE_EXEC_SIZE    ((16ULL * 1024 * 1024) >> PAGE_SHIFT)
 
 #define KBASE_REG_ZONE_CUSTOM_VA         KBASE_REG_ZONE(2)
-#define KBASE_REG_ZONE_CUSTOM_VA_BASE    (KBASE_REG_ZONE_EXEC_BASE + KBASE_REG_ZONE_EXEC_SIZE) /* Starting after KBASE_REG_ZONE_EXEC */
+/* Starting after KBASE_REG_ZONE_EXEC */
+#define KBASE_REG_ZONE_CUSTOM_VA_BASE    \
+	(KBASE_REG_ZONE_EXEC_BASE + KBASE_REG_ZONE_EXEC_SIZE)
 #define KBASE_REG_ZONE_CUSTOM_VA_SIZE    (((1ULL << 44) >> PAGE_SHIFT) - KBASE_REG_ZONE_CUSTOM_VA_BASE)
 /* end 32-bit clients only */
 
@@ -332,6 +326,10 @@ struct kbase_va_region {
 
 	/* List head used to store the region in the JIT allocation pool */
 	struct list_head jit_node;
+	/* The last JIT usage ID for this region */
+	u16 jit_usage_id;
+	/* The JIT bin this allocation came from */
+	u8 jit_bin_id;
 };
 
 /* Common functions */
@@ -435,23 +433,32 @@ static inline int kbase_reg_prepare_native(struct kbase_va_region *reg,
 		return PTR_ERR(reg->cpu_alloc);
 	else if (!reg->cpu_alloc)
 		return -ENOMEM;
+
 	reg->cpu_alloc->imported.kctx = kctx;
-	INIT_LIST_HEAD(&reg->cpu_alloc->evict_node);
 	if (kbase_ctx_flag(kctx, KCTX_INFINITE_CACHE)
 	    && (reg->flags & KBASE_REG_CPU_CACHED)) {
 		reg->gpu_alloc = kbase_alloc_create(reg->nr_pages,
 				KBASE_MEM_TYPE_NATIVE);
+		if (IS_ERR_OR_NULL(reg->gpu_alloc)) {
+			kbase_mem_phy_alloc_put(reg->cpu_alloc);
+			return -ENOMEM;
+		}
 		reg->gpu_alloc->imported.kctx = kctx;
-		INIT_LIST_HEAD(&reg->gpu_alloc->evict_node);
 	} else {
 		reg->gpu_alloc = kbase_mem_phy_alloc_get(reg->cpu_alloc);
 	}
 
+	mutex_lock(&kctx->jit_evict_lock);
+	INIT_LIST_HEAD(&reg->cpu_alloc->evict_node);
+	INIT_LIST_HEAD(&reg->gpu_alloc->evict_node);
+	mutex_unlock(&kctx->jit_evict_lock);
+
 	reg->flags &= ~KBASE_REG_FREE;
+
 	return 0;
 }
 
-static inline int kbase_atomic_add_pages(int num_pages, atomic_t *used_pages)
+static inline u32 kbase_atomic_add_pages(u32 num_pages, atomic_t *used_pages)
 {
 	int new_val = atomic_add_return(num_pages, used_pages);
 #if defined(CONFIG_MALI_GATOR_SUPPORT)
@@ -460,7 +467,7 @@ static inline int kbase_atomic_add_pages(int num_pages, atomic_t *used_pages)
 	return new_val;
 }
 
-static inline int kbase_atomic_sub_pages(int num_pages, atomic_t *used_pages)
+static inline u32 kbase_atomic_sub_pages(u32 num_pages, atomic_t *used_pages)
 {
 	int new_val = atomic_sub_return(num_pages, used_pages);
 #if defined(CONFIG_MALI_GATOR_SUPPORT)
@@ -696,7 +703,7 @@ void kbase_mem_pool_free_pages_locked(struct kbase_mem_pool *pool,
  */
 static inline size_t kbase_mem_pool_size(struct kbase_mem_pool *pool)
 {
-	return ACCESS_ONCE(pool->cur_size);
+	return READ_ONCE(pool->cur_size);
 }
 
 /**
@@ -765,7 +772,8 @@ void kbase_mem_pool_mark_dying(struct kbase_mem_pool *pool);
 struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool);
 
 int kbase_region_tracker_init(struct kbase_context *kctx);
-int kbase_region_tracker_init_jit(struct kbase_context *kctx, u64 jit_va_pages);
+int kbase_region_tracker_init_jit(struct kbase_context *kctx, u64 jit_va_pages,
+		u8 max_allocations, u8 trim_level);
 void kbase_region_tracker_term(struct kbase_context *kctx);
 
 struct kbase_va_region *kbase_region_tracker_find_region_enclosing_address(struct kbase_context *kctx, u64 gpu_addr);
@@ -1047,6 +1055,8 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc,
  * @alloc:              allocation object to add pages to
  * @pool:               Memory pool to allocate from
  * @nr_pages_requested: number of physical pages to allocate
+ * @prealloc_sa:        Information about the partial allocation if the amount
+ *                      of memory requested is not a multiple of 2MB.
  *
  * Allocates \a nr_pages_requested and updates the alloc object. This function
  * does not allocate new pages from the kernel, and therefore will never trigger
@@ -1076,13 +1086,16 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc,
  * @pool must be alloc->imported.kctx->lp_mem_pool. Otherwise it must be
  * alloc->imported.kctx->mem_pool.
  *
+ * @prealloc_sa shall be set to NULL if it has been consumed by this function.
+ *
  * Return: Pointer to array of allocated pages. NULL on failure.
  *
  * Note : Caller must hold pool->pool_lock
  */
 struct tagged_addr *kbase_alloc_phy_pages_helper_locked(
 		struct kbase_mem_phy_alloc *alloc, struct kbase_mem_pool *pool,
-		size_t nr_pages_requested);
+		size_t nr_pages_requested,
+		struct kbase_sub_alloc **prealloc_sa);
 
 /**
 * @brief Free physical pages.
@@ -1338,5 +1351,11 @@ static inline void kbase_mem_pool_unlock(struct kbase_mem_pool *pool)
 {
 	spin_unlock(&pool->pool_lock);
 }
+
+/**
+ * kbase_mem_evictable_mark_reclaim - Mark the pages as reclaimable.
+ * @alloc: The physical allocation
+ */
+void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc);
 
 #endif				/* _KBASE_MEM_H_ */

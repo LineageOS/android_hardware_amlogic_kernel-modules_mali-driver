@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -224,23 +224,15 @@ static void kbase_gpu_mmu_handle_write_fault(struct kbase_context *kctx,
 		return;
 	}
 
-	/* Capture handle and offset of the faulting write location
+	/* Capture addresses of faulting write location
 	 * for job dumping if write tracking is enabled.
 	 */
 	if (kctx->gwt_enabled) {
 		u64 page_addr = faulting_as->fault_addr & PAGE_MASK;
-		u64 offset = (page_addr >> PAGE_SHIFT) - region->start_pfn;
-		u64 handle = region->start_pfn << PAGE_SHIFT;
 		bool found = false;
-
-		if (KBASE_MEM_TYPE_IMPORTED_UMM == region->cpu_alloc->type)
-			handle |= BIT(0);
-
 		/* Check if this write was already handled. */
 		list_for_each_entry(pos, &kctx->gwt_current_list, link) {
-			if (handle == pos->handle &&
-					offset >= pos->offset &&
-					offset < pos->offset + pos->num_pages) {
+			if (page_addr == pos->page_addr) {
 				found = true;
 				break;
 			}
@@ -249,8 +241,8 @@ static void kbase_gpu_mmu_handle_write_fault(struct kbase_context *kctx,
 		if (!found) {
 			pos = kmalloc(sizeof(*pos), GFP_KERNEL);
 			if (pos) {
-				pos->handle = handle;
-				pos->offset = offset;
+				pos->region = region;
+				pos->page_addr = page_addr;
 				pos->num_pages = 1;
 				list_add(&pos->link, &kctx->gwt_current_list);
 			} else {
@@ -322,6 +314,8 @@ void page_fault_worker(struct work_struct *data)
 	struct kbase_mem_pool *pool;
 	int pages_to_grow;
 	struct tagged_addr *gpu_pages, *cpu_pages;
+	struct kbase_sub_alloc *prealloc_sas[2] = { NULL, NULL };
+	int i;
 
 	faulting_as = container_of(data, struct kbase_as, work_pagefault);
 	fault_pfn = faulting_as->fault_addr >> PAGE_SHIFT;
@@ -340,8 +334,7 @@ void page_fault_worker(struct work_struct *data)
 
 	KBASE_DEBUG_ASSERT(kctx->kbdev == kbdev);
 
-	if (unlikely(faulting_as->protected_mode))
-	{
+	if (unlikely(faulting_as->protected_mode)) {
 		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
 				"Protected mode fault");
 		kbase_mmu_hw_clear_fault(kbdev, faulting_as, kctx,
@@ -408,6 +401,22 @@ void page_fault_worker(struct work_struct *data)
 	}
 
 page_fault_retry:
+#ifdef CONFIG_MALI_2MB_ALLOC
+	/* Preallocate memory for the sub-allocation structs if necessary */
+	for (i = 0; i != ARRAY_SIZE(prealloc_sas); ++i) {
+		if (!prealloc_sas[i]) {
+			prealloc_sas[i] = kmalloc(sizeof(*prealloc_sas[i]),
+					GFP_KERNEL);
+			if (!prealloc_sas[i]) {
+				kbase_mmu_report_fault_and_kill(
+						kctx, faulting_as,
+						"Failed pre-allocating memory for sub-allocations' metadata");
+				goto fault_done;
+			}
+		}
+	}
+#endif /* CONFIG_MALI_2MB_ALLOC */
+
 	/* so we have a translation fault, let's see if it is for growable
 	 * memory */
 	kbase_gpu_vm_lock(kctx);
@@ -529,13 +538,14 @@ page_fault_retry:
 	 */
 	if (kbase_mem_pool_size(pool) >= min_pool_size) {
 		gpu_pages = kbase_alloc_phy_pages_helper_locked(
-				region->gpu_alloc, pool, new_pages);
+				region->gpu_alloc, pool, new_pages,
+				&prealloc_sas[0]);
 
 		if (gpu_pages) {
 			if (region->gpu_alloc != region->cpu_alloc) {
 				cpu_pages = kbase_alloc_phy_pages_helper_locked(
 						region->cpu_alloc, pool,
-						new_pages);
+						new_pages, &prealloc_sas[1]);
 
 				if (cpu_pages) {
 					grown = true;
@@ -631,12 +641,13 @@ page_fault_retry:
 
 			pos = kmalloc(sizeof(*pos), GFP_KERNEL);
 			if (pos) {
-				pos->handle = region->start_pfn << PAGE_SHIFT;
-				pos->offset = pfn_offset;
+				pos->region = region;
+				pos->page_addr = (region->start_pfn +
+							pfn_offset) <<
+							 PAGE_SHIFT;
 				pos->num_pages = new_pages;
 				list_add(&pos->link,
 					&kctx->gwt_current_list);
-
 			} else {
 				dev_warn(kbdev->dev, "kmalloc failure");
 			}
@@ -664,6 +675,9 @@ page_fault_retry:
 	}
 
 fault_done:
+	for (i = 0; i != ARRAY_SIZE(prealloc_sas); ++i)
+		kfree(prealloc_sas[i]);
+
 	/*
 	 * By this point, the fault was handled in some way,
 	 * so release the ctx refcount
@@ -1824,8 +1838,7 @@ void bus_fault_worker(struct work_struct *data)
 		return;
 	}
 
-	if (unlikely(faulting_as->protected_mode))
-	{
+	if (unlikely(faulting_as->protected_mode)) {
 		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
 				"Permission failure");
 		kbase_mmu_hw_clear_fault(kbdev, faulting_as, kctx,
