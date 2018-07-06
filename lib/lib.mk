@@ -31,7 +31,6 @@ endif
 
 TARGET:=$(TARGET)_ion
 GPU_TARGET_PLATFORM ?= default_7a
-$(info Android.mk GPU_DRV_VERSION is ${GPU_DRV_VERSION})
 ifeq ($(GPU_ARCH),midgard)
 GPU_DRV_VERSION?=r11p0
 else
@@ -60,7 +59,6 @@ ifeq ($(GRALLOC_USE_GRALLOC1_API),1)
 LOCAL_ANDROID_VERSION_NUM:=${LOCAL_ANDROID_VERSION_NUM}gralloc1
 endif
 
-#$(info source is $(LOCAL_ANDROID_VERSION_NUM))
 LOCAL_MODULE := libGLES_mali
 LOCAL_MULTILIB := both
 LOCAL_MODULE_SUFFIX := .so
@@ -81,6 +79,14 @@ else
 LOCAL_SRC_FILES_32   := $(TARGET)/libGLES_mali_$(GPU_TARGET_PLATFORM)_32-$(LOCAL_ANDROID_VERSION_NUM).so
 LOCAL_SRC_FILES_64	 := $(TARGET)/libGLES_mali_$(GPU_TARGET_PLATFORM)_64-$(LOCAL_ANDROID_VERSION_NUM).so
 endif
+
+ifeq ($(BOARD_INSTALL_OPENCL),true)
+LOCAL_POST_INSTALL_CMD = $(hide)\
+	ln -sf egl/$(notdir $(LOCAL_INSTALLED_MODULE)) $(dir $(LOCAL_INSTALLED_MODULE))../libOpenCL.so.1.1;\
+	ln -sf libOpenCL.so.1.1 $(dir $(LOCAL_INSTALLED_MODULE))../libOpenCL.so.1;\
+	ln -sf libOpenCL.so.1 $(dir $(LOCAL_INSTALLED_MODULE))../libOpenCL.so
+endif
+
 include $(BUILD_PREBUILT)
 
 endif
