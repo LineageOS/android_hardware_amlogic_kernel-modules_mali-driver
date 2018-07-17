@@ -24,7 +24,7 @@ $(PRODUCT_OUT)/ramdisk.img:mali.ko
 $(PRODUCT_OUT)/system.img:mali.ko
 
 mali.ko: $(GPU_ARCH).ko
-	cp  $(PRODUCT_OUT)/$(GPU_MODS_OUT)/$(GPU_ARCH).ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
+	echo "$(GPU_ARCH).ko build finished"
 
 #TODO rm shell cmd
 # utgard-modules $(MESON_GPU_DIR) $(GPU_DRV_VERSION) $(KERNEL_ARCH)
@@ -40,11 +40,12 @@ define utgard-modules
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/mali  \
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m    \
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
+	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_AM_VDEC_H264_4K2K=y modules
 
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
-	cp  $(PRODUCT_OUT)/obj/mali/mali.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/utgard.ko
+	cp  $(PRODUCT_OUT)/obj/mali/mali.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
 endef
 
 #$(call midgard-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/midgard/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
@@ -57,11 +58,12 @@ define midgard-modules
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/t83x/kernel/drivers/gpu/arm/midgard \
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
+	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
 
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
-	cp  $(PRODUCT_OUT)/obj/t83x/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/midgard.ko
+	cp  $(PRODUCT_OUT)/obj/t83x/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 
@@ -75,11 +77,12 @@ define bifrost-modules
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/bifrost/kernel/drivers/gpu/arm/midgard \
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
+	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
 
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
-	cp  $(PRODUCT_OUT)/obj/bifrost/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/bifrost.ko
+	cp  $(PRODUCT_OUT)/obj/bifrost/kernel/drivers/gpu/arm/midgard/mali_kbase.ko $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 
