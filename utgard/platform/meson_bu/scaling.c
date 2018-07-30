@@ -445,7 +445,7 @@ static void mali_decide_next_status(struct mali_gpu_utilization_data *data, int*
 	}
 	if (decided_fs_idx > pmali_plat->scale_info.maxclk) {
 		decided_fs_idx = pmali_plat->scale_info.maxclk;
-		printk("gpu debug, next index above max, set to %d\n", decided_fs_idx);
+		scalingdbg(1, "gpu debug, next index above max, set to %d\n", decided_fs_idx);
 	}
 
 	if (change_mode)

@@ -83,28 +83,7 @@ struct mali_internal_sync_fence_cb {
 };
 #endif
 
-struct mali_internal_sync_fence {
-	struct file             *file;
-	struct kref             kref;
-	char		name[32];
-#ifdef CONFIG_DEBUG_FS
-	struct list_head	sync_file_list;
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	int num_fences;
-#endif
-	wait_queue_head_t       wq;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
-	atomic_t                status;
-	struct mali_internal_sync_fence_cb    cbs[];
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)
-	struct fence *fence;
-	struct fence_cb cb;
-#else
-	struct dma_fence *fence;
-	struct dma_fence_cb cb;
-#endif
-};
+#define mali_internal_sync_fence sync_file
 
 struct mali_internal_sync_fence_waiter;
 
