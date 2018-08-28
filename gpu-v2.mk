@@ -19,11 +19,8 @@ GPU_MODS_OUT?=system/lib
 KERNEL_ARCH ?= arm
 GPU_DRV_VERSION?=r6p1
 
-$(INSTALLED_KERNEL_TARGET):mali.ko
-$(PRODUCT_OUT)/ramdisk.img:mali.ko
-$(PRODUCT_OUT)/system.img:mali.ko
-
-mali.ko: $(GPU_ARCH).ko
+$(PRODUCT_OUT)/obj/lib_vendor/mali.ko: $(GPU_ARCH).ko
+	cp  $(PRODUCT_OUT)/$(GPU_MODS_OUT)/mali.ko $(PRODUCT_OUT)/obj/lib_vendor/mali.ko
 	echo "$(GPU_ARCH).ko build finished"
 
 #TODO rm shell cmd
@@ -41,7 +38,7 @@ define utgard-modules
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m    \
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	EXTRA_LDFLAGS+="--strip-debug" \
-	CONFIG_AM_VDEC_H264_4K2K=y modules
+	CONFIG_AM_VDEC_H264_4K2K=y
 
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
@@ -59,7 +56,7 @@ define midgard-modules
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
 	EXTRA_LDFLAGS+="--strip-debug" \
-	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
+	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
 
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
@@ -78,7 +75,7 @@ define bifrost-modules
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
 	EXTRA_LDFLAGS+="--strip-debug" \
-	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu modules
+	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
 
 	mkdir -p $(PRODUCT_OUT)/$(GPU_MODS_OUT)
 	@echo "GPU_MODS_OUT is $(GPU_MODS_OUT)"
@@ -86,11 +83,11 @@ define bifrost-modules
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 
-bifrost.ko:
+bifrost.ko: $(INTERMEDIATES_KERNEL)
 	$(call bifrost-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/bifrost/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
 
-midgard.ko:
+midgard.ko: $(INTERMEDIATES_KERNEL)
 	$(call midgard-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/midgard/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
 
-utgard.ko:
+utgard.ko: $(INTERMEDIATES_KERNEL)
 	$(call utgard-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/utgard/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
