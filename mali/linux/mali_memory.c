@@ -64,6 +64,7 @@ static void mali_mem_vma_close(struct vm_area_struct *vma)
 
 		mali_session_memory_lock(session);
 		vma->vm_private_data = NULL;
+		alloc->cpu_mapping.vma = NULL;
 		mali_session_memory_unlock(session);
 
 		mali_allocation_unref(&alloc);
