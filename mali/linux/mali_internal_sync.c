@@ -94,8 +94,10 @@ static void mali_internal_fence_check_cb_func(struct dma_fence *fence, struct dm
 #else	
 	ret =sync_fence->fence->ops->signaled(sync_fence->fence);
 
+#ifdef DEBUG
 	if (0 > ret)
 		trace_printk("Mali internal sync:fence signaled? ret=%d, fence  0x%p for sync_fence 0x%p.\n", ret, fence, sync_fence);
+#endif
 
 	if (1 == ret)
 		wake_up_all(&sync_fence->wq);
@@ -551,7 +553,9 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 		err = -1;
 
 	if (0 > err) {
+#ifdef DEBUG
 		trace_printk("Mali, line%d, signal error\n", __LINE__);
+#endif
 		return err;
 	}
 
@@ -565,7 +569,9 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 #endif
 
 	if (0 != err) {
+#ifdef DEBUG
 		trace_printk("Mali, fence_add_callback error %d\n", err);
+#endif
 		if (-ENOENT == err)
 			err = 1;
 		return err;
@@ -581,8 +587,10 @@ int mali_internal_sync_fence_wait_async(struct mali_internal_sync_fence *sync_fe
 		__add_wait_queue_tail(&sync_fence->wq, &waiter->work);
 
 	spin_unlock_irqrestore(&sync_fence->wq.lock, flags);
+#ifdef DEBUG
 	if ((1 != err) && (0 != err))
 		trace_printk("Mali, line%d, signal error\n", __LINE__);
+#endif
 
 	return err;
 #endif

@@ -27,7 +27,7 @@ MODULE_PARM_DESC(gpu_dbg_level, "gpu debug level");
 #define GPU_CLK_DBG(fmt, arg...)
 
 //disable print
-//#define _dev_info(...)
+#define _dev_info(...)
 
 //static DEFINE_SPINLOCK(lock);
 static mali_plat_info_t* pmali_plat = NULL;
