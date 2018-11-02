@@ -285,10 +285,6 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 			dev_notice(&pdev->dev, "read clk_freq failed\n");
 		}
 
-		if (is_meson_gxl_package_805Y()) {
-			if (dvfs_tbl->clk_freq >= GXBBM_MAX_GPU_FREQ)
-				continue;
-		}
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
 										&dvfs_tbl->clk_parent);
 		if (ret) {
@@ -483,6 +479,7 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	struct mali_gpu_clk_item *clk_item;
 	phandle dvfs_clk_hdl;
 	mali_dvfs_threshold_table *dvfs_tbl = NULL;
+	mali_dvfs_threshold_table *last_dvfs_tbl = NULL;
 	uint32_t *clk_sample = NULL;
 
 	struct property *prop;
@@ -572,6 +569,11 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		if (ret) {
 			dev_notice(&pdev->dev, "read clk_freq failed\n");
 		}
+		if (is_meson_gxl_package_805Y()) {
+			if (dvfs_tbl->clk_freq >= GXBBM_MAX_GPU_FREQ) {
+				continue;
+			}
+		}
 
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
 				&dvfs_tbl->clk_parent);
@@ -608,11 +610,25 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 
 		*clk_sample = dvfs_tbl->clk_freq / 1000000;
 
+		last_dvfs_tbl = dvfs_tbl;
 		dvfs_tbl ++;
 		clk_item ++;
 		clk_sample ++;
 		i++;
 		mpdata->dvfs_table_size ++;
+	}
+
+	if ((is_meson_gxl_package_805Y()) && (length > mpdata->dvfs_table_size)) {
+		dvfs_tbl = last_dvfs_tbl;
+		last_dvfs_tbl = dvfs_tbl - 1;
+		if (dvfs_tbl->clk_freq != last_dvfs_tbl->clk_freq) {
+			dvfs_tbl ++;
+			last_dvfs_tbl ++;
+			memcpy(dvfs_tbl, last_dvfs_tbl, sizeof(*dvfs_tbl));
+			*clk_sample = dvfs_tbl->clk_freq / 1000000;
+			dvfs_tbl->freq_index = i;
+			mpdata->dvfs_table_size ++;
+		}
 	}
 
 	ret = of_property_read_u32(gpu_dn,"max_clk",
