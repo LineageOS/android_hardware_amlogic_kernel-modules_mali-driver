@@ -574,7 +574,6 @@ int set_policy_by_name(struct kbase_device *kbdev, const char *name)
 		printk("power_policy: policy not found\n");
 		return -EINVAL;
 	}
-	trace_printk("policy name=%s\n", name);
 
 	kbase_pm_set_policy(kbdev, new_policy);
 

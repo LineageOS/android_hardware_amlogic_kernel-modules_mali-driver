@@ -1,6 +1,5 @@
 /*
- * @file mali_platform.c
- * Platform specific Mali driver functions for meson platform
+ * ../vendor/amlogic/common/gpu/utgard/platform/meson_m400/mali_platform.c
  *
  * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *

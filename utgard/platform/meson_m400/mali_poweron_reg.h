@@ -1,6 +1,5 @@
 /*
- * @file mali_poweron_reg.h
- * Platform specific Mali driver functions for meson platform
+ * ../vendor/amlogic/common/gpu/utgard/platform/meson_m400/mali_poweron_reg.h
  *
  * Copyright (C) 2017 Amlogic, Inc. All rights reserved.
  *
