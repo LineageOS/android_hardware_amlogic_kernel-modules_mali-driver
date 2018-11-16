@@ -32,6 +32,10 @@
 
 #ifdef CONFIG_DEBUG_FS
 
+#if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
+#define get_file_rcu(x) atomic_long_inc_not_zero(&(x)->f_count)
+#endif
+
 struct debug_mem_mapping {
 	struct list_head node;
 
@@ -130,7 +134,7 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	if (!(map->flags & KBASE_REG_CPU_CACHED))
 		prot = pgprot_writecombine(prot);
 
-	page = phys_to_page(as_phys_addr_t(map->alloc->pages[data->offset]));
+	page = as_page(map->alloc->pages[data->offset]);
 	mapping = vmap(&page, 1, VM_MAP, prot);
 	if (!mapping)
 		goto out;
@@ -199,9 +203,12 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	struct debug_mem_data *mem_data;
 	int ret;
 
+	if (get_file_rcu(kctx_file) == 0)
+		return -ENOENT;
+
 	ret = seq_open(file, &ops);
 	if (ret)
-		return ret;
+		goto open_fail;
 
 	mem_data = kmalloc(sizeof(*mem_data), GFP_KERNEL);
 	if (!mem_data) {
@@ -213,18 +220,10 @@ static int debug_mem_open(struct inode *i, struct file *file)
 
 	INIT_LIST_HEAD(&mem_data->mapping_list);
 
-	get_file(kctx_file);
-
 	kbase_gpu_vm_lock(kctx);
 
 	ret = debug_mem_zone_open(&kctx->reg_rbtree_same, mem_data);
 	if (0 != ret) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec, mem_data);
-	if (ret != 0) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
 	}
@@ -252,10 +251,12 @@ out:
 			list_del(&mapping->node);
 			kfree(mapping);
 		}
-		fput(kctx_file);
 		kfree(mem_data);
 	}
 	seq_release(i, file);
+open_fail:
+	fput(kctx_file);
+
 	return ret;
 }
 

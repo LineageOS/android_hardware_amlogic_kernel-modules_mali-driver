@@ -36,8 +36,8 @@ static int first = 1;
 #define RESET2_LEVEL    0x22
 #define Rd(r)                           readl((reg_base_hiubus) + ((r)<<2))
 #define Wr(r, v)                        writel((v), ((reg_base_hiubus) + ((r)<<2)))
-#define Mali_WrReg(regnum, value)   kbase_reg_write(kbdev, (regnum), (value), NULL)
-#define Mali_RdReg(regnum)          kbase_reg_read(kbdev, (regnum), NULL)
+#define Mali_WrReg(regnum, value)   kbase_reg_write(kbdev, (regnum), (value))
+#define Mali_RdReg(regnum)          kbase_reg_read(kbdev, (regnum))
 #define stimulus_print   printk
 #define stimulus_display printk
 #define Mali_pwr_off(x)  Mali_pwr_off_with_kdev(kbdev, (x))
@@ -187,8 +187,8 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 
     udelay(10); // OR POLL for reset done
 
-    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_KEY), 0x2968A819, NULL);
-    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_OVERRIDE1), 0xfff | (0x20<<16), NULL);
+    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_KEY), 0x2968A819);
+    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_OVERRIDE1), 0xfff | (0x20<<16));
 
     Mali_pwr_on_with_kdev(kbdev, 0x1);
     //printk("set PWR_ORRIDE, reg=%p, reg_start=%llx, reg_size=%zx, reg_mapped=%p\n",
