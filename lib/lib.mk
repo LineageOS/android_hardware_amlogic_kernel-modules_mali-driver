@@ -37,6 +37,9 @@ else
 GPU_DRV_VERSION?=r6p1
 endif
 
+ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28 && echo OK),OK)
+LOCAL_ANDROID_VERSION_NUM:=p-${GPU_DRV_VERSION}
+else
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 26 && echo OK),OK)
 LOCAL_ANDROID_VERSION_NUM:=o-${GPU_DRV_VERSION}
 else
@@ -54,9 +57,14 @@ endif
 endif
 endif
 endif
+endif
 
 ifeq ($(GRALLOC_USE_GRALLOC1_API),1)
 LOCAL_ANDROID_VERSION_NUM:=${LOCAL_ANDROID_VERSION_NUM}gralloc1
+endif
+
+ifeq ($(BOARD_INSTALL_VULKAN),true)
+LOCAL_ANDROID_VERSION_NUM:=${LOCAL_ANDROID_VERSION_NUM}-vulkan
 endif
 
 LOCAL_MODULE := libGLES_mali
@@ -87,6 +95,9 @@ LOCAL_POST_INSTALL_CMD = $(hide)\
 	ln -sf libOpenCL.so.1 $(dir $(LOCAL_INSTALLED_MODULE))../libOpenCL.so
 endif
 
+#BOARD_INSTALL_VULKAN default is false
+#It should defined in $(TARGET_PRODUCT).mk if Vulkan is needed.
+$(warning "the value of BOARD_INSTALL_VULKAN is $(BOARD_INSTALL_VULKAN)")
 ifeq ($(BOARD_INSTALL_VULKAN),true)
 LOCAL_POST_INSTALL_CMD = $(hide)\
 	cd $(dir $(LOCAL_INSTALLED_MODULE))/../hw;\
