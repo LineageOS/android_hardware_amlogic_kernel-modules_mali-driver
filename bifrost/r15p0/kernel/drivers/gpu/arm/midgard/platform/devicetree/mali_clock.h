@@ -25,7 +25,7 @@
 
 #include <asm/io.h>
 #include <linux/clk.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 29))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 29)) && (LINUX_VERSION_CODE <= KERNEL_VERSION(4, 10, 0))
 #include <linux/amlogic/iomap.h>
 #endif
 
