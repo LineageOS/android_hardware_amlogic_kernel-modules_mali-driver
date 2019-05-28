@@ -84,11 +84,11 @@ define bifrost-modules
 	@echo "make mali module finished current dir is $(shell pwd)"
 endef
 
-bifrost.ko: $(INTERMEDIATES_KERNEL)
+bifrost.ko: $(INSTALLED_KERNEL_TARGET)
 	$(call bifrost-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/bifrost/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
 
-midgard.ko: $(INTERMEDIATES_KERNEL)
+midgard.ko: $(INSTALLED_KERNEL_TARGET)
 	$(call midgard-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/midgard/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
 
-utgard.ko: $(INTERMEDIATES_KERNEL)
+utgard.ko: $(INSTALLED_KERNEL_TARGET)
 	$(call utgard-modules,$(MESON_GPU_DIR),$(MESON_GPU_DIR)/utgard/$(GPU_DRV_VERSION),$(KERNEL_ARCH))
