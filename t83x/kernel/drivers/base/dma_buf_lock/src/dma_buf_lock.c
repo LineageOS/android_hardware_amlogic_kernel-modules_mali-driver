@@ -1,22 +1,27 @@
 /*
  *
- * (C) COPYRIGHT 2012-2013, 2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2013, 2017-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
 
-
-
 #include <linux/version.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -44,7 +49,12 @@
 #define dma_fence_is_signaled(a) fence_is_signaled(a)
 #define dma_fence_add_callback(a, b, c) fence_add_callback(a, b, c)
 #define dma_fence_remove_callback(a, b) fence_remove_callback(a, b)
+
+#if (KERNEL_VERSION(4, 9, 68) > LINUX_VERSION_CODE)
 #define dma_fence_get_status(a) (fence_is_signaled(a) ? (a)->status ?: 1 : 0)
+#else
+#define dma_fence_get_status(a) (fence_is_signaled(a) ? (a)->error ?: 1 : 0)
+#endif
 
 #else
 
@@ -105,6 +115,7 @@ typedef struct dma_buf_lock_resource
 	wait_queue_head_t wait;
 	struct kref refcount;
 	struct list_head link;
+	struct work_struct work;
 	int count;
 } dma_buf_lock_resource;
 
@@ -209,6 +220,21 @@ dma_buf_lock_fence_free_callbacks(dma_buf_lock_resource *resource)
 }
 
 static void
+dma_buf_lock_fence_work(struct work_struct *pwork)
+{
+	dma_buf_lock_resource *resource =
+		container_of(pwork, dma_buf_lock_resource, work);
+
+	WARN_ON(atomic_read(&resource->fence_dep_count));
+	WARN_ON(!atomic_read(&resource->locked));
+	WARN_ON(!resource->exclusive);
+
+	mutex_lock(&dma_buf_lock_mutex);
+	kref_put(&resource->refcount, dma_buf_lock_dounlock);
+	mutex_unlock(&dma_buf_lock_mutex);
+}
+
+static void
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 dma_buf_lock_fence_callback(struct fence *fence, struct fence_cb *cb)
 #else
@@ -229,9 +255,11 @@ dma_buf_lock_fence_callback(struct dma_fence *fence, struct dma_fence_cb *cb)
 	if (atomic_dec_and_test(&resource->fence_dep_count)) {
 		atomic_set(&resource->locked, 1);
 		wake_up(&resource->wait);
-		/* A work item can be queued at this point to invoke
-		 * dma_buf_lock_fence_free_callbacks.
-		 */
+
+		if (resource->exclusive) {
+			/* Warn if the work was already queued */
+			WARN_ON(!schedule_work(&resource->work));
+		}
 	}
 }
 
@@ -524,6 +552,7 @@ static int dma_buf_lock_dolock(dma_buf_lock_k_request *request)
 	atomic_set(&resource->locked, 0);
 	kref_init(&resource->refcount);
 	INIT_LIST_HEAD(&resource->link);
+	INIT_WORK(&resource->work, dma_buf_lock_fence_work);
 	resource->count = request->count;
 
 	/* Allocate space to store dma_buf_fds received from user space */
@@ -636,6 +665,20 @@ static int dma_buf_lock_dolock(dma_buf_lock_k_request *request)
 		return ret;
 	}
 
+	/* Take an extra reference for exclusive access, which will be dropped
+	 * once the pre-existing fences attached to dma-buf resources, for which
+	 * we have commited for exclusive access, are signaled.
+	 * At a given time there can be only one exclusive fence attached to a
+	 * reservation object, so the new exclusive fence replaces the original
+	 * fence and the future sync is done against the new fence which is
+	 * supposed to be signaled only after the original fence was signaled.
+	 * If the new exclusive fence is signaled prematurely then the resources
+	 * would become available for new access while they are already being
+	 * written to by the original owner.
+	 */
+	if (resource->exclusive)
+		kref_get(&resource->refcount);
+
 	for (i = 0; i < request->count; i++) {
 		struct reservation_object *resv = resource->dma_bufs[i]->resv;
 
@@ -676,6 +719,15 @@ static int dma_buf_lock_dolock(dma_buf_lock_k_request *request)
 
 	dma_buf_lock_release_fence_reservation(resource, &ww_ctx);
 
+	/* Test if the callbacks were already triggered */
+	if (!atomic_sub_return(DMA_BUF_LOCK_INIT_BIAS, &resource->fence_dep_count)) {
+		atomic_set(&resource->locked, 1);
+
+		/* Drop the extra reference taken for exclusive access */
+		if (resource->exclusive)
+			dma_buf_lock_fence_work(&resource->work);
+	}
+
 	if (IS_ERR_VALUE((unsigned long)ret))
 	{
 		put_unused_fd(fd);
@@ -687,10 +739,6 @@ static int dma_buf_lock_dolock(dma_buf_lock_k_request *request)
 
 		return ret;
 	}
-
-	/* Test if the callbacks were already triggered */
-	if (!atomic_sub_return(DMA_BUF_LOCK_INIT_BIAS, &resource->fence_dep_count))
-		atomic_set(&resource->locked, 1);
 
 #if DMA_BUF_LOCK_DEBUG
 	printk("dma_buf_lock_dolock : complete\n");

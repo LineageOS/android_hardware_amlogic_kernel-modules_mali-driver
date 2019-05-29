@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 /*
  * Debugfs interface to dump the memory visible to the GPU
@@ -26,6 +31,10 @@
 #include <linux/file.h>
 
 #ifdef CONFIG_DEBUG_FS
+
+#if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
+#define get_file_rcu(x) atomic_long_inc_not_zero(&(x)->f_count)
+#endif
 
 struct debug_mem_mapping {
 	struct list_head node;
@@ -125,7 +134,7 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	if (!(map->flags & KBASE_REG_CPU_CACHED))
 		prot = pgprot_writecombine(prot);
 
-	page = phys_to_page(as_phys_addr_t(map->alloc->pages[data->offset]));
+	page = as_page(map->alloc->pages[data->offset]);
 	mapping = vmap(&page, 1, VM_MAP, prot);
 	if (!mapping)
 		goto out;
@@ -194,9 +203,12 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	struct debug_mem_data *mem_data;
 	int ret;
 
+	if (get_file_rcu(kctx_file) == 0)
+		return -ENOENT;
+
 	ret = seq_open(file, &ops);
 	if (ret)
-		return ret;
+		goto open_fail;
 
 	mem_data = kmalloc(sizeof(*mem_data), GFP_KERNEL);
 	if (!mem_data) {
@@ -208,17 +220,9 @@ static int debug_mem_open(struct inode *i, struct file *file)
 
 	INIT_LIST_HEAD(&mem_data->mapping_list);
 
-	get_file(kctx_file);
-
 	kbase_gpu_vm_lock(kctx);
 
 	ret = debug_mem_zone_open(&kctx->reg_rbtree_same, mem_data);
-	if (0 != ret) {
-		kbase_gpu_vm_unlock(kctx);
-		goto out;
-	}
-
-	ret = debug_mem_zone_open(&kctx->reg_rbtree_exec, mem_data);
 	if (0 != ret) {
 		kbase_gpu_vm_unlock(kctx);
 		goto out;
@@ -247,10 +251,12 @@ out:
 			list_del(&mapping->node);
 			kfree(mapping);
 		}
-		fput(kctx_file);
 		kfree(mem_data);
 	}
 	seq_release(i, file);
+open_fail:
+	fput(kctx_file);
+
 	return ret;
 }
 

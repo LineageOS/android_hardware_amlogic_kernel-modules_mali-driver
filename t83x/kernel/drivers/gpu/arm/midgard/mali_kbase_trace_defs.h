@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2011-2014 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2015,2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 
 
@@ -167,8 +172,6 @@ int dummy_array[] = {
 	KBASE_TRACE_CODE_MAKE_CODE(JS_JOB_DONE_TRY_RUN_NEXT_JOB),
 	/* gpu_addr==value to write into JS_HEAD */
 	KBASE_TRACE_CODE_MAKE_CODE(JS_JOB_DONE_RETRY_NEEDED),
-	/* kctx is the one being evicted, info_val == kctx to put in  */
-	KBASE_TRACE_CODE_MAKE_CODE(JS_FAST_START_EVICTS_CTX),
 	KBASE_TRACE_CODE_MAKE_CODE(JS_AFFINITY_SUBMIT_TO_BLOCKED),
 	/* info_val == lower 32 bits of affinity */
 	KBASE_TRACE_CODE_MAKE_CODE(JS_AFFINITY_CURRENT),
@@ -231,14 +234,8 @@ int dummy_array[] = {
 	/* PM_DESIRED_REACHED: gpu_addr == pm.gpu_in_desired_state */
 	KBASE_TRACE_CODE_MAKE_CODE(PM_DESIRED_REACHED),
 	KBASE_TRACE_CODE_MAKE_CODE(PM_DESIRED_REACHED_TILER),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_REGISTER_CHANGE_SHADER_INUSE),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_REGISTER_CHANGE_TILER_INUSE),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_REGISTER_CHANGE_SHADER_NEEDED),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_REGISTER_CHANGE_TILER_NEEDED),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_RELEASE_CHANGE_SHADER_INUSE),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_RELEASE_CHANGE_TILER_INUSE),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_UNREQUEST_CHANGE_SHADER_NEEDED),
-	KBASE_TRACE_CODE_MAKE_CODE(PM_UNREQUEST_CHANGE_TILER_NEEDED),
+	KBASE_TRACE_CODE_MAKE_CODE(PM_RELEASE_CHANGE_SHADER_NEEDED),
+	KBASE_TRACE_CODE_MAKE_CODE(PM_RELEASE_CHANGE_TILER_NEEDED),
 	KBASE_TRACE_CODE_MAKE_CODE(PM_REQUEST_CHANGE_SHADER_NEEDED),
 	KBASE_TRACE_CODE_MAKE_CODE(PM_REQUEST_CHANGE_TILER_NEEDED),
 	KBASE_TRACE_CODE_MAKE_CODE(PM_WAKE_WAITERS),

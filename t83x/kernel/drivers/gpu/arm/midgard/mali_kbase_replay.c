@@ -7,13 +7,18 @@
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 /**
  * @file mali_kbase_replay.c
@@ -659,8 +664,8 @@ static void kbasep_replay_create_atom(struct kbase_context *kctx,
 	atom->prio = prio;
 	atom->atom_number = atom_nr;
 
-	base_jd_atom_dep_set(&atom->pre_dep[0], 0 , BASE_JD_DEP_TYPE_INVALID);
-	base_jd_atom_dep_set(&atom->pre_dep[1], 0 , BASE_JD_DEP_TYPE_INVALID);
+	base_jd_atom_dep_set(&atom->pre_dep[0], 0, BASE_JD_DEP_TYPE_INVALID);
+	base_jd_atom_dep_set(&atom->pre_dep[1], 0, BASE_JD_DEP_TYPE_INVALID);
 
 	atom->udata.blob[0] = 0;
 	atom->udata.blob[1] = 0;
@@ -708,7 +713,8 @@ static int kbasep_replay_create_atoms(struct kbase_context *kctx,
 	kbasep_replay_create_atom(kctx, t_atom, t_atom_nr, prio);
 	kbasep_replay_create_atom(kctx, f_atom, f_atom_nr, prio);
 
-	base_jd_atom_dep_set(&f_atom->pre_dep[0], t_atom_nr , BASE_JD_DEP_TYPE_DATA);
+	base_jd_atom_dep_set(&f_atom->pre_dep[0], t_atom_nr,
+			     BASE_JD_DEP_TYPE_DATA);
 
 	return 0;
 }

@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2014-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2015, 2017-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 
 
@@ -27,21 +32,42 @@
 #include <mali_kbase_instr_defs.h>
 
 /**
- * kbase_instr_hwcnt_enable_internal - Enable HW counters collection
+ * struct kbase_instr_hwcnt_enable - Enable hardware counter collection.
+ * @dump_buffer:       GPU address to write counters to.
+ * @dump_buffer_bytes: Size in bytes of the buffer pointed to by dump_buffer.
+ * @jm_bm:             counters selection bitmask (JM).
+ * @shader_bm:         counters selection bitmask (Shader).
+ * @tiler_bm:          counters selection bitmask (Tiler).
+ * @mmu_l2_bm:         counters selection bitmask (MMU_L2).
+ * @use_secondary:     use secondary performance counters set for applicable
+ *                     counter blocks.
+ */
+struct kbase_instr_hwcnt_enable {
+	u64 dump_buffer;
+	u64 dump_buffer_bytes;
+	u32 jm_bm;
+	u32 shader_bm;
+	u32 tiler_bm;
+	u32 mmu_l2_bm;
+	bool use_secondary;
+};
+
+/**
+ * kbase_instr_hwcnt_enable_internal() - Enable HW counters collection
  * @kbdev:	Kbase device
  * @kctx:	Kbase context
- * @setup:	HW counter setup parameters
+ * @enable:	HW counter setup parameters
  *
  * Context: might sleep, waiting for reset to complete
  *
  * Return: 0 on success
  */
 int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
-					struct kbase_context *kctx,
-					struct kbase_uk_hwcnt_setup *setup);
+				struct kbase_context *kctx,
+				struct kbase_instr_hwcnt_enable *enable);
 
 /**
- * kbase_instr_hwcnt_disable_internal - Disable HW counters collection
+ * kbase_instr_hwcnt_disable_internal() - Disable HW counters collection
  * @kctx: Kbase context
  *
  * Context: might sleep, waiting for an ongoing dump to complete

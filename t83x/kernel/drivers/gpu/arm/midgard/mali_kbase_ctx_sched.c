@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #include <mali_kbase.h>
 #include <mali_kbase_config_defaults.h>
@@ -116,7 +121,8 @@ int kbase_ctx_sched_retain_ctx(struct kbase_context *kctx)
 
 				kctx->as_nr = free_as;
 				kbdev->as_to_kctx[free_as] = kctx;
-				kbase_mmu_update(kctx);
+				kbase_mmu_update(kbdev, &kctx->mmu,
+					kctx->as_nr);
 			}
 		} else {
 			atomic_dec(&kctx->refcount);
@@ -188,7 +194,8 @@ void kbase_ctx_sched_restore_all_as(struct kbase_device *kbdev)
 			if (atomic_read(&kctx->refcount)) {
 				WARN_ON(kctx->as_nr != i);
 
-				kbase_mmu_update(kctx);
+				kbase_mmu_update(kbdev, &kctx->mmu,
+					kctx->as_nr);
 			} else {
 				/* This context might have been assigned an
 				 * AS before, clear it.

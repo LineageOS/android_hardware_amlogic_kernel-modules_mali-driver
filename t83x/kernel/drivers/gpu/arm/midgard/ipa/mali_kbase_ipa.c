@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2016-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 #include <linux/thermal.h>
 #include <linux/devfreq_cooling.h>
 #include <linux/of.h>
@@ -21,6 +26,7 @@
 #include "mali_kbase_ipa.h"
 #include "mali_kbase_ipa_debugfs.h"
 #include "mali_kbase_ipa_simple.h"
+#include "backend/gpu/mali_kbase_pm_internal.h"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0))
 #include <linux/pm_opp.h>
@@ -32,11 +38,15 @@
 #endif
 
 #define KBASE_IPA_FALLBACK_MODEL_NAME "mali-simple-power-model"
-#define KBASE_IPA_G71_MODEL_NAME      "mali-g71-power-model"
 
-static struct kbase_ipa_model_ops *kbase_ipa_all_model_ops[] = {
+static const struct kbase_ipa_model_ops *kbase_ipa_all_model_ops[] = {
 	&kbase_simple_ipa_model_ops,
-	&kbase_g71_ipa_model_ops
+	&kbase_g71_ipa_model_ops,
+	&kbase_g72_ipa_model_ops,
+	&kbase_g76_ipa_model_ops,
+	&kbase_g52_ipa_model_ops,
+	&kbase_g52_r1_ipa_model_ops,
+	&kbase_g51_ipa_model_ops
 };
 
 int kbase_ipa_model_recalculate(struct kbase_ipa_model *model)
@@ -57,13 +67,13 @@ int kbase_ipa_model_recalculate(struct kbase_ipa_model *model)
 	return err;
 }
 
-static struct kbase_ipa_model_ops *kbase_ipa_model_ops_find(struct kbase_device *kbdev,
+const struct kbase_ipa_model_ops *kbase_ipa_model_ops_find(struct kbase_device *kbdev,
 							    const char *name)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(kbase_ipa_all_model_ops); ++i) {
-		struct kbase_ipa_model_ops *ops = kbase_ipa_all_model_ops[i];
+		const struct kbase_ipa_model_ops *ops = kbase_ipa_all_model_ops[i];
 
 		if (!strcmp(ops->name, name))
 			return ops;
@@ -73,16 +83,7 @@ static struct kbase_ipa_model_ops *kbase_ipa_model_ops_find(struct kbase_device 
 
 	return NULL;
 }
-
-void kbase_ipa_model_use_fallback_locked(struct kbase_device *kbdev)
-{
-	atomic_set(&kbdev->ipa_use_configured_model, false);
-}
-
-void kbase_ipa_model_use_configured_locked(struct kbase_device *kbdev)
-{
-	atomic_set(&kbdev->ipa_use_configured_model, true);
-}
+KBASE_EXPORT_TEST_API(kbase_ipa_model_ops_find);
 
 const char *kbase_ipa_model_name_from_id(u32 gpu_id)
 {
@@ -92,7 +93,20 @@ const char *kbase_ipa_model_name_from_id(u32 gpu_id)
 	if (GPU_ID_IS_NEW_FORMAT(prod_id)) {
 		switch (GPU_ID2_MODEL_MATCH_VALUE(prod_id)) {
 		case GPU_ID2_PRODUCT_TMIX:
-			return KBASE_IPA_G71_MODEL_NAME;
+			return "mali-g71-power-model";
+		case GPU_ID2_PRODUCT_THEX:
+			return "mali-g72-power-model";
+		case GPU_ID2_PRODUCT_TNOX:
+			return "mali-g76-power-model";
+		case GPU_ID2_PRODUCT_TSIX:
+			return "mali-g51-power-model";
+		case GPU_ID2_PRODUCT_TGOX:
+			if ((gpu_id & GPU_ID2_VERSION_MAJOR) ==
+					(0 << GPU_ID2_VERSION_MAJOR_SHIFT))
+				/* g52 aliased to g76 power-model's ops */
+				return "mali-g52-power-model";
+			else
+				return "mali-g52_r1-power-model";
 		default:
 			return KBASE_IPA_FALLBACK_MODEL_NAME;
 		}
@@ -100,6 +114,7 @@ const char *kbase_ipa_model_name_from_id(u32 gpu_id)
 
 	return KBASE_IPA_FALLBACK_MODEL_NAME;
 }
+KBASE_EXPORT_TEST_API(kbase_ipa_model_name_from_id);
 
 static struct device_node *get_model_dt_node(struct kbase_ipa_model *model)
 {
@@ -109,6 +124,10 @@ static struct device_node *get_model_dt_node(struct kbase_ipa_model *model)
 	snprintf(compat_string, sizeof(compat_string), "arm,%s",
 		 model->ops->name);
 
+	/* of_find_compatible_node() will call of_node_put() on the root node,
+	 * so take a reference on it first.
+	 */
+	of_node_get(model->kbdev->dev->of_node);
 	model_dt_node = of_find_compatible_node(model->kbdev->dev->of_node,
 						NULL, compat_string);
 	if (!model_dt_node && !model->missing_dt_node_warning) {
@@ -130,6 +149,10 @@ int kbase_ipa_model_add_param_s32(struct kbase_ipa_model *model,
 	char *origin;
 
 	err = of_property_read_u32_array(model_dt_node, name, addr, num_elems);
+	/* We're done with model_dt_node now, so drop the reference taken in
+	 * get_model_dt_node()/of_find_compatible_node().
+	 */
+	of_node_put(model_dt_node);
 
 	if (err && dt_required) {
 		memset(addr, 0, sizeof(s32) * num_elems);
@@ -177,6 +200,12 @@ int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model,
 
 	err = of_property_read_string(model_dt_node, name,
 				      &string_prop_value);
+
+	/* We're done with model_dt_node now, so drop the reference taken in
+	 * get_model_dt_node()/of_find_compatible_node().
+	 */
+	of_node_put(model_dt_node);
+
 	if (err && dt_required) {
 		strncpy(addr, "", size - 1);
 		dev_warn(model->kbdev->dev,
@@ -198,7 +227,6 @@ int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model,
 
 	err = kbase_ipa_model_param_add(model, name, addr, size,
 					PARAM_TYPE_STRING);
-
 	return err;
 }
 
@@ -219,7 +247,7 @@ void kbase_ipa_term_model(struct kbase_ipa_model *model)
 KBASE_EXPORT_TEST_API(kbase_ipa_term_model);
 
 struct kbase_ipa_model *kbase_ipa_init_model(struct kbase_device *kbdev,
-					     struct kbase_ipa_model_ops *ops)
+					     const struct kbase_ipa_model_ops *ops)
 {
 	struct kbase_ipa_model *model;
 	int err;
@@ -273,7 +301,7 @@ int kbase_ipa_init(struct kbase_device *kbdev)
 {
 
 	const char *model_name;
-	struct kbase_ipa_model_ops *ops;
+	const struct kbase_ipa_model_ops *ops;
 	struct kbase_ipa_model *default_model = NULL;
 	int err;
 
@@ -286,14 +314,6 @@ int kbase_ipa_init(struct kbase_device *kbdev)
 
 	/* The simple IPA model must *always* be present.*/
 	ops = kbase_ipa_model_ops_find(kbdev, KBASE_IPA_FALLBACK_MODEL_NAME);
-
-	if (!ops->do_utilization_scaling_in_framework) {
-		dev_err(kbdev->dev,
-			"Fallback IPA model %s should not account for utilization\n",
-			ops->name);
-		err = -EINVAL;
-		goto end;
-	}
 
 	default_model = kbase_ipa_init_model(kbdev, ops);
 	if (!default_model) {
@@ -325,14 +345,15 @@ int kbase_ipa_init(struct kbase_device *kbdev)
 		ops = kbase_ipa_model_ops_find(kbdev, model_name);
 		kbdev->ipa.configured_model = kbase_ipa_init_model(kbdev, ops);
 		if (!kbdev->ipa.configured_model) {
-			err = -EINVAL;
-			goto end;
+			dev_warn(kbdev->dev,
+				"Failed to initialize ipa-model: \'%s\'\n"
+				"Falling back on default model\n",
+				model_name);
+			kbdev->ipa.configured_model = default_model;
 		}
 	} else {
 		kbdev->ipa.configured_model = default_model;
 	}
-
-	kbase_ipa_model_use_configured_locked(kbdev);
 
 end:
 	if (err)
@@ -353,6 +374,8 @@ void kbase_ipa_term(struct kbase_device *kbdev)
 	mutex_lock(&kbdev->ipa.lock);
 	kbase_ipa_term_locked(kbdev);
 	mutex_unlock(&kbdev->ipa.lock);
+
+	mutex_destroy(&kbdev->ipa.lock);
 }
 KBASE_EXPORT_TEST_API(kbase_ipa_term);
 
@@ -422,14 +445,41 @@ u32 kbase_scale_static_power(const u32 c, const u32 voltage)
 	return div_u64(v3c_big, 1000000);
 }
 
+void kbase_ipa_protection_mode_switch_event(struct kbase_device *kbdev)
+{
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	/* Record the event of GPU entering protected mode. */
+	kbdev->ipa_protection_mode_switched = true;
+}
+
 static struct kbase_ipa_model *get_current_model(struct kbase_device *kbdev)
 {
+	struct kbase_ipa_model *model;
+	unsigned long flags;
+
 	lockdep_assert_held(&kbdev->ipa.lock);
 
-	if (atomic_read(&kbdev->ipa_use_configured_model))
-		return kbdev->ipa.configured_model;
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+
+	if (kbdev->ipa_protection_mode_switched ||
+			kbdev->ipa.force_fallback_model)
+		model = kbdev->ipa.fallback_model;
 	else
-		return kbdev->ipa.fallback_model;
+		model = kbdev->ipa.configured_model;
+
+	/*
+	 * Having taken cognizance of the fact that whether GPU earlier
+	 * protected mode or not, the event can be now reset (if GPU is not
+	 * currently in protected mode) so that configured model is used
+	 * for the next sample.
+	 */
+	if (!kbdev->protected_mode)
+		kbdev->ipa_protection_mode_switched = false;
+
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+	return model;
 }
 
 static u32 get_static_power_locked(struct kbase_device *kbdev,
@@ -472,6 +522,9 @@ static unsigned long kbase_get_static_power(unsigned long voltage)
 	struct kbase_device *kbdev = kbase_find_device(-1);
 #endif
 
+	if (!kbdev)
+		return 0ul;
+
 	mutex_lock(&kbdev->ipa.lock);
 
 	model = get_current_model(kbdev);
@@ -507,11 +560,14 @@ static unsigned long kbase_get_dynamic_power(unsigned long freq,
 	struct kbase_device *kbdev = kbase_find_device(-1);
 #endif
 
+	if (!kbdev)
+		return 0ul;
+
 	mutex_lock(&kbdev->ipa.lock);
 
 	model = kbdev->ipa.fallback_model;
 
-	err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+	err = model->ops->get_dynamic_coeff(model, &power_coeff);
 
 	if (!err)
 		power = kbase_scale_dynamic_power(power_coeff, freq, voltage);
@@ -530,48 +586,66 @@ static unsigned long kbase_get_dynamic_power(unsigned long freq,
 	return power;
 }
 
-int kbase_get_real_power(struct devfreq *df, u32 *power,
+int kbase_get_real_power_locked(struct kbase_device *kbdev, u32 *power,
 				unsigned long freq,
 				unsigned long voltage)
 {
 	struct kbase_ipa_model *model;
 	u32 power_coeff = 0;
 	int err = 0;
-	struct kbase_device *kbdev = dev_get_drvdata(&df->dev);
+	struct kbasep_pm_metrics diff;
+	u64 total_time;
 
-	mutex_lock(&kbdev->ipa.lock);
+	lockdep_assert_held(&kbdev->ipa.lock);
+
+	kbase_pm_get_dvfs_metrics(kbdev, &kbdev->ipa.last_metrics, &diff);
 
 	model = get_current_model(kbdev);
 
-	err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+	err = model->ops->get_dynamic_coeff(model, &power_coeff);
 
-	/* If we switch to protected model between get_current_model() and
-	 * get_dynamic_coeff(), counter reading could fail. If that happens
-	 * (unlikely, but possible), revert to the fallback model. */
+	/* If the counter model returns an error (e.g. switching back to
+	 * protected mode and failing to read counters, or a counter sample
+	 * with too few cycles), revert to the fallback model.
+	 */
 	if (err && model != kbdev->ipa.fallback_model) {
 		model = kbdev->ipa.fallback_model;
-		err = model->ops->get_dynamic_coeff(model, &power_coeff, freq);
+		err = model->ops->get_dynamic_coeff(model, &power_coeff);
 	}
 
 	if (err)
-		goto exit_unlock;
+		return err;
 
 	*power = kbase_scale_dynamic_power(power_coeff, freq, voltage);
 
-	if (model->ops->do_utilization_scaling_in_framework) {
-		struct devfreq_dev_status *status = &df->last_status;
-		unsigned long total_time = max(status->total_time, 1ul);
-		u64 busy_time = min(status->busy_time, total_time);
-
-		*power = div_u64((u64) *power * (u64) busy_time, total_time);
-	}
+	/* time_busy / total_time cannot be >1, so assigning the 64-bit
+	 * result of div_u64 to *power cannot overflow.
+	 */
+	total_time = diff.time_busy + (u64) diff.time_idle;
+	*power = div_u64(*power * (u64) diff.time_busy,
+			 max(total_time, 1ull));
 
 	*power += get_static_power_locked(kbdev, model, voltage);
 
-exit_unlock:
+	return err;
+}
+KBASE_EXPORT_TEST_API(kbase_get_real_power_locked);
+
+int kbase_get_real_power(struct devfreq *df, u32 *power,
+				unsigned long freq,
+				unsigned long voltage)
+{
+	int ret;
+	struct kbase_device *kbdev = dev_get_drvdata(&df->dev);
+
+	if (!kbdev)
+		return -ENODEV;
+
+	mutex_lock(&kbdev->ipa.lock);
+	ret = kbase_get_real_power_locked(kbdev, power, freq, voltage);
 	mutex_unlock(&kbdev->ipa.lock);
 
-	return err;
+	return ret;
 }
 KBASE_EXPORT_TEST_API(kbase_get_real_power);
 

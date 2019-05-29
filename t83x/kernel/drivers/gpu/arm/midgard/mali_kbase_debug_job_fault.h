@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2012-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2016, 2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #ifndef _KBASE_DEBUG_JOB_FAULT_H
 #define _KBASE_DEBUG_JOB_FAULT_H
@@ -58,6 +63,21 @@ void kbase_debug_job_fault_context_init(struct kbase_context *kctx);
  * @kctx: KBase context pointer
  */
 void kbase_debug_job_fault_context_term(struct kbase_context *kctx);
+
+/**
+ * kbase_debug_job_fault_kctx_unblock - Unblock the atoms blocked on job fault
+ *					dumping on context termination.
+ *
+ * This function is called during context termination to unblock the atom for
+ * which the job fault occurred and also the atoms following it. This is needed
+ * otherwise the wait for zero jobs could timeout (leading to an assertion
+ * failure, kernel panic in debug builds) in the pathological case where
+ * although the thread/daemon capturing the job fault events is running,
+ * but for some reasons has stopped consuming the events.
+ *
+ * @kctx: KBase context pointer
+ */
+void kbase_debug_job_fault_kctx_unblock(struct kbase_context *kctx);
 
 /**
  * kbase_debug_job_fault_process - Process the failed job.

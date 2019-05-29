@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2014-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -185,9 +190,8 @@ static int kbasep_jd_debugfs_atoms_show(struct seq_file *sfile, void *data)
 		kbasep_jd_debugfs_atom_deps(deps, atom);
 
 		seq_printf(sfile,
-				"%3u, %8x, %2u, %2u, %c%3u %c%3u, %20lld, ",
+				"%3u, %8x, %2u, %c%3u %c%3u, %20lld, ",
 				i, atom->core_req, atom->status,
-				atom->coreref_state,
 				deps[0].type, deps[0].id,
 				deps[1].type, deps[1].id,
 				start_timestamp);

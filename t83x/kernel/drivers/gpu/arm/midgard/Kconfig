@@ -1,17 +1,23 @@
 #
-# (C) COPYRIGHT 2012-2017 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2018 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
 # Foundation, and any use by you of this program is subject to the terms
 # of such GNU licence.
 #
-# A copy of the licence is included with the program, and can also be obtained
-# from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-# Boston, MA  02110-1301, USA.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+# SPDX-License-Identifier: GPL-2.0
 #
 #
-
 
 
 menuconfig MALI_MIDGARD
@@ -25,14 +31,12 @@ menuconfig MALI_MIDGARD
 	  this will generate a single module, called mali_kbase.
 
 config MALI_GATOR_SUPPORT
-	bool "Streamline support via Gator"
+	bool "Enable Streamline tracing support"
 	depends on MALI_MIDGARD
-	default n
+	default y
 	help
-	  Adds diagnostic support for use with the ARM Streamline Performance Analyzer.
-	  You will need the Gator device driver already loaded before loading this driver when enabling
-	  Streamline debug support.
-	  This is a legacy interface required by older versions of Streamline.
+	  Enables kbase tracing used by the Arm Streamline Performance Analyzer.
+	  The tracepoints are used to derive GPU activity charts in Streamline.
 
 config MALI_MIDGARD_DVFS
 	bool "Enable legacy DVFS"
@@ -52,6 +56,7 @@ config MALI_MIDGARD_ENABLE_TRACE
 config MALI_DEVFREQ
 	bool "devfreq support for Mali"
 	depends on MALI_MIDGARD && PM_DEVFREQ
+	default y
 	help
 	  Support devfreq for Mali.
 
@@ -101,19 +106,6 @@ config MALI_CORESTACK
 
 	  If unsure, say N.
 
-config MALI_PRFCNT_SET_SECONDARY
-	bool "Use secondary set of performance counters"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  Select this option to use secondary set of performance counters. Kernel
-	  features that depend on an access to the primary set of counters may
-	  become unavailable. Enabling this option will prevent power management
-	  from working optimally and may cause instrumentation tools to return
-	  bogus results.
-
-	  If unsure, say N.
-
 config MALI_DEBUG
 	bool "Debug build"
 	depends on MALI_MIDGARD && MALI_EXPERT
@@ -157,20 +149,13 @@ config MALI_ERROR_INJECT
 	help
 	  Enables insertion of errors to test module failure and recovery mechanisms.
 
-config MALI_TRACE_TIMELINE
-	bool "Timeline tracing"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  Enables timeline tracing through the kernel tracepoint system.
-
 config MALI_SYSTEM_TRACE
 	bool "Enable system event tracing support"
 	depends on MALI_MIDGARD && MALI_EXPERT
 	default n
 	help
 	  Choose this option to enable system trace events for each
-	  kbase event.	This is typically used for debugging but has
+	  kbase event. This is typically used for debugging but has
 	  minimal overhead when not in use. Enable only if you know what
 	  you are doing.
 
@@ -196,6 +181,31 @@ config MALI_PWRSOFT_765
 
 	  If using kernel >= v4.10 then say N, otherwise if devfreq cooling
 	  changes have been backported say Y to avoid compilation errors.
+
+# Instrumentation options.
+
+config MALI_JOB_DUMP
+	bool "Enable system level support needed for job dumping"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  Choose this option to enable system level support needed for
+	  job dumping. This is typically used for instrumentation but has
+	  minimal overhead when not in use. Enable only if you know what
+	  you are doing.
+
+config MALI_PRFCNT_SET_SECONDARY
+	bool "Use secondary set of performance counters"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  Select this option to use secondary set of performance counters. Kernel
+	  features that depend on an access to the primary set of counters may
+	  become unavailable. Enabling this option will prevent power management
+	  from working optimally and may cause instrumentation tools to return
+	  bogus results.
+
+	  If unsure, say N.
 
 source "drivers/gpu/arm/midgard/platform/Kconfig"
 source "drivers/gpu/arm/midgard/tests/Kconfig"

@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2011-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 
 
@@ -24,7 +29,6 @@
 #include <mali_kbase.h>
 #include <mali_midg_regmap.h>
 #include <mali_kbase_gpuprops.h>
-#include <mali_kbase_config_defaults.h>
 #include <mali_kbase_hwaccess_gpuprops.h>
 #include "mali_kbase_ioctl.h"
 #include <linux/clk.h>
@@ -134,7 +138,7 @@ static void kbase_gpuprops_get_props(base_gpu_props * const gpu_props, struct kb
 	gpu_props->raw_props.mem_features = regdump.mem_features;
 	gpu_props->raw_props.mmu_features = regdump.mmu_features;
 	gpu_props->raw_props.l2_features = regdump.l2_features;
-	gpu_props->raw_props.suspend_size = regdump.suspend_size;
+	gpu_props->raw_props.core_features = regdump.core_features;
 
 	gpu_props->raw_props.as_present = regdump.as_present;
 	gpu_props->raw_props.js_present = regdump.js_present;
@@ -161,6 +165,7 @@ static void kbase_gpuprops_get_props(base_gpu_props * const gpu_props, struct kb
 	gpu_props->raw_props.thread_max_threads = regdump.thread_max_threads;
 	gpu_props->raw_props.thread_max_workgroup_size = regdump.thread_max_workgroup_size;
 	gpu_props->raw_props.thread_features = regdump.thread_features;
+	gpu_props->raw_props.thread_tls_alloc = regdump.thread_tls_alloc;
 }
 
 void kbase_gpuprops_update_core_props_gpu_id(base_gpu_props * const gpu_props)
@@ -191,6 +196,8 @@ static void kbase_gpuprops_calculate_props(base_gpu_props * const gpu_props, str
 	kbase_gpuprops_update_core_props_gpu_id(gpu_props);
 	gpu_props->core_props.log2_program_counter_size = KBASE_GPU_PC_SIZE_LOG2;
 	gpu_props->core_props.gpu_available_memory_size = totalram_pages << PAGE_SHIFT;
+	gpu_props->core_props.num_exec_engines =
+		KBASE_UBFX32(gpu_props->raw_props.core_features, 0, 4);
 
 	for (i = 0; i < BASE_GPU_NUM_TEXTURE_FEATURES_REGISTERS; i++)
 		gpu_props->core_props.texture_features[i] = gpu_props->raw_props.texture_features[i];
@@ -221,6 +228,13 @@ static void kbase_gpuprops_calculate_props(base_gpu_props * const gpu_props, str
 		gpu_props->thread_props.max_barrier_size = THREAD_MBS_DEFAULT;
 	else
 		gpu_props->thread_props.max_barrier_size = gpu_props->raw_props.thread_max_barrier_size;
+
+	if (gpu_props->raw_props.thread_tls_alloc == 0)
+		gpu_props->thread_props.tls_alloc =
+				gpu_props->thread_props.max_threads;
+	else
+		gpu_props->thread_props.tls_alloc =
+				gpu_props->raw_props.thread_tls_alloc;
 
 	gpu_props->thread_props.max_registers = KBASE_UBFX32(gpu_props->raw_props.thread_features, 0U, 16);
 	gpu_props->thread_props.max_task_queue = KBASE_UBFX32(gpu_props->raw_props.thread_features, 16U, 8);
@@ -295,21 +309,20 @@ static struct {
 	int size;
 } gpu_property_mapping[] = {
 #define PROP(name, member) \
-	{KBASE_GPUPROP_ ## name, offsetof(struct mali_base_gpu_props, member), \
-		sizeof(((struct mali_base_gpu_props *)0)->member)}
+	{KBASE_GPUPROP_ ## name, offsetof(struct base_gpu_props, member), \
+		sizeof(((struct base_gpu_props *)0)->member)}
 	PROP(PRODUCT_ID,                  core_props.product_id),
 	PROP(VERSION_STATUS,              core_props.version_status),
 	PROP(MINOR_REVISION,              core_props.minor_revision),
 	PROP(MAJOR_REVISION,              core_props.major_revision),
-	PROP(GPU_SPEED_MHZ,               core_props.gpu_speed_mhz),
 	PROP(GPU_FREQ_KHZ_MAX,            core_props.gpu_freq_khz_max),
-	PROP(GPU_FREQ_KHZ_MIN,            core_props.gpu_freq_khz_min),
 	PROP(LOG2_PROGRAM_COUNTER_SIZE,   core_props.log2_program_counter_size),
 	PROP(TEXTURE_FEATURES_0,          core_props.texture_features[0]),
 	PROP(TEXTURE_FEATURES_1,          core_props.texture_features[1]),
 	PROP(TEXTURE_FEATURES_2,          core_props.texture_features[2]),
 	PROP(TEXTURE_FEATURES_3,          core_props.texture_features[3]),
 	PROP(GPU_AVAILABLE_MEMORY_SIZE,   core_props.gpu_available_memory_size),
+	PROP(NUM_EXEC_ENGINES,            core_props.num_exec_engines),
 
 	PROP(L2_LOG2_LINE_SIZE,           l2_props.log2_line_size),
 	PROP(L2_LOG2_CACHE_SIZE,          l2_props.log2_cache_size),
@@ -325,13 +338,14 @@ static struct {
 	PROP(MAX_TASK_QUEUE,              thread_props.max_task_queue),
 	PROP(MAX_THREAD_GROUP_SPLIT,      thread_props.max_thread_group_split),
 	PROP(IMPL_TECH,                   thread_props.impl_tech),
+	PROP(TLS_ALLOC,                   thread_props.tls_alloc),
 
 	PROP(RAW_SHADER_PRESENT,          raw_props.shader_present),
 	PROP(RAW_TILER_PRESENT,           raw_props.tiler_present),
 	PROP(RAW_L2_PRESENT,              raw_props.l2_present),
 	PROP(RAW_STACK_PRESENT,           raw_props.stack_present),
 	PROP(RAW_L2_FEATURES,             raw_props.l2_features),
-	PROP(RAW_SUSPEND_SIZE,            raw_props.suspend_size),
+	PROP(RAW_CORE_FEATURES,           raw_props.core_features),
 	PROP(RAW_MEM_FEATURES,            raw_props.mem_features),
 	PROP(RAW_MMU_FEATURES,            raw_props.mmu_features),
 	PROP(RAW_AS_PRESENT,              raw_props.as_present),
@@ -363,6 +377,7 @@ static struct {
 			raw_props.thread_max_workgroup_size),
 	PROP(RAW_THREAD_MAX_BARRIER_SIZE, raw_props.thread_max_barrier_size),
 	PROP(RAW_THREAD_FEATURES,         raw_props.thread_features),
+	PROP(RAW_THREAD_TLS_ALLOC,        raw_props.thread_tls_alloc),
 	PROP(RAW_COHERENCY_MODE,          raw_props.coherency_mode),
 
 	PROP(COHERENCY_NUM_GROUPS,        coherency_info.num_groups),
@@ -391,7 +406,7 @@ static struct {
 int kbase_gpuprops_populate_user_buffer(struct kbase_device *kbdev)
 {
 	struct kbase_gpu_props *kprops = &kbdev->gpu_props;
-	struct mali_base_gpu_props *props = &kprops->props;
+	struct base_gpu_props *props = &kprops->props;
 	u32 count = ARRAY_SIZE(gpu_property_mapping);
 	u32 i;
 	u32 size = 0;

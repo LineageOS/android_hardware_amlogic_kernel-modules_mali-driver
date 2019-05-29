@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #ifndef _KBASE_IOCTL_H_
 #define _KBASE_IOCTL_H_
@@ -22,23 +27,48 @@
 extern "C" {
 #endif
 
+#include <asm-generic/ioctl.h>
 #include <linux/types.h>
 
 #define KBASE_IOCTL_TYPE 0x80
 
-#define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 0
-
-#ifdef ANDROID
-/* Android's definition of ioctl is incorrect, specifying the type argument as
- * 'int'. This creates a warning when using _IOWR (as the top bit is set). Work
- * round this by redefining _IOC to include a case to 'int'.
+/*
+ * 11.1:
+ * - Add BASE_MEM_TILER_ALIGN_TOP under base_mem_alloc_flags
+ * 11.2:
+ * - KBASE_MEM_QUERY_FLAGS can return KBASE_REG_PF_GROW and KBASE_REG_SECURE,
+ *   which some user-side clients prior to 11.2 might fault if they received
+ *   them
+ * 11.3:
+ * - New ioctls KBASE_IOCTL_STICKY_RESOURCE_MAP and
+ *   KBASE_IOCTL_STICKY_RESOURCE_UNMAP
+ * 11.4:
+ * - New ioctl KBASE_IOCTL_MEM_FIND_GPU_START_AND_OFFSET
+ * 11.5:
+ * - New ioctl: KBASE_IOCTL_MEM_JIT_INIT (old ioctl renamed to _OLD)
+ * 11.6:
+ * - Added flags field to base_jit_alloc_info structure, which can be used to
+ *   specify pseudo chunked tiler alignment for JIT allocations.
+ * 11.7:
+ * - Removed UMP support
+ * 11.8:
+ * - Added BASE_MEM_UNCACHED_GPU under base_mem_alloc_flags
+ * 11.9:
+ * - Added BASE_MEM_PERMANENT_KERNEL_MAPPING and BASE_MEM_FLAGS_KERNEL_ONLY
+ *   under base_mem_alloc_flags
+ * 11.10:
+ * - Enabled the use of nr_extres field of base_jd_atom_v2 structure for
+ *   JIT_ALLOC and JIT_FREE type softjobs to enable multiple JIT allocations
+ *   with one softjob.
+ * 11.11:
+ * - Added BASE_MEM_GPU_VA_SAME_4GB_PAGE under base_mem_alloc_flags
+ * 11.12:
+ * - Removed ioctl: KBASE_IOCTL_GET_PROFILING_CONTROLS
+ * 11.13:
+ * - New ioctl: KBASE_IOCTL_MEM_EXEC_INIT
  */
-#undef _IOC
-#define _IOC(dir, type, nr, size) \
-	((int)(((dir) << _IOC_DIRSHIFT) | ((type) << _IOC_TYPESHIFT) | \
-	((nr) << _IOC_NRSHIFT) | ((size) << _IOC_SIZESHIFT)))
-#endif
+#define BASE_UK_VERSION_MAJOR 11
+#define BASE_UK_VERSION_MINOR 13
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility with kernel
@@ -173,9 +203,9 @@ union kbase_ioctl_mem_query {
 #define KBASE_IOCTL_MEM_QUERY \
 	_IOWR(KBASE_IOCTL_TYPE, 6, union kbase_ioctl_mem_query)
 
-#define KBASE_MEM_QUERY_COMMIT_SIZE	1
-#define KBASE_MEM_QUERY_VA_SIZE		2
-#define KBASE_MEM_QUERY_FLAGS		3
+#define KBASE_MEM_QUERY_COMMIT_SIZE	((u64)1)
+#define KBASE_MEM_QUERY_VA_SIZE		((u64)2)
+#define KBASE_MEM_QUERY_FLAGS		((u64)3)
 
 /**
  * struct kbase_ioctl_mem_free - Free a memory region
@@ -235,6 +265,21 @@ struct kbase_ioctl_hwcnt_enable {
 	_IO(KBASE_IOCTL_TYPE, 11)
 
 /**
+ * struct kbase_ioctl_hwcnt_values - Values to set dummy the dummy counters to.
+ * @data:    Counter samples for the dummy model.
+ * @size:    Size of the counter sample data.
+ * @padding: Padding.
+ */
+struct kbase_ioctl_hwcnt_values {
+	__u64 data;
+	__u32 size;
+	__u32 padding;
+};
+
+#define KBASE_IOCTL_HWCNT_SET \
+	_IOW(KBASE_IOCTL_TYPE, 32, struct kbase_ioctl_hwcnt_values)
+
+/**
  * struct kbase_ioctl_disjoint_query - Query the disjoint counter
  * @counter:   A counter of disjoint events in the kernel
  */
@@ -253,6 +298,10 @@ struct kbase_ioctl_disjoint_query {
  *
  * The ioctl will return the number of bytes written into version_buffer
  * (which includes a NULL byte) or a negative error code
+ *
+ * The ioctl request code has to be _IOW because the data in ioctl struct is
+ * being copied to the kernel, even though the kernel then writes out the
+ * version info to the buffer specified in the ioctl.
  */
 struct kbase_ioctl_get_ddk_version {
 	__u64 version_buffer;
@@ -264,15 +313,39 @@ struct kbase_ioctl_get_ddk_version {
 	_IOW(KBASE_IOCTL_TYPE, 13, struct kbase_ioctl_get_ddk_version)
 
 /**
+ * struct kbase_ioctl_mem_jit_init_old - Initialise the JIT memory allocator
+ *
+ * @va_pages: Number of VA pages to reserve for JIT
+ *
+ * Note that depending on the VA size of the application and GPU, the value
+ * specified in @va_pages may be ignored.
+ *
+ * New code should use KBASE_IOCTL_MEM_JIT_INIT instead, this is kept for
+ * backwards compatibility.
+ */
+struct kbase_ioctl_mem_jit_init_old {
+	__u64 va_pages;
+};
+
+#define KBASE_IOCTL_MEM_JIT_INIT_OLD \
+	_IOW(KBASE_IOCTL_TYPE, 14, struct kbase_ioctl_mem_jit_init_old)
+
+/**
  * struct kbase_ioctl_mem_jit_init - Initialise the JIT memory allocator
  *
  * @va_pages: Number of VA pages to reserve for JIT
+ * @max_allocations: Maximum number of concurrent allocations
+ * @trim_level: Level of JIT allocation trimming to perform on free (0 - 100%)
+ * @padding: Currently unused, must be zero
  *
  * Note that depending on the VA size of the application and GPU, the value
  * specified in @va_pages may be ignored.
  */
 struct kbase_ioctl_mem_jit_init {
 	__u64 va_pages;
+	__u8 max_allocations;
+	__u8 trim_level;
+	__u8 padding[6];
 };
 
 #define KBASE_IOCTL_MEM_JIT_INIT \
@@ -474,21 +547,6 @@ struct kbase_ioctl_fence_validate {
 	_IOW(KBASE_IOCTL_TYPE, 25, struct kbase_ioctl_fence_validate)
 
 /**
- * struct kbase_ioctl_get_profiling_controls - Get the profiling controls
- * @count: The size of @buffer in u32 words
- * @buffer: The buffer to receive the profiling controls
- * @padding: Padding
- */
-struct kbase_ioctl_get_profiling_controls {
-	__u64 buffer;
-	__u32 count;
-	__u32 padding;
-};
-
-#define KBASE_IOCTL_GET_PROFILING_CONTROLS \
-	_IOW(KBASE_IOCTL_TYPE, 26, struct kbase_ioctl_get_profiling_controls)
-
-/**
  * struct kbase_ioctl_mem_profile_add - Provide profiling information to kernel
  * @buffer: Pointer to the information
  * @len: Length
@@ -520,7 +578,115 @@ struct kbase_ioctl_soft_event_update {
 #define KBASE_IOCTL_SOFT_EVENT_UPDATE \
 	_IOW(KBASE_IOCTL_TYPE, 28, struct kbase_ioctl_soft_event_update)
 
-/* IOCTLs 29-32 are reserved */
+/**
+ * struct kbase_ioctl_sticky_resource_map - Permanently map an external resource
+ * @count: Number of resources
+ * @address: Array of u64 GPU addresses of the external resources to map
+ */
+struct kbase_ioctl_sticky_resource_map {
+	__u64 count;
+	__u64 address;
+};
+
+#define KBASE_IOCTL_STICKY_RESOURCE_MAP \
+	_IOW(KBASE_IOCTL_TYPE, 29, struct kbase_ioctl_sticky_resource_map)
+
+/**
+ * struct kbase_ioctl_sticky_resource_map - Unmap a resource mapped which was
+ *                                          previously permanently mapped
+ * @count: Number of resources
+ * @address: Array of u64 GPU addresses of the external resources to unmap
+ */
+struct kbase_ioctl_sticky_resource_unmap {
+	__u64 count;
+	__u64 address;
+};
+
+#define KBASE_IOCTL_STICKY_RESOURCE_UNMAP \
+	_IOW(KBASE_IOCTL_TYPE, 30, struct kbase_ioctl_sticky_resource_unmap)
+
+/**
+ * union kbase_ioctl_mem_find_gpu_start_and_offset - Find the start address of
+ *                                                   the GPU memory region for
+ *                                                   the given gpu address and
+ *                                                   the offset of that address
+ *                                                   into the region
+ *
+ * @gpu_addr: GPU virtual address
+ * @size: Size in bytes within the region
+ * @start: Address of the beginning of the memory region enclosing @gpu_addr
+ *         for the length of @offset bytes
+ * @offset: The offset from the start of the memory region to @gpu_addr
+ *
+ * @in: Input parameters
+ * @out: Output parameters
+ */
+union kbase_ioctl_mem_find_gpu_start_and_offset {
+	struct {
+		__u64 gpu_addr;
+		__u64 size;
+	} in;
+	struct {
+		__u64 start;
+		__u64 offset;
+	} out;
+};
+
+#define KBASE_IOCTL_MEM_FIND_GPU_START_AND_OFFSET \
+	_IOWR(KBASE_IOCTL_TYPE, 31, union kbase_ioctl_mem_find_gpu_start_and_offset)
+
+
+#define KBASE_IOCTL_CINSTR_GWT_START \
+	_IO(KBASE_IOCTL_TYPE, 33)
+
+#define KBASE_IOCTL_CINSTR_GWT_STOP \
+	_IO(KBASE_IOCTL_TYPE, 34)
+
+/**
+ * union kbase_ioctl_gwt_dump - Used to collect all GPU write fault addresses.
+ * @addr_buffer: Address of buffer to hold addresses of gpu modified areas.
+ * @size_buffer: Address of buffer to hold size of modified areas (in pages)
+ * @len: Number of addresses the buffers can hold.
+ * @more_data_available: Status indicating if more addresses are available.
+ * @no_of_addr_collected: Number of addresses collected into addr_buffer.
+ *
+ * @in: Input parameters
+ * @out: Output parameters
+ *
+ * This structure is used when performing a call to dump GPU write fault
+ * addresses.
+ */
+union kbase_ioctl_cinstr_gwt_dump {
+	struct {
+		__u64 addr_buffer;
+		__u64 size_buffer;
+		__u32 len;
+		__u32 padding;
+
+	} in;
+	struct {
+		__u32 no_of_addr_collected;
+		__u8 more_data_available;
+		__u8 padding[27];
+	} out;
+};
+
+#define KBASE_IOCTL_CINSTR_GWT_DUMP \
+	_IOWR(KBASE_IOCTL_TYPE, 35, union kbase_ioctl_cinstr_gwt_dump)
+
+
+/**
+ * struct kbase_ioctl_mem_exec_init - Initialise the EXEC_VA memory zone
+ *
+ * @va_pages: Number of VA pages to reserve for EXEC_VA
+ */
+struct kbase_ioctl_mem_exec_init {
+	__u64 va_pages;
+};
+
+#define KBASE_IOCTL_MEM_EXEC_INIT \
+	_IOW(KBASE_IOCTL_TYPE, 38, struct kbase_ioctl_mem_exec_init)
+
 
 /***************
  * test ioctls *
@@ -563,7 +729,53 @@ struct kbase_ioctl_tlstream_stats {
 #define KBASE_IOCTL_TLSTREAM_STATS \
 	_IOR(KBASE_IOCTL_TEST_TYPE, 2, struct kbase_ioctl_tlstream_stats)
 
+/**
+ * struct kbase_ioctl_cs_event_memory_write - Write an event memory address
+ * @cpu_addr: Memory address to write
+ * @value: Value to write
+ * @padding: Currently unused, must be zero
+ */
+struct kbase_ioctl_cs_event_memory_write {
+	__u64 cpu_addr;
+	__u8 value;
+	__u8 padding[7];
+};
+
+/**
+ * union kbase_ioctl_cs_event_memory_read - Read an event memory address
+ * @cpu_addr: Memory address to read
+ * @value: Value read
+ * @padding: Currently unused, must be zero
+ *
+ * @in: Input parameters
+ * @out: Output parameters
+ */
+union kbase_ioctl_cs_event_memory_read {
+	struct {
+		__u64 cpu_addr;
+	} in;
+	struct {
+		__u8 value;
+		__u8 padding[7];
+	} out;
+};
+
 #endif
+
+/* Customer extension range */
+#define KBASE_IOCTL_EXTRA_TYPE (KBASE_IOCTL_TYPE + 2)
+
+/* If the integration needs extra ioctl add them there
+ * like this:
+ *
+ * struct my_ioctl_args {
+ *  ....
+ * }
+ *
+ * #define KBASE_IOCTL_MY_IOCTL \
+ *         _IOWR(KBASE_IOCTL_EXTRA_TYPE, 0, struct my_ioctl_args)
+ */
+
 
 /**********************************
  * Definitions for GPU properties *
@@ -577,9 +789,9 @@ struct kbase_ioctl_tlstream_stats {
 #define KBASE_GPUPROP_VERSION_STATUS			2
 #define KBASE_GPUPROP_MINOR_REVISION			3
 #define KBASE_GPUPROP_MAJOR_REVISION			4
-#define KBASE_GPUPROP_GPU_SPEED_MHZ			5
+/* 5 previously used for GPU speed */
 #define KBASE_GPUPROP_GPU_FREQ_KHZ_MAX			6
-#define KBASE_GPUPROP_GPU_FREQ_KHZ_MIN			7
+/* 7 previously used for minimum GPU speed */
 #define KBASE_GPUPROP_LOG2_PROGRAM_COUNTER_SIZE		8
 #define KBASE_GPUPROP_TEXTURE_FEATURES_0		9
 #define KBASE_GPUPROP_TEXTURE_FEATURES_1		10
@@ -606,7 +818,7 @@ struct kbase_ioctl_tlstream_stats {
 #define KBASE_GPUPROP_RAW_L2_PRESENT			27
 #define KBASE_GPUPROP_RAW_STACK_PRESENT			28
 #define KBASE_GPUPROP_RAW_L2_FEATURES			29
-#define KBASE_GPUPROP_RAW_SUSPEND_SIZE			30
+#define KBASE_GPUPROP_RAW_CORE_FEATURES			30
 #define KBASE_GPUPROP_RAW_MEM_FEATURES			31
 #define KBASE_GPUPROP_RAW_MMU_FEATURES			32
 #define KBASE_GPUPROP_RAW_AS_PRESENT			33
@@ -660,6 +872,11 @@ struct kbase_ioctl_tlstream_stats {
 
 #define KBASE_GPUPROP_TEXTURE_FEATURES_3		80
 #define KBASE_GPUPROP_RAW_TEXTURE_FEATURES_3		81
+
+#define KBASE_GPUPROP_NUM_EXEC_ENGINES                  82
+
+#define KBASE_GPUPROP_RAW_THREAD_TLS_ALLOC		83
+#define KBASE_GPUPROP_TLS_ALLOC				84
 
 #ifdef __cpluscplus
 }

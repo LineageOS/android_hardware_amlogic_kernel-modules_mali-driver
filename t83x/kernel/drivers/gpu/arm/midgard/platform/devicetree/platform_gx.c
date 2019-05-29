@@ -230,7 +230,8 @@ void mali_post_init(void)
         gcdev->get_online_pp = mali_get_online_pp;
 #endif
         err = gpufreq_cooling_register(gcdev);
-#ifdef CONFIG_DEVFREQ_THERMAL
+#if 0
+//#ifdef CONFIG_DEVFREQ_THERMAL
         aml_thermal_min_update(gcdev->cool_dev);
 #endif
         if (err < 0)
@@ -247,7 +248,8 @@ void mali_post_init(void)
         gccdev->max_gpu_core_num=mali_plat_data.cfg_pp;
         gccdev->set_max_pp_num=set_limit_pp_num;
         err = (int)gpucore_cooling_register(gccdev);
-#ifdef CONFIG_DEVFREQ_THERMAL
+#if 0
+//#ifdef CONFIG_DEVFREQ_THERMAL
         aml_thermal_min_update(gccdev->cool_dev);
 #endif
         if (err < 0)

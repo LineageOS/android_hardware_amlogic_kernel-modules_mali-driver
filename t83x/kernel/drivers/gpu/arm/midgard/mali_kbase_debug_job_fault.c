@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2012-2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2016, 2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #include <mali_kbase.h>
 #include <linux/spinlock.h>
@@ -32,6 +37,30 @@ static bool kbase_is_job_fault_event_pending(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->job_fault_event_lock, flags);
 
 	return ret;
+}
+
+static void kbase_ctx_remove_pending_event(struct kbase_context *kctx)
+{
+	struct list_head *event_list = &kctx->kbdev->job_fault_event_list;
+	struct base_job_fault_event *event;
+	unsigned long flags;
+
+	spin_lock_irqsave(&kctx->kbdev->job_fault_event_lock, flags);
+	list_for_each_entry(event, event_list, head) {
+		if (event->katom->kctx == kctx) {
+			list_del(&event->head);
+			spin_unlock_irqrestore(&kctx->kbdev->job_fault_event_lock, flags);
+
+			wake_up(&kctx->kbdev->job_fault_resume_wq);
+			flush_work(&event->job_fault_work);
+
+			/* job_fault_event_list can only have a single atom for
+			 * each context.
+			 */
+			return;
+		}
+	}
+	spin_unlock_irqrestore(&kctx->kbdev->job_fault_event_lock, flags);
 }
 
 static bool kbase_ctx_has_no_event_pending(struct kbase_context *kctx)
@@ -66,7 +95,7 @@ static int kbase_job_fault_event_wait(struct kbase_device *kbdev,
 	unsigned long               flags;
 
 	spin_lock_irqsave(&kbdev->job_fault_event_lock, flags);
-	if (list_empty(event_list)) {
+	while (list_empty(event_list)) {
 		spin_unlock_irqrestore(&kbdev->job_fault_event_lock, flags);
 		if (wait_event_interruptible(kbdev->job_fault_wq,
 				 kbase_is_job_fault_event_pending(kbdev)))
@@ -232,6 +261,9 @@ bool kbase_debug_job_fault_process(struct kbase_jd_atom *katom,
 		return true;
 	}
 
+	if (kbase_ctx_flag(kctx, KCTX_DYING))
+		return false;
+
 	if (kctx->kbdev->job_fault_debug == true) {
 
 		if (completion_code != BASE_JD_EVENT_DONE) {
@@ -332,7 +364,7 @@ static void *debug_job_fault_start(struct seq_file *m, loff_t *pos)
 		 * job done but we delayed it. Now we should clean cache
 		 * earlier. Then the GPU memory dump should be correct.
 		 */
-		kbase_backend_cacheclean(kbdev, event->katom);
+		kbase_backend_cache_clean(kbdev, event->katom);
 	} else
 		return NULL;
 
@@ -481,6 +513,13 @@ void kbase_debug_job_fault_context_init(struct kbase_context *kctx)
 void kbase_debug_job_fault_context_term(struct kbase_context *kctx)
 {
 	vfree(kctx->reg_dump);
+}
+
+void kbase_debug_job_fault_kctx_unblock(struct kbase_context *kctx)
+{
+	WARN_ON(!kbase_ctx_flag(kctx, KCTX_DYING));
+
+	kbase_ctx_remove_pending_event(kctx);
 }
 
 #else /* CONFIG_DEBUG_FS */

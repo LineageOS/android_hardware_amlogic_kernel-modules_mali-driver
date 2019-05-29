@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2012-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #include <linux/dma-buf-test-exporter.h>
 #include <linux/dma-buf.h>
@@ -55,7 +60,11 @@ struct dma_buf_te_alloc {
 
 static struct miscdevice te_device;
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
 static int dma_buf_te_attach(struct dma_buf *buf, struct device *dev, struct dma_buf_attachment *attachment)
+#else
+static int dma_buf_te_attach(struct dma_buf *buf, struct dma_buf_attachment *attachment)
+#endif
 {
 	struct dma_buf_te_alloc	*alloc;
 	alloc = buf->priv;
@@ -271,11 +280,13 @@ static int dma_buf_te_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 static void *dma_buf_te_kmap_atomic(struct dma_buf *buf, unsigned long page_num)
 {
 	/* IGNORE */
 	return NULL;
 }
+#endif
 
 static void *dma_buf_te_kmap(struct dma_buf *buf, unsigned long page_num)
 {
@@ -318,8 +329,10 @@ static struct dma_buf_ops dma_buf_te_ops = {
 	.map = dma_buf_te_kmap,
 	.unmap = dma_buf_te_kunmap,
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 	/* nop handlers for mandatory functions we ignore */
 	.map_atomic = dma_buf_te_kmap_atomic
+#endif
 #endif
 };
 

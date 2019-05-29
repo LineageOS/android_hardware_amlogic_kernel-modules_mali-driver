@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2010-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 #ifndef _MIDGARD_REGMAP_H_
 #define _MIDGARD_REGMAP_H_
@@ -29,8 +34,7 @@
 #define GPU_CONTROL_REG(r)      (GPU_CONTROL_BASE + (r))
 #define GPU_ID                  0x000	/* (RO) GPU and revision identifier */
 #define L2_FEATURES             0x004	/* (RO) Level 2 cache features */
-#define SUSPEND_SIZE            0x008   /* (RO) Fixed-function suspend buffer
-						size */
+#define CORE_FEATURES           0x008	/* (RO) Shader Core Features */
 #define TILER_FEATURES          0x00C	/* (RO) Tiler Features */
 #define MEM_FEATURES            0x010	/* (RO) Memory system features */
 #define MMU_FEATURES            0x014	/* (RO) MMU features */
@@ -40,6 +44,7 @@
 #define GPU_IRQ_CLEAR           0x024	/* (WO) */
 #define GPU_IRQ_MASK            0x028	/* (RW) */
 #define GPU_IRQ_STATUS          0x02C	/* (RO) */
+
 
 /* IRQ flags */
 #define GPU_FAULT               (1 << 0)	/* A GPU Fault has occurred */
@@ -88,6 +93,9 @@
 #define THREAD_MAX_WORKGROUP_SIZE 0x0A4	/* (RO) Maximum workgroup size */
 #define THREAD_MAX_BARRIER_SIZE 0x0A8	/* (RO) Maximum threads waiting at a barrier */
 #define THREAD_FEATURES         0x0AC	/* (RO) Thread features */
+#define THREAD_TLS_ALLOC        0x310   /* (RO) Number of threads per core that
+					 * TLS must be allocated for
+					 */
 
 #define TEXTURE_FEATURES_0      0x0B0	/* (RO) Support flags for indexed texture formats 0..31 */
 #define TEXTURE_FEATURES_1      0x0B4	/* (RO) Support flags for indexed texture formats 32..63 */
@@ -207,6 +215,9 @@
 #define JOB_IRQ_STATUS          0x00C	/* Interrupt status register */
 #define JOB_IRQ_JS_STATE        0x010	/* status==active and _next == busy snapshot from last JOB_IRQ_CLEAR */
 #define JOB_IRQ_THROTTLE        0x014	/* cycles to delay delivering an interrupt externally. The JOB_IRQ_STATUS is NOT affected by this, just the delivery of the interrupt.  */
+
+/* JOB IRQ flags */
+#define JOB_IRQ_GLOBAL_IF       (1 << 31)   /* Global interface interrupt received */
 
 #define JOB_SLOT0               0x800	/* Configuration registers for job slot 0 */
 #define JOB_SLOT1               0x880	/* Configuration registers for job slot 1 */
@@ -370,14 +381,14 @@
 /*
  * Begin TRANSCFG register values
  */
-#define AS_TRANSCFG_PTW_MEMATTR_MASK (3 << 24)
-#define AS_TRANSCFG_PTW_MEMATTR_NON_CACHEABLE (1 << 24)
-#define AS_TRANSCFG_PTW_MEMATTR_WRITE_BACK (2 << 24)
+#define AS_TRANSCFG_PTW_MEMATTR_MASK (3ull << 24)
+#define AS_TRANSCFG_PTW_MEMATTR_NON_CACHEABLE (1ull << 24)
+#define AS_TRANSCFG_PTW_MEMATTR_WRITE_BACK (2ull << 24)
 
-#define AS_TRANSCFG_PTW_SH_MASK ((3 << 28))
-#define AS_TRANSCFG_PTW_SH_OS (2 << 28)
-#define AS_TRANSCFG_PTW_SH_IS (3 << 28)
-
+#define AS_TRANSCFG_PTW_SH_MASK ((3ull << 28))
+#define AS_TRANSCFG_PTW_SH_OS (2ull << 28)
+#define AS_TRANSCFG_PTW_SH_IS (3ull << 28)
+#define AS_TRANSCFG_R_ALLOCATE (1ull << 30)
 /*
  * Begin Command Values
  */
@@ -490,7 +501,7 @@
 #define PRFCNT_CONFIG_MODE_MANUAL 1	/* The performance counters are enabled, but are only written out when a PRFCNT_SAMPLE command is issued using the GPU_COMMAND register. */
 #define PRFCNT_CONFIG_MODE_TILE   2	/* The performance counters are enabled, and are written out each time a tile finishes rendering. */
 
-/* AS<n>_MEMATTR values: */
+/* AS<n>_MEMATTR values from MMU_MEMATTR_STAGE1: */
 /* Use GPU implementation-defined caching policy. */
 #define AS_MEMATTR_IMPL_DEF_CACHE_POLICY 0x88ull
 /* The attribute set to force all resources to be cached. */
@@ -502,6 +513,12 @@
 #define AS_MEMATTR_AARCH64_OUTER_IMPL_DEF 0x88ull
 /* Set to write back memory, outer caching */
 #define AS_MEMATTR_AARCH64_OUTER_WA       0x8Dull
+/* Set to inner non-cacheable, outer-non-cacheable
+ * Setting defined by the alloc bits is ignored, but set to a valid encoding:
+ * - no-alloc on read
+ * - no alloc on write
+ */
+#define AS_MEMATTR_AARCH64_NON_CACHEABLE  0x4Cull
 
 /* Use GPU implementation-defined  caching policy. */
 #define AS_MEMATTR_LPAE_IMPL_DEF_CACHE_POLICY 0x48ull
@@ -513,6 +530,11 @@
 #define AS_MEMATTR_LPAE_OUTER_IMPL_DEF        0x88ull
 /* Set to write back memory, outer caching */
 #define AS_MEMATTR_LPAE_OUTER_WA              0x8Dull
+/* There is no LPAE support for non-cacheable, since the memory type is always
+ * write-back.
+ * Marking this setting as reserved for LPAE
+ */
+#define AS_MEMATTR_LPAE_NON_CACHEABLE_RESERVED
 
 /* Symbols for default MEMATTR to use
  * Default is - HW implementation defined caching */
@@ -529,6 +551,8 @@
 #define AS_MEMATTR_INDEX_OUTER_IMPL_DEF        3
 /* Outer coherent, write alloc inner */
 #define AS_MEMATTR_INDEX_OUTER_WA              4
+/* Normal memory, inner non-cacheable, outer non-cacheable (ARMv8 mode only) */
+#define AS_MEMATTR_INDEX_NON_CACHEABLE         5
 
 /* JS<n>_FEATURES register */
 
