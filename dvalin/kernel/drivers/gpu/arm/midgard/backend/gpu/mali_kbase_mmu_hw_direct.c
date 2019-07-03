@@ -157,6 +157,7 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		 * for not-found here
 		 */
 		as_no = ffs(bf_bits | pf_bits) - 1;
+		KBASE_DEBUG_ASSERT(as_no >= 0);
 		as = &kbdev->as[as_no];
 
 		/* find the fault type */
