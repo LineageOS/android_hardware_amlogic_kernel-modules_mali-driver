@@ -41,7 +41,7 @@ MODULE_PARM_DESC(gpu_dbg_level, "gpu debug level");
 #define GPU_CLK_DBG(fmt, arg...)
 
 //disable print
-#define _dev_info(...)
+//#define _dev_info(...)
 
 //static DEFINE_SPINLOCK(lock);
 static mali_plat_info_t* pmali_plat = NULL;
@@ -355,9 +355,12 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	ret = of_property_read_u32(gpu_dn,"def_clk",
 			&mpdata->def_clock);
 	if (ret) {
-		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->dvfs_table_size/2-1);
-		mpdata->def_clock = mpdata->dvfs_table_size/2 - 1;
+		mpdata->def_clock = mpdata->scale_info.maxclk;
+		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->def_clock);
 	}
+	if (mpdata->def_clock > mpdata->scale_info.maxclk)
+		mpdata->def_clock = mpdata->scale_info.maxclk;
+
 	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	dvfs_tbl = mpdata->dvfs_table;
@@ -388,10 +391,17 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 #else
 int mali_clock_init_clk_tree(struct platform_device* pdev)
 {
-	//mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[pmali_plat->def_clock];
+	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[pmali_plat->def_clock];
 	struct clk *clk_mali = pmali_plat->clk_mali;
 
+	if ((0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) &&
+			!IS_ERR(dvfs_tbl->clkp_handle) &&
+			(0 != dvfs_tbl->clkp_freq)) {
+		clk_prepare_enable(dvfs_tbl->clkp_handle);
+		clk_set_rate(dvfs_tbl->clkp_handle, dvfs_tbl->clkp_freq);
+	}
 	clk_prepare_enable(clk_mali);
+	clk_set_rate(clk_mali, dvfs_tbl->clk_freq);
 
 	return 0;
 }
@@ -563,29 +573,22 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		if (ret) {
 			dev_notice(&pdev->dev, "read clk_freq failed\n");
 		}
-#if 0
-#ifdef MESON_CPU_VERSION_OPS
-		if (is_meson_gxbbm_cpu()) {
-			if (dvfs_tbl->clk_freq >= GXBBM_MAX_GPU_FREQ)
-				continue;
-		}
-#endif
-#endif
-#if  0
+
 		ret = of_property_read_string(gpu_clk_dn,"clk_parent",
-										&dvfs_tbl->clk_parent);
+				&dvfs_tbl->clk_parent);
 		if (ret) {
 			dev_notice(&pdev->dev, "read clk_parent failed\n");
+		} else if (0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) {
+			dvfs_tbl->clkp_handle = devm_clk_get(&pdev->dev, dvfs_tbl->clk_parent);
+			if (IS_ERR(dvfs_tbl->clkp_handle)) {
+				dev_notice(&pdev->dev, "failed to get %s's clock pointer\n", dvfs_tbl->clk_parent);
+			}
+			ret = of_property_read_u32(gpu_clk_dn,"clkp_freq", &dvfs_tbl->clkp_freq);
+			if (ret) {
+				dev_notice(&pdev->dev, "read clk_parent freq failed\n");
+			}
 		}
-		dvfs_tbl->clkp_handle = devm_clk_get(&pdev->dev, dvfs_tbl->clk_parent);
-		if (IS_ERR(dvfs_tbl->clkp_handle)) {
-			dev_notice(&pdev->dev, "failed to get %s's clock pointer\n", dvfs_tbl->clk_parent);
-		}
-		ret = of_property_read_u32(gpu_clk_dn,"clkp_freq", &dvfs_tbl->clkp_freq);
-		if (ret) {
-			dev_notice(&pdev->dev, "read clk_parent freq failed\n");
-		}
-#endif
+
 		ret = of_property_read_u32(gpu_clk_dn,"voltage", &dvfs_tbl->voltage);
 		if (ret) {
 			dev_notice(&pdev->dev, "read voltage failed\n");
@@ -633,9 +636,11 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	ret = of_property_read_u32(gpu_dn,"def_clk",
 			&mpdata->def_clock);
 	if (ret) {
-		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->dvfs_table_size/2-1);
-		mpdata->def_clock = mpdata->dvfs_table_size/2 - 1;
+		mpdata->def_clock = mpdata->scale_info.maxclk;
+		dev_notice(&pdev->dev, "default clk set to %d\n", mpdata->def_clock);
 	}
+	if (mpdata->def_clock > mpdata->scale_info.maxclk)
+		mpdata->def_clock = mpdata->scale_info.maxclk;
 	_dev_info(&pdev->dev, "default clk  is %d\n", mpdata->def_clock);
 
 	dvfs_tbl = mpdata->dvfs_table;

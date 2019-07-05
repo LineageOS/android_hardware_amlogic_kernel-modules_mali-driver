@@ -35,6 +35,9 @@
 
 #include "meson_main2.h"
 
+int meson_gpu_data_invalid_count = 0;
+int meson_gpu_fault = 0;
+
 static ssize_t domain_stat_read(struct class *class,
 		struct class_attribute *attr, char *buf)
 {
@@ -142,68 +145,6 @@ static ssize_t scale_mode_write(struct class *class,
 	return count;
 }
 
-#if 0
-static ssize_t max_pp_read(struct class *class,
-		struct class_attribute *attr, char *buf)
-{
-	mali_plat_info_t* pmali_plat = get_mali_plat_data();
-	printk("maxpp:%d, maxpp_sysfs:%d, total=%d\n",
-			pmali_plat->scale_info.maxpp, pmali_plat->maxpp_sysfs,
-			pmali_plat->cfg_pp);
-	return sprintf(buf, "%d\n", pmali_plat->cfg_pp);
-}
-
-static ssize_t max_pp_write(struct class *class,
-		struct class_attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-	mali_plat_info_t* pmali_plat;
-	mali_scale_info_t* pinfo;
-
-	pmali_plat = get_mali_plat_data();
-	pinfo = &pmali_plat->scale_info;
-
-	ret = kstrtouint(buf, 10, &val);
-	if ((0 != ret) || (val > pmali_plat->cfg_pp) || (val < pinfo->minpp))
-		return -EINVAL;
-
-	pmali_plat->maxpp_sysfs = val;
-	pinfo->maxpp = val;
-	revise_mali_rt();
-
-	return count;
-}
-
-static ssize_t min_pp_read(struct class *class,
-		struct class_attribute *attr, char *buf)
-{
-	mali_plat_info_t* pmali_plat = get_mali_plat_data();
-	return sprintf(buf, "%d\n", pmali_plat->scale_info.minpp);
-}
-
-static ssize_t min_pp_write(struct class *class,
-		struct class_attribute *attr, const char *buf, size_t count)
-{
-	int ret;
-	unsigned int val;
-	mali_plat_info_t* pmali_plat;
-	mali_scale_info_t* pinfo;
-
-	pmali_plat = get_mali_plat_data();
-	pinfo = &pmali_plat->scale_info;
-
-	ret = kstrtouint(buf, 10, &val);
-	if ((0 != ret) || (val > pinfo->maxpp) || (val < 1))
-		return -EINVAL;
-
-	pinfo->minpp = val;
-	revise_mali_rt();
-
-	return count;
-}
-#endif
-
 static ssize_t max_freq_read(struct class *class,
 		struct class_attribute *attr, char *buf)
 {
@@ -286,38 +227,53 @@ static ssize_t freq_write(struct class *class,
 	return count;
 }
 
-#if 0
-static ssize_t current_pp_read(struct class *class,
+static ssize_t utilization_read(struct class *class,
 		struct class_attribute *attr, char *buf)
 {
-	u32 clk, pp;
-	get_mali_rt_clkpp(&clk, &pp);
-	return sprintf(buf, "%d\n", pp);
+	return sprintf(buf, "%d\n", mpgpu_get_utilization());
 }
 
-static ssize_t current_pp_write(struct class *class,
+static ssize_t util_gl_share_read(struct class *class,
+		struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", mpgpu_get_util_gl_share());
+}
+
+static ssize_t util_cl_share_read(struct class *class,
+		struct class_attribute *attr, char *buf)
+{
+    u32 val[2];
+
+    mpgpu_get_util_cl_share(val);
+
+	return sprintf(buf, "%d  %d\n", val[0], val[1]);
+}
+
+u32 mpgpu_get_gpu_err_count(void)
+{
+    return (meson_gpu_fault + meson_gpu_data_invalid_count);
+}
+
+static ssize_t meson_gpu_get_err_count(struct class *class,
+		struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", mpgpu_get_gpu_err_count());
+}
+
+static ssize_t mpgpu_set_err_count(struct class *class,
 		struct class_attribute *attr, const char *buf, size_t count)
 {
 	int ret;
 	unsigned int val;
-	u32 clk, pp;
-
-	get_mali_rt_clkpp(&clk, &pp);
-	ret = kstrtouint(buf, 10, &val);
-	if (0 != ret)
-	{
-		return -EINVAL;
-	}
 
 	ret = kstrtouint(buf, 10, &val);
 	if (0 != ret)
 		return -EINVAL;
 
-	set_mali_rt_clkpp(clk, val, 1);
+	meson_gpu_fault = val;
 
 	return count;
 }
-#endif
 
 static struct class_attribute mali_class_attrs[] = {
 	__ATTR(domain_stat,	0644, domain_stat_read, NULL),
@@ -325,14 +281,11 @@ static struct class_attribute mali_class_attrs[] = {
 	__ATTR(scale_mode,	0644, scale_mode_read,  scale_mode_write),
 	__ATTR(min_freq,	0644, min_freq_read,  	min_freq_write),
 	__ATTR(max_freq,	0644, max_freq_read,	max_freq_write),
-#if 0
-	__ATTR(min_pp,		0644, min_pp_read,	min_pp_write),
-	__ATTR(max_pp,		0644, max_pp_read,	max_pp_write),
-#endif
 	__ATTR(cur_freq,	0644, freq_read,	freq_write),
-#if 0
-	__ATTR(cur_pp,		0644, current_pp_read,	current_pp_write),
-#endif
+	__ATTR(utilization,	0644, utilization_read, NULL),
+	__ATTR(util_gl,	    0644, util_gl_share_read, NULL),
+	__ATTR(util_cl,	    0644, util_cl_share_read, NULL),
+	__ATTR(gpu_err,	    0644, meson_gpu_get_err_count, mpgpu_set_err_count),
 };
 
 static struct class mpgpu_class = {

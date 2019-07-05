@@ -68,9 +68,7 @@ static inline void mali_clk_exected(void)
 {
 	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
 	uint32_t execStep = currentStep;
-#if AMLOGIC_GPU_USE_GPPLL
 	mali_dvfs_threshold_table *dvfs_tbl = &pmali_plat->dvfs_table[currentStep];
-#endif
 
 	//if (pdvfs[currentStep].freq_index == pdvfs[lastStep].freq_index) return;
 	if ((pdvfs[execStep].freq_index == pdvfs[lastStep].freq_index) ||
@@ -91,10 +89,25 @@ static inline void mali_clk_exected(void)
 		is_gp_pll_put = 0;
 		gp_pll_release(gp_pll_user_gpu);
 	}
+#else
+	if ((0 == strcmp(dvfs_tbl->clk_parent, "gp0_pll")) &&
+			!IS_ERR(dvfs_tbl->clkp_handle) &&
+			(0 != dvfs_tbl->clkp_freq)) {
+		clk_prepare_enable(dvfs_tbl->clkp_handle);
+		clk_set_rate(dvfs_tbl->clkp_handle, dvfs_tbl->clkp_freq);
+	}
+
 #endif
 	//mali_dev_pause();
 	mali_clock_set(pdvfs[execStep].freq_index);
 	//mali_dev_resume();
+#if AMLOGIC_GPU_USE_GPPLL==0
+	if ((0 == strcmp(pdvfs[lastStep].clk_parent,"gp0_pll")) &&
+		(0 != strcmp(pdvfs[execStep].clk_parent, "gp0_pll"))) {
+			clk_disable_unprepare(pdvfs[lastStep].clkp_handle);
+	}
+#endif
+
 	lastStep = execStep;
 #if AMLOGIC_GPU_USE_GPPLL
 	if (is_gp_pll_put) {
