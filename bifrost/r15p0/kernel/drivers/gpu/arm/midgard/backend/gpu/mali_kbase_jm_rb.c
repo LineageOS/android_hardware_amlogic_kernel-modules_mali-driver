@@ -1244,12 +1244,14 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, int js,
 		struct kbasep_js_device_data *js_devdata = &kbdev->js_data;
 		int i;
 
-		if (!kbase_ctx_flag(katom->kctx, KCTX_DYING))
+		if (!kbase_ctx_flag(katom->kctx, KCTX_DYING)) {
+			meson_gpu_data_invalid_count ++;
 			dev_warn(kbdev->dev, "error detected from slot %d, job status 0x%08x (%s)",
 					js, completion_code,
 					kbase_exception_name
 					(kbdev,
 					completion_code));
+		}
 
 #if KBASE_TRACE_DUMP_ON_JOB_SLOT_ERROR != 0
 		KBASE_TRACE_DUMP(kbdev);

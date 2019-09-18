@@ -212,6 +212,7 @@ static void kbase_report_gpu_fault(struct kbase_device *kbdev, int multiple)
 	address |= kbase_reg_read(kbdev,
 			GPU_CONTROL_REG(GPU_FAULTADDRESS_LO));
 
+	meson_gpu_fault ++;
 	dev_warn(kbdev->dev, "GPU Fault 0x%08x (%s) at 0x%016llx",
 			status & 0xFF,
 			kbase_exception_name(kbdev, status),
