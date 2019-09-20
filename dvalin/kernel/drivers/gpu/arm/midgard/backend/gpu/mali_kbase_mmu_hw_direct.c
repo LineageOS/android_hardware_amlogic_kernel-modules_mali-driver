@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2014-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2019 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,7 +25,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_mem.h>
 #include <mali_kbase_mmu_hw.h>
-#include <mali_kbase_tlstream.h>
+#include <mali_kbase_tracepoints.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <mali_kbase_as_fault_debugfs.h>
 
@@ -77,7 +77,7 @@ static int wait_ready(struct kbase_device *kbdev,
 		val = kbase_reg_read(kbdev, MMU_AS_REG(as_nr, AS_STATUS));
 
 	if (max_loops == 0) {
-		dev_err(kbdev->dev, "AS_ACTIVE bit stuck\n");
+		dev_err(kbdev->dev, "AS_ACTIVE bit stuck, might be caused by slow/unstable GPU clock or possible faulty FPGA connector\n");
 		return -1;
 	}
 
@@ -161,11 +161,7 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		as = &kbdev->as[as_no];
 
 		/* find the fault type */
-		as->fault_type = (bf_bits & (1 << as_no)) ?
-				KBASE_MMU_FAULT_TYPE_BUS :
-				KBASE_MMU_FAULT_TYPE_PAGE;
-
-		if (kbase_as_has_bus_fault(as))
+		if (bf_bits & (1 << as_no))
 			fault = &as->bf_data;
 		else
 			fault = &as->pf_data;
@@ -184,7 +180,6 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		fault->addr <<= 32;
 		fault->addr |= kbase_reg_read(kbdev, MMU_AS_REG(as_no,
 				AS_FAULTADDRESS_LO));
-
 		/* Mark the fault protected or not */
 		fault->protected_mode = kbdev->protected_mode;
 
@@ -208,7 +203,7 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 					MMU_AS_REG(as_no, AS_FAULTEXTRA_LO));
 		}
 
-		if (kbase_as_has_bus_fault(as)) {
+		if (kbase_as_has_bus_fault(as, fault)) {
 			/* Mark bus fault as handled.
 			 * Note that a bus fault is processed first in case
 			 * where both a bus fault and page fault occur.
@@ -285,7 +280,7 @@ void kbase_mmu_hw_configure(struct kbase_device *kbdev, struct kbase_as *as)
 	kbase_reg_write(kbdev, MMU_AS_REG(as->number, AS_MEMATTR_HI),
 			(current_setup->memattr >> 32) & 0xFFFFFFFFUL);
 
-	KBASE_TLSTREAM_TL_ATTRIB_AS_CONFIG(as,
+	KBASE_TLSTREAM_TL_ATTRIB_AS_CONFIG(kbdev, as,
 			current_setup->transtab,
 			current_setup->memattr,
 			transcfg);

@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2014-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2019 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -30,7 +30,6 @@
 #include <mali_midg_regmap.h>
 #include <mali_kbase_hwaccess_instr.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
-#include <backend/gpu/mali_kbase_pm_internal.h>
 #include <backend/gpu/mali_kbase_instr_internal.h>
 
 int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
@@ -47,10 +46,6 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 	/* alignment failure */
 	if ((enable->dump_buffer == 0ULL) || (enable->dump_buffer & (2048 - 1)))
 		goto out_err;
-
-	/* Override core availability policy to ensure all cores are available
-	 */
-	kbase_pm_ca_instr_enable(kbdev);
 
 	spin_lock_irqsave(&kbdev->hwcnt.lock, flags);
 
@@ -76,15 +71,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev,
 	/* Configure */
 	prfcnt_config = kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT;
 	if (enable->use_secondary)
-	{
-		u32 gpu_id = kbdev->gpu_props.props.raw_props.gpu_id;
-		u32 product_id = (gpu_id & GPU_ID_VERSION_PRODUCT_ID)
-			>> GPU_ID_VERSION_PRODUCT_ID_SHIFT;
-		int arch_v6 = GPU_ID_IS_NEW_FORMAT(product_id);
-
-		if (arch_v6)
-			prfcnt_config |= 1 << PRFCNT_CONFIG_SETSELECT_SHIFT;
-	}
+		prfcnt_config |= 1 << PRFCNT_CONFIG_SETSELECT_SHIFT;
 
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_CONFIG),
 			prfcnt_config | PRFCNT_CONFIG_MODE_OFF);
@@ -182,8 +169,6 @@ int kbase_instr_hwcnt_disable_internal(struct kbase_context *kctx)
 	kbdev->hwcnt.kctx = NULL;
 	kbdev->hwcnt.addr = 0ULL;
 	kbdev->hwcnt.addr_bytes = 0ULL;
-
-	kbase_pm_ca_instr_disable(kbdev);
 
 	spin_unlock_irqrestore(&kbdev->hwcnt.lock, flags);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, pm_flags);

@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2012-2018 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2019 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -23,6 +23,7 @@
 menuconfig MALI_MIDGARD
 	tristate "Mali Midgard series support"
 	select GPU_TRACEPOINTS if ANDROID
+	select DMA_SHARED_BUFFER
 	default n
 	help
 	  Enable this option to build support for a ARM Mali Midgard GPU.
@@ -106,6 +107,20 @@ config MALI_CORESTACK
 
 	  If unsure, say N.
 
+config MALI_PLATFORM_POWER_DOWN_ONLY
+	bool "Support disabling the power down of individual cores"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  Enabling this feature will let the driver avoid power down of the
+	  shader cores, the tiler, and the L2 cache.
+	  The entire GPU would be powered down at once through the platform
+	  specific code.
+	  This may be required for certain platform configurations only.
+	  This also limits the available power policies.
+
+	  If unsure, say N.
+
 config MALI_DEBUG
 	bool "Debug build"
 	depends on MALI_MIDGARD && MALI_EXPERT
@@ -141,6 +156,9 @@ config MALI_NO_MALI
 	  driver without needing actual hardware or for software benchmarking.
 	  All calls to the simulated hardware will complete immediately as if the hardware
 	  completed the task.
+
+config MALI_REAL_HW
+	def_bool !MALI_NO_MALI
 
 config MALI_ERROR_INJECT
 	bool "Error injection"
@@ -181,6 +199,60 @@ config MALI_PWRSOFT_765
 
 	  If using kernel >= v4.10 then say N, otherwise if devfreq cooling
 	  changes have been backported say Y to avoid compilation errors.
+
+config MALI_MEMORY_FULLY_BACKED
+	bool "Memory fully physically-backed"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  This option enables full physical backing of all virtual
+	  memory allocations in the kernel. Notice that this build
+	  option only affects allocations of grow-on-GPU-page-fault
+	  memory.
+
+config MALI_DMA_BUF_MAP_ON_DEMAND
+	bool "Map imported dma-bufs on demand"
+	depends on MALI_MIDGARD
+	default n
+	help
+	  This option caused kbase to set up the GPU mapping of imported
+	  dma-buf when needed to run atoms.  This is the legacy behaviour.
+
+	  This is intended for testing and the option will get removed in the
+	  future.
+
+config MALI_DMA_BUF_LEGACY_COMPAT
+	bool "Enable legacy compatibility cache flush on dma-buf map"
+	depends on MALI_MIDGARD && !MALI_DMA_BUF_MAP_ON_DEMAND
+	default y
+	help
+	  This option enables compatibility with legacy dma-buf mapping
+	  behavior, then the dma-buf is mapped on import, by adding cache
+	  maintenance where MALI_DMA_BUF_MAP_ON_DEMAND would do the mapping,
+	  including a cache flush.
+
+config MALI_HW_ERRATA_1485982_NOT_AFFECTED
+	bool "Disable workaround for BASE_HW_ISSUE_GPU2017_1336"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  This option disables the default workaround for GPU2017-1336. The
+	  workaround keeps the L2 cache powered up except for powerdown and reset.
+
+	  The workaround introduces a limitation that will prevent the running of
+	  protected mode content on fully coherent platforms, as the switch to IO
+	  coherency mode requires the L2 to be turned off.
+
+config MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE
+	bool "Use alternative workaround for BASE_HW_ISSUE_GPU2017_1336"
+	depends on MALI_MIDGARD && MALI_EXPERT && !MALI_HW_ERRATA_1485982_NOT_AFFECTED
+	default n
+	help
+	  This option uses an alternative workaround for GPU2017-1336. Lowering
+	  the GPU clock to a, platform specific, known good frequeuncy before
+	  powering down the L2 cache. The clock can be specified in the device
+	  tree using the property, opp-mali-errata-1485982. Otherwise the
+	  slowest clock will be selected.
 
 # Instrumentation options.
 

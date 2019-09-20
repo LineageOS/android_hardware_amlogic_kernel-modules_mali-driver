@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2017-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2019 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,7 +36,7 @@ extern "C" {
  * 11.1:
  * - Add BASE_MEM_TILER_ALIGN_TOP under base_mem_alloc_flags
  * 11.2:
- * - KBASE_MEM_QUERY_FLAGS can return KBASE_REG_PF_GROW and KBASE_REG_SECURE,
+ * - KBASE_MEM_QUERY_FLAGS can return KBASE_REG_PF_GROW and KBASE_REG_PROTECTED,
  *   which some user-side clients prior to 11.2 might fault if they received
  *   them
  * 11.3:
@@ -66,9 +66,27 @@ extern "C" {
  * - Removed ioctl: KBASE_IOCTL_GET_PROFILING_CONTROLS
  * 11.13:
  * - New ioctl: KBASE_IOCTL_MEM_EXEC_INIT
+ * 11.14:
+ * - Add BASE_MEM_GROUP_ID_MASK, base_mem_group_id_get, base_mem_group_id_set
+ *   under base_mem_alloc_flags
+ * 11.15:
+ * - Added BASEP_CONTEXT_MMU_GROUP_ID_MASK under base_context_create_flags.
+ * - Require KBASE_IOCTL_SET_FLAGS before BASE_MEM_MAP_TRACKING_HANDLE can be
+ *   passed to mmap().
+ * 11.16:
+ * - Extended ioctl KBASE_IOCTL_MEM_SYNC to accept imported dma-buf.
+ * - Modified (backwards compatible) ioctl KBASE_IOCTL_MEM_IMPORT behavior for
+ *   dma-buf. Now, buffers are mapped on GPU when first imported, no longer
+ *   requiring external resource or sticky resource tracking. UNLESS,
+ *   CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND is enabled.
+ * 11.17:
+ * - Added BASE_JD_REQ_JOB_SLOT.
+ * - Reused padding field in base_jd_atom_v2 to pass job slot number.
+ * 11.18:
+ * - New ioctl: KBASE_IOCTL_GET_CPU_GPU_TIMEINFO
  */
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 13
+#define BASE_UK_VERSION_MINOR 17
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility with kernel
@@ -336,6 +354,7 @@ struct kbase_ioctl_mem_jit_init_old {
  * @va_pages: Number of VA pages to reserve for JIT
  * @max_allocations: Maximum number of concurrent allocations
  * @trim_level: Level of JIT allocation trimming to perform on free (0 - 100%)
+ * @group_id: Group ID to be used for physical allocations
  * @padding: Currently unused, must be zero
  *
  * Note that depending on the VA size of the application and GPU, the value
@@ -345,7 +364,8 @@ struct kbase_ioctl_mem_jit_init {
 	__u64 va_pages;
 	__u8 max_allocations;
 	__u8 trim_level;
-	__u8 padding[6];
+	__u8 group_id;
+	__u8 padding[5];
 };
 
 #define KBASE_IOCTL_MEM_JIT_INIT \
@@ -687,6 +707,39 @@ struct kbase_ioctl_mem_exec_init {
 #define KBASE_IOCTL_MEM_EXEC_INIT \
 	_IOW(KBASE_IOCTL_TYPE, 38, struct kbase_ioctl_mem_exec_init)
 
+
+/**
+ * union kbase_ioctl_get_cpu_gpu_timeinfo - Request zero or more types of
+ *                                          cpu/gpu time (counter values)
+ *
+ * @request_flags: Bit-flags indicating the requested types.
+ * @paddings:      Unused, size alignment matching the out.
+ * @sec:           Integer field of the monotonic time, unit in seconds.
+ * @nsec:          Fractional sec of the monotonic time, in nano-seconds.
+ * @padding:       Unused, for u64 alignment
+ * @timestamp:     System wide timestamp (counter) value.
+ * @cycle_counter: GPU cycle counter value.
+ *
+ * @in: Input parameters
+ * @out: Output parameters
+ *
+ */
+union kbase_ioctl_get_cpu_gpu_timeinfo {
+	struct {
+		__u32 request_flags;
+		__u32 paddings[7];
+	} in;
+	struct {
+		__u64 sec;
+		__u32 nsec;
+		__u32 padding;
+		__u64 timestamp;
+		__u64 cycle_counter;
+	} out;
+};
+
+#define KBASE_IOCTL_GET_CPU_GPU_TIMEINFO \
+	_IOWR(KBASE_IOCTL_TYPE, 50, union kbase_ioctl_get_cpu_gpu_timeinfo)
 
 /***************
  * test ioctls *

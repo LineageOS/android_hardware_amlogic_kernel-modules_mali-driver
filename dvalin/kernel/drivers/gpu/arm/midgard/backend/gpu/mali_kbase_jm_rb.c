@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2014-2018 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2019 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,9 +29,10 @@
 #include <mali_kbase_hwaccess_jm.h>
 #include <mali_kbase_jm.h>
 #include <mali_kbase_js.h>
-#include <mali_kbase_tlstream.h>
+#include <mali_kbase_tracepoints.h>
 #include <mali_kbase_hwcnt_context.h>
 #include <mali_kbase_10969_workaround.h>
+#include <mali_kbase_reset_gpu.h>
 #include <backend/gpu/mali_kbase_cache_policy_backend.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
@@ -322,11 +323,11 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 			kbase_pm_release_gpu_cycle_counter_nolock(kbdev);
 		/* ***FALLTHROUGH: TRANSITION TO LOWER STATE*** */
 
-		KBASE_TLSTREAM_TL_NRET_ATOM_LPU(katom,
+		KBASE_TLSTREAM_TL_NRET_ATOM_LPU(kbdev, katom,
 			&kbdev->gpu_props.props.raw_props.js_features
 				[katom->slot_nr]);
-		KBASE_TLSTREAM_TL_NRET_ATOM_AS(katom, &kbdev->as[kctx->as_nr]);
-		KBASE_TLSTREAM_TL_NRET_CTX_LPU(kctx,
+		KBASE_TLSTREAM_TL_NRET_ATOM_AS(kbdev, katom, &kbdev->as[kctx->as_nr]);
+		KBASE_TLSTREAM_TL_NRET_CTX_LPU(kbdev, kctx,
 			&kbdev->gpu_props.props.raw_props.js_features
 				[katom->slot_nr]);
 
@@ -348,6 +349,10 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 			kbase_pm_protected_override_disable(kbdev);
 			kbase_pm_update_cores_state_nolock(kbdev);
 		}
+		if (kbase_jd_katom_is_protected(katom) &&
+				(katom->protected_state.enter ==
+				KBASE_ATOM_ENTER_PROTECTED_IDLE_L2))
+			kbase_pm_protected_entry_override_disable(kbdev);
 		if (!kbase_jd_katom_is_protected(katom) &&
 				(katom->protected_state.exit !=
 				KBASE_ATOM_EXIT_PROTECTED_CHECK) &&
@@ -550,7 +555,7 @@ static int kbase_jm_protected_entry(struct kbase_device *kbdev,
 	kbase_pm_protected_override_disable(kbdev);
 	kbase_pm_update_cores_state_nolock(kbdev);
 
-	KBASE_TLSTREAM_AUX_PROTECTED_ENTER_END(kbdev);
+	KBASE_TLSTREAM_AUX_PROTECTED_ENTER_END(kbdev, kbdev);
 	if (err) {
 		/*
 		 * Failed to switch into protected mode, resume
@@ -604,7 +609,7 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev,
 
 	switch (katom[idx]->protected_state.enter) {
 	case KBASE_ATOM_ENTER_PROTECTED_CHECK:
-		KBASE_TLSTREAM_AUX_PROTECTED_ENTER_START(kbdev);
+		KBASE_TLSTREAM_AUX_PROTECTED_ENTER_START(kbdev, kbdev);
 		/* The checks in KBASE_ATOM_GPU_RB_WAITING_PROTECTED_MODE_PREV
 		 * should ensure that we are not already transitiong, and that
 		 * there are no atoms currently on the GPU. */
@@ -647,6 +652,9 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev,
 		 * switched to protected mode or hwcnt
 		 * re-enabled. */
 
+		if (kbase_pm_protected_entry_override_enable(kbdev))
+			return -EAGAIN;
+
 		/*
 		 * Not in correct mode, begin protected mode switch.
 		 * Entering protected mode requires us to power down the L2,
@@ -656,13 +664,28 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev,
 			KBASE_ATOM_ENTER_PROTECTED_IDLE_L2;
 
 		kbase_pm_protected_override_enable(kbdev);
-		kbase_pm_update_cores_state_nolock(kbdev);
+		/*
+		 * Only if the GPU reset hasn't been initiated, there is a need
+		 * to invoke the state machine to explicitly power down the
+		 * shader cores and L2.
+		 */
+		if (!kbdev->pm.backend.protected_entry_transition_override)
+			kbase_pm_update_cores_state_nolock(kbdev);
 
 		/* ***FALLTHROUGH: TRANSITION TO HIGHER STATE*** */
 
 	case KBASE_ATOM_ENTER_PROTECTED_IDLE_L2:
 		/* Avoid unnecessary waiting on non-ACE platforms. */
-		if (kbdev->current_gpu_coherency_mode == COHERENCY_ACE) {
+		if (kbdev->system_coherency == COHERENCY_ACE) {
+			if (kbdev->pm.backend.l2_always_on) {
+				/*
+				 * If the GPU reset hasn't completed, then L2
+				 * could still be powered up.
+				 */
+				if (kbase_reset_gpu_is_active(kbdev))
+					return -EAGAIN;
+			}
+
 			if (kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2) ||
 				kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_L2)) {
 				/*
@@ -685,6 +708,8 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev,
 		 * ensure that no protected memory can be leaked.
 		 */
 		kbase_gpu_disable_coherent(kbdev);
+
+		kbase_pm_protected_entry_override_disable(kbdev);
 
 		if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TGOX_R1_1234)) {
 			/*
@@ -758,7 +783,7 @@ static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev,
 
 	switch (katom[idx]->protected_state.exit) {
 	case KBASE_ATOM_EXIT_PROTECTED_CHECK:
-		KBASE_TLSTREAM_AUX_PROTECTED_LEAVE_START(kbdev);
+		KBASE_TLSTREAM_AUX_PROTECTED_LEAVE_START(kbdev, kbdev);
 		/* The checks in KBASE_ATOM_GPU_RB_WAITING_PROTECTED_MODE_PREV
 		 * should ensure that we are not already transitiong, and that
 		 * there are no atoms currently on the GPU. */
@@ -779,8 +804,7 @@ static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev,
 
 		/* ***FALLTHROUGH: TRANSITION TO HIGHER STATE*** */
 	case KBASE_ATOM_EXIT_PROTECTED_IDLE_L2:
-		if (kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2) ||
-				kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_L2)) {
+		if (kbdev->pm.backend.l2_state != KBASE_L2_OFF) {
 			/*
 			 * The L2 is still powered, wait for all the users to
 			 * finish with it before doing the actual reset.
@@ -853,7 +877,7 @@ void kbase_backend_slot_update(struct kbase_device *kbdev)
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	if (kbase_reset_gpu_active(kbdev))
+	if (kbase_reset_gpu_is_active(kbdev))
 		return;
 
 	for (js = 0; js < kbdev->gpu_props.num_job_slots; js++) {
@@ -1016,7 +1040,7 @@ void kbase_backend_slot_update(struct kbase_device *kbdev)
 
 				if ((kbdev->serialize_jobs &
 						KBASE_SERIALIZE_RESET) &&
-						kbase_reset_gpu_active(kbdev))
+						kbase_reset_gpu_is_active(kbdev))
 					break;
 
 				/* Check if this job needs the cycle counter
@@ -1099,12 +1123,12 @@ bool kbase_gpu_irq_evict(struct kbase_device *kbdev, int js,
 		next_katom->gpu_rb_state = KBASE_ATOM_GPU_RB_READY;
 
 		if (completion_code == BASE_JD_EVENT_STOPPED) {
-			KBASE_TLSTREAM_TL_NRET_ATOM_LPU(next_katom,
+			KBASE_TLSTREAM_TL_NRET_ATOM_LPU(kbdev, next_katom,
 				&kbdev->gpu_props.props.raw_props.js_features
 					[next_katom->slot_nr]);
-			KBASE_TLSTREAM_TL_NRET_ATOM_AS(next_katom, &kbdev->as
+			KBASE_TLSTREAM_TL_NRET_ATOM_AS(kbdev, next_katom, &kbdev->as
 					[next_katom->kctx->as_nr]);
-			KBASE_TLSTREAM_TL_NRET_CTX_LPU(next_katom->kctx,
+			KBASE_TLSTREAM_TL_NRET_CTX_LPU(kbdev, next_katom->kctx,
 				&kbdev->gpu_props.props.raw_props.js_features
 					[next_katom->slot_nr]);
 		}
@@ -1396,7 +1420,7 @@ void kbase_backend_reset(struct kbase_device *kbdev, ktime_t *end_timestamp)
 		kbase_hwcnt_context_enable(kbdev->hwcnt_gpu_ctx);
 		kbdev->protected_mode_hwcnt_disabled = false;
 
-		KBASE_TLSTREAM_AUX_PROTECTED_LEAVE_END(kbdev);
+		KBASE_TLSTREAM_AUX_PROTECTED_LEAVE_END(kbdev, kbdev);
 	}
 
 	kbdev->protected_mode_transition = false;

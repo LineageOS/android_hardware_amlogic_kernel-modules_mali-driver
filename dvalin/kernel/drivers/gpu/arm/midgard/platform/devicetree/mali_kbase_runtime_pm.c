@@ -18,10 +18,57 @@
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <linux/pm_runtime.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include "mali_kbase_config_platform.h"
+
+static void enable_gpu_power_control(struct kbase_device *kbdev)
+{
+#if 0
+	unsigned int i;
+
+#if defined(CONFIG_REGULATOR)
+	for (i = 0; i < kbdev->nr_regulators; i++) {
+		if (WARN_ON(kbdev->regulators[i] == NULL))
+			;
+		else if (!regulator_is_enabled(kbdev->regulators[i]))
+			WARN_ON(regulator_enable(kbdev->regulators[i]));
+	}
+
+	for (i = 0; i < kbdev->nr_clocks; i++) {
+		if ((NULL != kbdev->clocks[i]) && (!__clk_is_enabled(kbdev->clocks[i])))
+			clk_prepare_enable(kbdev->clocks[i]);
+	}
+#endif
+#endif
+}
+
+static void disable_gpu_power_control(struct kbase_device *kbdev)
+{
+#if 0
+	unsigned int i;
+
+	for (i = 0; i < kbdev->nr_clocks; i++) {
+		if ((NULL != kbdev->clocks[i]) && __clk_is_enabled(kbdev->clocks[i])) {
+			clk_disable_unprepare(kbdev->clocks[i]);
+		}
+
+	}
+
+#if defined(CONFIG_REGULATOR)
+	for (i = 0; i < kbdev->nr_regulators; i++) {
+		if (WARN_ON(kbdev->regulators[i] == NULL))
+			;
+		else if (regulator_is_enabled(kbdev->regulators[i]))
+			WARN_ON(regulator_disable(kbdev->regulators[i]));
+	}
+#endif
+#endif
+}
 
 void *reg_base_hiubus = NULL;
 u32  override_value_aml = 0;
@@ -196,6 +243,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	dev_dbg(kbdev->dev, "pm_callback_power_on %p\n",
 			(void *)kbdev->dev->pm_domain);
 
+    enable_gpu_power_control(kbdev);
     first = 0;
     //printk("%s, %d\n", __FILE__, __LINE__);
 ret:
@@ -230,6 +278,10 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 #endif
 	pm_runtime_mark_last_busy(kbdev->dev);
 	pm_runtime_put_autosuspend(kbdev->dev);
+
+#ifndef KBASE_PM_RUNTIME
+	disable_gpu_power_control(kbdev);
+#endif
 }
 
 #ifdef KBASE_PM_RUNTIME
@@ -260,16 +312,20 @@ static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 	pm_runtime_disable(kbdev->dev);
 }
 #endif
+
 static int pm_callback_runtime_on(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "pm_callback_runtime_on\n");
 
+	enable_gpu_power_control(kbdev);
 	return 0;
 }
 
 static void pm_callback_runtime_off(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "pm_callback_runtime_off\n");
+
+	disable_gpu_power_control(kbdev);
 }
 
 static void pm_callback_resume(struct kbase_device *kbdev)
