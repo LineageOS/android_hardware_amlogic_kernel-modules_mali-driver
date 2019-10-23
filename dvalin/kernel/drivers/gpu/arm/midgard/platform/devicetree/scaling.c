@@ -64,6 +64,7 @@ MODULE_PARM_DESC(scaling_dbg_level , "scaling debug level");
 	} while (0)
 
 #ifndef CONFIG_MALI_DVFS
+static int mali_stay_count = 0;
 static inline void mali_clk_exected(void)
 {
 	mali_dvfs_threshold_table * pdvfs = pmali_plat->dvfs_table;
@@ -219,6 +220,10 @@ u32 set_mali_rt_clkpp(u32 clk, u32 pp, u32 flush)
 		else
 			ret = 1;
 	}
+
+	if (flush)
+		mali_stay_count = pmali_plat->dvfs_table[currentStep].keep_count;
+
 	if (pp < pinfo->minpp)
 		pp = pinfo->minpp;
 	else if (pp > pinfo->maxpp)
@@ -363,7 +368,6 @@ void trace_utilization(int utilization_gpu, u32 current_idx, u32 next,
 #endif
 
 #ifndef CONFIG_MALI_DVFS
-static int mali_stay_count = 0;
 static void mali_decide_next_status(int utilization_pp, int* next_fs_idx,
 		int* pp_change_flag)
 {
@@ -448,6 +452,10 @@ static void mali_decide_next_status(int utilization_pp, int* next_fs_idx,
 		} else if (change_mode == 2) { /* decrease PPS */
 			*pp_change_flag = -1;
 		}
+	} else {
+		mali_stay_count = pmali_plat->dvfs_table[currentStep].keep_count;
+		scalingdbg(1, "reset to %d, decided_fs_idx=%d, mali_stay_count=%d\n",
+				currentStep, decided_fs_idx, mali_stay_count);
 	}
 
 	if (decided_fs_idx < 0 ) {
@@ -463,6 +471,7 @@ static void mali_decide_next_status(int utilization_pp, int* next_fs_idx,
 		mali_stay_count = pmali_plat->dvfs_table[decided_fs_idx].keep_count;
 
 	*next_fs_idx = decided_fs_idx;
+	scalingdbg(1, "mali_stay_count=%d\n", mali_stay_count);
 }
 #endif
 
