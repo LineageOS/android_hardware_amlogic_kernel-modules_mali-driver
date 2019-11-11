@@ -21,7 +21,7 @@
 
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= "r20p0-01rel0"
+MALI_RELEASE_NAME ?= "r21p0-01rel0"
 
 # Paths required for build
 KBASE_PATH = $(src)
@@ -54,7 +54,9 @@ DEFINES +=-DMALI_KBASE_PLATFORM_PATH=$(src)/platform/$(CONFIG_MALI_PLATFORM_NAME
 endif
 
 DEFINES += -I$(srctree)/drivers/staging/android
+#meson graphics start
 ldflags-y += --strip-debug
+#meson graphics end
 
 DEFINES += -DMALI_KBASE_BUILD
 

@@ -77,6 +77,7 @@ define bifrost-modules
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/bifrost/kernel/drivers/gpu/arm/midgard \
 	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu " \
+	EXTRA_CFLAGS+="-I$(shell pwd)/$(PRODUCT_OUT)/obj/bifrost/kernel/include " \
 	EXTRA_CFLAGS+="-Wno-error=larger-than=16384 " \
 	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
