@@ -17,7 +17,8 @@
 
 GPU_TYPE:=dvalin
 GPU_ARCH:=bifrost
-GPU_DRV_VERSION ?=r25p0
+GPU_DRV_VERSION?=r25p0
+
 EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard/backend/gpu \
                  -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard/platform/devicetree \
                  -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard/ipa \
@@ -26,10 +27,9 @@ EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drive
 modules:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M)/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard  \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu " \
-	EXTRA_CFLAGS+="-Wno-pointer-sign -Wno-error=larger-than=16384 -DCONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=1 -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=0 " \
-	EXTRA_CFLAGS+="-Wno-error=unused-but-set-variable $(EXTRA_INCLUDE)" \
-	EXTRA_LDFLAGS+="--strip-debug" \
-	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
+ 	EXTRA_CFLAGS+="-Wno-error -Wno-pointer-sign -Wno-error=frame-larger-than= $(EXTRA_INCLUDE)" \
+ 	EXTRA_LDFLAGS+="--strip-debug" \
+ 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
 
 modules_install:
 	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(M)/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard -C $(KERNEL_SRC) modules_install
