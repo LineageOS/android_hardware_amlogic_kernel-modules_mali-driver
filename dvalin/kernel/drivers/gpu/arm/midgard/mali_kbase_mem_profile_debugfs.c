@@ -38,6 +38,9 @@ static int kbasep_mem_profile_seq_show(struct seq_file *sfile, void *data)
 {
 	struct kbase_context *kctx = sfile->private;
 
+	if (IS_ERR_OR_NULL(kctx->kctx_dentry)) /* not initialized */
+		return -EINVAL;
+
 	mutex_lock(&kctx->mem_profile_lock);
 
 	seq_write(sfile, kctx->mem_profile_data, kctx->mem_profile_size);
@@ -69,6 +72,9 @@ int kbasep_mem_profile_debugfs_insert(struct kbase_context *kctx, char *data,
 					size_t size)
 {
 	int err = 0;
+
+	if (IS_ERR_OR_NULL(kctx->kctx_dentry)) /* not initialized */
+		return -EINVAL;
 
 	mutex_lock(&kctx->mem_profile_lock);
 
@@ -106,6 +112,9 @@ int kbasep_mem_profile_debugfs_insert(struct kbase_context *kctx, char *data,
 
 void kbasep_mem_profile_debugfs_remove(struct kbase_context *kctx)
 {
+	if (IS_ERR_OR_NULL(kctx->kctx_dentry)) /* not initialized */
+		return ;
+
 	mutex_lock(&kctx->mem_profile_lock);
 
 	dev_dbg(kctx->kbdev->dev, "initialised: %d",
