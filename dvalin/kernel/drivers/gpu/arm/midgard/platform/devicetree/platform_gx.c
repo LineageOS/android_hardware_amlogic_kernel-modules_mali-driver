@@ -35,6 +35,9 @@
 #include <linux/amlogic/meson_cooldev.h>
 #endif
 
+#include <mali_kbase.h>
+#include <mali_kbase_defs.h>
+
 #include "mali_scaling.h"
 #include "mali_clock.h"
 #include "meson_main2.h"
@@ -132,11 +135,8 @@ static u32 get_limit_mali_freq(void)
 #ifdef CONFIG_DEVFREQ_THERMAL
 static u32 get_mali_utilization(void)
 {
-#ifndef MESON_DRV_BRING
-    return 55;
-#else
-    return (_mali_ukk_utilization_pp() * 100) / 256;
-#endif
+    u32 util= mpgpu_get_utilization();
+    return (util * 100) / 256;
 }
 #endif
 #endif
@@ -163,29 +163,37 @@ quit:
     return ret;
 }
 #ifdef CONFIG_DEVFREQ_THERMAL
+extern u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type type);
 static u32 mali_get_online_pp(void)
 {
-    unsigned int val;
+    u64 core_ready;
+    u64 l2_ready;
+    u64 tiler_ready;
     mali_plat_info_t* pmali_plat = get_mali_plat_data();
+    struct platform_device* ptr_plt_dev = pmali_plat->pdev;
+    struct kbase_device *kbdev = dev_get_drvdata(&ptr_plt_dev->dev);
 
-    val = readl(pmali_plat->reg_base_aobus + 0xf0) & 0xff;
-    if (val == 0x07)    /* No pp is working */
+    core_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
+    l2_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2);
+    tiler_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_TILER);
+
+    if (!core_ready && !l2_ready && !tiler_ready) {
         return 0;
+    }
 
-#ifndef MESON_DRV_BRING
     return 2;
-#else
-    return mali_executor_get_num_cores_enabled();
-#endif
 }
 #endif
 #endif
 
 int mali_meson_init_start(struct platform_device* ptr_plt_dev)
 {
-    //dev_set_drvdata(&ptr_plt_dev->dev, &mali_plat_data);
+    struct kbase_device *kbdev = dev_get_drvdata(&ptr_plt_dev->dev);
+
     mali_dt_info(ptr_plt_dev, &mali_plat_data);
     mali_clock_init_clk_tree(ptr_plt_dev);
+
+    kbdev->platform_context = &mali_plat_data;
     return 0;
 }
 

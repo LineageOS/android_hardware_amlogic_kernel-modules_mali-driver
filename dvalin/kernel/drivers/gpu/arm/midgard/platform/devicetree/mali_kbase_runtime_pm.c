@@ -15,6 +15,7 @@
  *
  */
 
+//#define DEBUG
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <linux/pm_runtime.h>
@@ -25,6 +26,8 @@
 #include <linux/io.h>
 #include <backend/gpu/mali_kbase_device_internal.h>
 #include "mali_kbase_config_platform.h"
+
+#include "mali_scaling.h"
 
 static void enable_gpu_power_control(struct kbase_device *kbdev)
 {
@@ -70,24 +73,24 @@ static void disable_gpu_power_control(struct kbase_device *kbdev)
 #endif
 }
 
-void *reg_base_hiubus = NULL;
-u32  override_value_aml = 0;
 static int first = 1;
 
+//remove this if sc2 worked fine.
+//g12a
 #define RESET0_MASK    0x10
 #define RESET1_MASK    0x11
 #define RESET2_MASK    0x12
+#define RESET0_LEVEL   0x20
+#define RESET1_LEVEL   0x21
+#define RESET2_LEVEL   0x22
+//sc2
+#define RESETCTRL_RESET1_LEVEL  0x11
+#define RESETCTRL_RESET1_MASK   0x21
 
-#define RESET0_LEVEL    0x20
-#define RESET1_LEVEL    0x21
-#define RESET2_LEVEL    0x22
-#define Rd(r)                           readl((reg_base_hiubus) + ((r)<<2))
-#define Wr(r, v)                        writel((v), ((reg_base_hiubus) + ((r)<<2)))
-#define Mali_WrReg(regnum, value)   kbase_reg_write(kbdev, (regnum), (value))
-#define Mali_RdReg(regnum)          kbase_reg_read(kbdev, (regnum))
-#define stimulus_print   printk
-#define stimulus_display printk
-#define Mali_pwr_off(x)  Mali_pwr_off_with_kdev(kbdev, (x))
+#define Rd(r)                           readl((reg_base_reset) + ((r)<<2))
+#define Wr(r, v)                        writel((v), ((reg_base_reset) + ((r)<<2)))
+#define Mali_WrReg(regnum, value)       writel((value), kbdev->reg + (regnum))
+#define Mali_RdReg(regnum)              readl(kbdev->reg + (regnum))
 
 extern u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type type);
 
@@ -125,8 +128,7 @@ static void  Mali_pwr_on_with_kdev ( struct kbase_device *kbdev, uint32_t  mask)
     }
 
     part1_done = Mali_RdReg(0x0000020);
-    while((part1_done ==0)) { part1_done = Mali_RdReg(0x00000020); }
-    stimulus_display("Mali_pwr_on:gpu_irq : %x\n", part1_done);
+    while (0 == part1_done) { part1_done = Mali_RdReg(0x00000020); }
     Mali_WrReg(0x0000024, 0xffffffff); // clear interrupts
 }
 
@@ -156,7 +158,6 @@ static void  Mali_pwr_off_with_kdev( struct kbase_device *kbdev, uint32_t  mask)
 
     part1_done = Mali_RdReg(0x0000020);
     while((part1_done ==0)) { part1_done = Mali_RdReg(0x00000020); }
-    stimulus_display("Mali_pwr_off:gpu_irq : %x\n", part1_done);
     Mali_WrReg(0x0000024, 0xffffffff); // clear interrupts
 }
 #endif
@@ -165,88 +166,71 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 {
 	int ret = 1; /* Assume GPU has been powered off */
 	int error;
-	struct platform_device *pdev = to_platform_device(kbdev->dev);
-	struct resource *reg_res;
-	u64 core_ready;
-	u64 l2_ready;
-	u64 tiler_ready;
+#if 1
+	//remove this if sc2 worked fine.
+	struct mali_plat_info_t *mpdata  = (struct mali_plat_info_t *) kbdev->platform_context;
+	void *reg_base_reset = mpdata->reg_base_reset;
 	u32 value;
+	int reset_g12a = mpdata->reset_g12a;
+#endif
 
-    //printk("20151013, %s, %d\n", __FILE__, __LINE__);
-    if (first == 0) goto ret;
+	if (first == 0) goto out;
 
-    reg_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-    if (!reg_res) {
-        dev_err(kbdev->dev, "Invalid register resource\n");
-        ret = -ENOENT;
-    }
-    //printk("%s, %d\n", __FILE__, __LINE__);
-    if (NULL == reg_base_hiubus) 
-        reg_base_hiubus = ioremap(reg_res->start, resource_size(reg_res));
+	first = 0;
 
-    //printk("%s, %d\n", __FILE__, __LINE__);
-    if (NULL == reg_base_hiubus) {
-        dev_err(kbdev->dev, "Invalid register resource\n");
-        ret = -ENOENT;
-    }
+	if (reset_g12a) {
+		value = Rd(RESET0_MASK);
+		value = value & (~(0x1<<20));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET0_MASK, value);
 
-    //printk("%s, %d\n", __FILE__, __LINE__);
+		value = Rd(RESET0_LEVEL);
+		value = value & (~(0x1<<20));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET0_LEVEL, value);
+		///////////////
+		value = Rd(RESET2_MASK);
+		value = value & (~(0x1<<14));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET2_MASK, value);
 
-//JOHNT
-    // Level reset mail
+		value = Rd(RESET2_LEVEL);
+		value = value & (~(0x1<<14));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET2_LEVEL, value);
 
-    // Level reset mail
-    //Wr(P_RESET2_MASK, ~(0x1<<14));
-    //Wr(P_RESET2_LEVEL, ~(0x1<<14));
+		value = Rd(RESET0_LEVEL);
+		value = value | ((0x1<<20));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET0_LEVEL, value);
 
-    //Wr(P_RESET2_LEVEL, 0xffffffff);
-    //Wr(P_RESET0_LEVEL, 0xffffffff);
+		value = Rd(RESET2_LEVEL);
+		value = value | ((0x1<<14));
+		//printk("line(%d), value=%x\n", __LINE__, value);
+		Wr(RESET2_LEVEL, value);
+	} else {
+		//JOHNT
+		//remove this if sc2 worked fine.
+		value = ~(1 << 2);
+		dev_dbg(kbdev->dev, "line(%d),mask ~(1<<14)\n", __LINE__);
+		Wr(RESETCTRL_RESET1_MASK, value);
+		dev_dbg(kbdev->dev, "line(%d),level ~(1<<14)\n", __LINE__);
+		Wr(RESETCTRL_RESET1_LEVEL, value);
+		dev_dbg(kbdev->dev, "line(%d),level 0xFFFFFFFF\n", __LINE__);
+		Wr(RESETCTRL_RESET1_LEVEL, 0xFFFFFFFF);
+	}
+	udelay(10); // OR POLL for reset done
+	dev_dbg(kbdev->dev, "delay 10us\n");
 
-    value = Rd(RESET0_MASK);
-    value = value & (~(0x1<<20));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET0_MASK, value);
-
-    value = Rd(RESET0_LEVEL);
-    value = value & (~(0x1<<20));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET0_LEVEL, value);
-///////////////
-    value = Rd(RESET2_MASK);
-    value = value & (~(0x1<<14));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET2_MASK, value);
-
-    value = Rd(RESET2_LEVEL);
-    value = value & (~(0x1<<14));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET2_LEVEL, value);
-
-    value = Rd(RESET0_LEVEL);
-    value = value | ((0x1<<20));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET0_LEVEL, value);
-
-    value = Rd(RESET2_LEVEL);
-    value = value | ((0x1<<14));
-    //printk("line(%d), value=%x\n", __LINE__, value);
-    Wr(RESET2_LEVEL, value);
-
-    udelay(10); // OR POLL for reset done
-
-    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_KEY), 0x2968A819);
-    kbase_reg_write(kbdev, GPU_CONTROL_REG(PWR_OVERRIDE1), 0xfff | (0x20<<16));
-
-    Mali_pwr_on_with_kdev(kbdev, 0x1);
-    //printk("set PWR_ORRIDE, reg=%p, reg_start=%llx, reg_size=%zx, reg_mapped=%p\n",
-    //        kbdev->reg, kbdev->reg_start, kbdev->reg_size, reg_base_hiubus);
+	Mali_WrReg(GPU_CONTROL_REG(PWR_KEY), 0x2968A819);
+	Mali_WrReg(GPU_CONTROL_REG(PWR_OVERRIDE1), 0xfff | (0x20<<16));
+	Mali_pwr_on_with_kdev(kbdev, 0x1);
 	dev_dbg(kbdev->dev, "pm_callback_power_on %p\n",
 			(void *)kbdev->dev->pm_domain);
 
-    enable_gpu_power_control(kbdev);
-    first = 0;
-    //printk("%s, %d\n", __FILE__, __LINE__);
-ret:
+	enable_gpu_power_control(kbdev);
+
+out:
 	error = pm_runtime_get_sync(kbdev->dev);
 	if (error == 1) {
 		/*
@@ -256,14 +240,6 @@ ret:
 		ret = 0;
 	}
 	udelay(100);
-#if 1
-
-    core_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
-    l2_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2);
-    tiler_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_TILER);
-    //printk("core_ready=%llx, l2_ready=%llx, tiler_ready=%llx\n", core_ready, l2_ready, tiler_ready);
-#endif
-	dev_dbg(kbdev->dev, "pm_runtime_get_sync returned %d\n", error);
 
 	return ret;
 }
@@ -272,10 +248,6 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "pm_callback_power_off\n");
     //printk("%s, %d\n", __FILE__, __LINE__);
-#if 0
-    iounmap(reg_base_hiubus);
-    reg_base_hiubus = NULL;
-#endif
 	pm_runtime_mark_last_busy(kbdev->dev);
 	pm_runtime_put_autosuspend(kbdev->dev);
 

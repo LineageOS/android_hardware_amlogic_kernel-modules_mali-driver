@@ -295,7 +295,6 @@ int mali_core_scaling_init(mali_plat_info_t *mali_plat)
 	}
 
 	pmali_plat = mali_plat;
-    printk("mali_plat=%p\n", mali_plat);
 	num_cores_enabled = pmali_plat->sc_mpp;
 #if AMLOGIC_GPU_USE_GPPLL
 	gp_pll_user_gpu = gp_pll_user_register("gpu", 1,
@@ -593,12 +592,15 @@ void mali_dev_freeze(void)
 
 void mali_dev_restore(void)
 {
-
-	mplt_write(HHI_MALI_CLK_CNTL, clk_cntl_save);
-	if (pmali_plat && pmali_plat->pdev) {
-		mali_clock_init_clk_tree(pmali_plat->pdev);
-	} else {
+	u32 reg = 0;
+	if (!pmali_plat  || !pmali_plat->pdev) {
 		printk("error: init clock failed, pmali_plat=%p, pmali_plat->pdev=%p\n",
 				pmali_plat, pmali_plat == NULL ? NULL: pmali_plat->pdev);
+		return ;
 	}
+
+	reg = pmali_plat->clk_cntl_reg;
+
+	mplt_write(reg, clk_cntl_save);
+	mali_clock_init_clk_tree(pmali_plat->pdev);
 }

@@ -529,7 +529,19 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_hiubus);
 
 	mpdata->reg_base_aobus = of_iomap(gpu_dn, 2);
-	_dev_info(&pdev->dev, "hiu io source  0x%p\n", mpdata->reg_base_aobus);
+	_dev_info(&pdev->dev, "aobus base 0x%p\n", mpdata->reg_base_aobus);
+
+	mpdata->reg_base_reset = of_iomap(gpu_dn, 1);
+	_dev_info(&pdev->dev, "reset bus 0x%p\n", mpdata->reg_base_reset);
+
+	mpdata->reset_g12a = 0;
+	ret = of_property_read_u32(gpu_dn,"clk_cntl_reg",
+			&mpdata->sc_mpp);
+	if (ret) {
+		mpdata->clk_cntl_reg = 0x6c;
+		mpdata->reset_g12a = 1;
+	}
+	_dev_info(&pdev->dev, "clk cntl reg = 0x%x\n", mpdata->clk_cntl_reg);
 
 	ret = of_property_read_u32(gpu_dn,"sc_mpp",
 			&mpdata->sc_mpp);

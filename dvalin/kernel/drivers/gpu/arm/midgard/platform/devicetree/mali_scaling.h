@@ -99,6 +99,9 @@ typedef struct mali_plat_info_t {
     struct clk *clk_mali;
     struct clk *clk_mali_0;
     struct clk *clk_mali_1;
+    void __iomem *reg_base_reset;
+    u32 clk_cntl_reg;
+    s32 reset_g12a;
 } mali_plat_info_t;
 mali_plat_info_t* get_mali_plat_data(void);
 
