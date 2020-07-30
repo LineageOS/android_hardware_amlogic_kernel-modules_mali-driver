@@ -210,6 +210,26 @@ mali_mem_backend *mali_mem_backend_struct_search(struct mali_session_data *sessi
 	return mem_bkend;
 }
 
+mali_mem_backend *__mali_mem_backend_struct_search(struct mali_session_data *session, u32 mali_address)
+{
+	struct mali_vma_node *mali_vma_node = NULL;
+	mali_mem_backend *mem_bkend = NULL;
+	mali_mem_allocation *mali_alloc = NULL;
+	MALI_DEBUG_ASSERT_POINTER(session);
+	mali_vma_node = __mali_vma_offset_search(&session->allocation_mgr, mali_address, 0);
+	if (NULL == mali_vma_node)  {
+		MALI_DEBUG_PRINT(1, ("mali_mem_backend_struct_search:vma node was NULL\n"));
+		return NULL;
+	}
+	mali_alloc = container_of(mali_vma_node, struct mali_mem_allocation, mali_vma_node);
+	/* Get backend memory & Map on CPU */
+	//mutex_lock(&mali_idr_mutex);
+	mem_bkend = idr_find(&mali_backend_idr, mali_alloc->backend_handle);
+	//mutex_unlock(&mali_idr_mutex);
+	MALI_DEBUG_ASSERT(NULL != mem_bkend);
+	return mem_bkend;
+}
+
 static _mali_osk_errcode_t mali_mem_resize(struct mali_session_data *session, mali_mem_backend *mem_backend, u32 physical_size)
 {
 	_mali_osk_errcode_t ret = _MALI_OSK_ERR_FAULT;
@@ -717,6 +737,10 @@ _mali_osk_errcode_t _mali_ukk_mem_bind(_mali_uk_bind_mem_s *args)
 #if defined(CONFIG_DMA_SHARED_BUFFER)
 		mali_allocation->type = MALI_MEM_DMA_BUF;
 		mem_backend->type = MALI_MEM_DMA_BUF;
+		MALI_DEBUG_PRINT(3, (" _mali_ukk_mem_bind, bind_dma_buf.flags=0x%x, size=0x%x \n",
+			args->mem_union.bind_dma_buf.flags, args->size));
+		if (args->mem_union.bind_dma_buf.flags & _MALI_MAP_VIDEO_LAYER)
+			mem_backend->flags |= MALI_MEM_BACKEND_FLAG_VIDEO_LAZY_MAP;
 		ret = mali_mem_bind_dma_buf(mali_allocation, mem_backend,
 					    args->mem_union.bind_dma_buf.mem_fd, args->mem_union.bind_dma_buf.flags);
 		if (_MALI_OSK_ERR_OK != ret) {

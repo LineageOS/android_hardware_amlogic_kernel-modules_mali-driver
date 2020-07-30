@@ -39,6 +39,7 @@ void  mali_mem_allocation_struct_destory(mali_mem_allocation *alloc);
 
 _mali_osk_errcode_t mali_mem_add_mem_size(struct mali_session_data *session, u32 mali_addr, u32 add_size);
 mali_mem_backend *mali_mem_backend_struct_search(struct mali_session_data *session, u32 mali_address);
+mali_mem_backend *__mali_mem_backend_struct_search(struct mali_session_data *session, u32 mali_address);
 _mali_osk_errcode_t _mali_ukk_mem_allocate(_mali_uk_alloc_mem_s *args);
 _mali_osk_errcode_t _mali_ukk_mem_free(_mali_uk_free_mem_s *args);
 _mali_osk_errcode_t _mali_ukk_mem_bind(_mali_uk_bind_mem_s *args);

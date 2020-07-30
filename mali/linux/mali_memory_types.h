@@ -188,6 +188,7 @@ typedef struct mali_mem_secure {
 #define MALI_MEM_BACKEND_FLAG_UNSWAPPED_IN            (0x8)
 #define MALI_MEM_BACKEND_FLAG_NOT_BINDED              (0x1 << 5) /* this backend it not back with physical memory, used for defer bind */
 #define MALI_MEM_BACKEND_FLAG_BINDED              (0x1 << 6) /* this backend it back with physical memory, used for defer bind */
+#define MALI_MEM_BACKEND_FLAG_VIDEO_LAZY_MAP      (0x1 << 7) /* this backend it back with physical memory, used for video layer lazy map */
 
 typedef struct mali_mem_backend {
 	mali_mem_type type;                /**< Type of backend memory */

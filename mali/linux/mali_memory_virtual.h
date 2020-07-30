@@ -31,5 +31,6 @@ void mali_vma_offset_remove(struct mali_allocation_manager *mgr,
 
 struct mali_vma_node *mali_vma_offset_search(struct mali_allocation_manager *mgr,
 		unsigned long start,    unsigned long pages);
-
+struct mali_vma_node *__mali_vma_offset_search(struct mali_allocation_manager *mgr,
+		unsigned long start,    unsigned long pages);
 #endif

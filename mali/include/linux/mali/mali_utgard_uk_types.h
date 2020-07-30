@@ -859,7 +859,7 @@ typedef struct {
 
 /** Flag for _mali_uk_map_external_mem_s, _mali_uk_attach_ump_mem_s and _mali_uk_attach_dma_buf_s */
 #define _MALI_MAP_EXTERNAL_MAP_GUARD_PAGE (1<<0)
-
+#define _MALI_MAP_VIDEO_LAYER (1<<31)
 
 typedef struct {
 	u64 ctx;                                /**< [in,out] user-kernel context (trashed on output) */

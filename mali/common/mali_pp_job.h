@@ -22,7 +22,7 @@
 #include "mali_timeline.h"
 #include "mali_scheduler.h"
 #include "mali_executor.h"
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if defined(CONFIG_DMA_SHARED_BUFFER)
 #include "linux/mali_memory_dma_buf.h"
 #endif
 #if defined(CONFIG_MALI_DMA_BUF_FENCE)

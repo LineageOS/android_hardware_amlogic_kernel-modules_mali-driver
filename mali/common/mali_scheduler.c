@@ -43,7 +43,7 @@
  * if in atomic context, since both might sleep.
  */
 #if defined(CONFIG_DMA_SHARED_BUFFER)
-#if !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if 1//!defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
 #define MALI_SCHEDULER_USE_DEFERRED_PP_JOB_QUEUE 1
 #endif
 #endif
@@ -513,6 +513,10 @@ mali_scheduler_mask mali_scheduler_activate_gp_job(struct mali_gp_job *job)
 
 mali_scheduler_mask mali_scheduler_activate_pp_job(struct mali_pp_job *job)
 {
+#if defined(MALI_SCHEDULER_USE_DEFERRED_PP_JOB_QUEUE)
+	u32 i, have_video;
+	struct mali_session_data *session;
+#endif
 	MALI_DEBUG_ASSERT_POINTER(job);
 
 	MALI_DEBUG_PRINT(4, ("Mali PP scheduler: Timeline activation for job %u (0x%08X).\n",
@@ -537,7 +541,24 @@ mali_scheduler_mask mali_scheduler_activate_pp_job(struct mali_pp_job *job)
 	}
 
 #if defined(MALI_SCHEDULER_USE_DEFERRED_PP_JOB_QUEUE)
-	if (mali_pp_job_needs_dma_buf_mapping(job)) {
+	if (job)
+		session = job->session;
+	for (i = 0; job && session && i < job->uargs.num_memory_cookies; i++) {
+		mali_mem_backend *mem_backend = NULL;
+		u32 mali_addr  = mali_pp_job_get_memory_cookie(job, i);
+
+		mem_backend = __mali_mem_backend_struct_search(session, mali_addr);
+		if (mem_backend &&
+			(mem_backend->flags & MALI_MEM_BACKEND_FLAG_VIDEO_LAZY_MAP)) {
+			have_video = 1;
+			break;
+		} else
+			have_video = 0;
+	}
+#if defined(CONFIG_MALI_DMA_BUF_LAZY_MAP)
+	have_video = 1;
+#endif
+	if (have_video && mali_pp_job_needs_dma_buf_mapping(job)) {
 		mali_scheduler_deferred_pp_job_queue(job);
 		return MALI_SCHEDULER_MASK_EMPTY;
 	}

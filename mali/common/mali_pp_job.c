@@ -15,7 +15,7 @@
 #include "mali_kernel_common.h"
 #include "mali_uk_types.h"
 #include "mali_executor.h"
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if defined(CONFIG_DMA_SHARED_BUFFER)
 #include "linux/mali_memory_dma_buf.h"
 #endif
 #include "mali_memory_swap_alloc.h"
@@ -144,6 +144,9 @@ fail:
 void mali_pp_job_delete(struct mali_pp_job *job)
 {
 	struct mali_session_data *session;
+#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_LAZY_MAP)
+	u32 i, have_video = 0;
+#endif
 
 	MALI_DEBUG_ASSERT_POINTER(job);
 	MALI_DEBUG_ASSERT(_mali_osk_list_empty(&job->list));
@@ -153,10 +156,26 @@ void mali_pp_job_delete(struct mali_pp_job *job)
 	MALI_DEBUG_ASSERT_POINTER(session);
 
 	if (NULL != job->memory_cookies) {
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_LAZY_MAP)
+		if (job)
+			session = job->session;
+		for (i = 0; job && session && i < job->uargs.num_memory_cookies; i++) {
+			mali_mem_backend *mem_backend = NULL;
+			u32 mali_addr  = mali_pp_job_get_memory_cookie(job, i);
+
+			mem_backend = __mali_mem_backend_struct_search(session, mali_addr);
+			if (mem_backend &&
+				(mem_backend->flags & MALI_MEM_BACKEND_FLAG_VIDEO_LAZY_MAP)) {
+				have_video = 1;
+				break;
+			} else
+				have_video = 0;
+		}
 		/* Unmap buffers attached to job */
-		mali_dma_buf_unmap_job(job);
+		if (have_video)
 #endif
+			mali_dma_buf_unmap_job(job);
+
 		if (MALI_NO_SWAP_IN != job->swap_status) {
 			mali_mem_swap_out_pages(job);
 		}

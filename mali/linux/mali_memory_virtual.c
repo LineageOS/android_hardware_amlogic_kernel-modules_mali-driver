@@ -125,3 +125,37 @@ struct mali_vma_node *mali_vma_offset_search(struct mali_allocation_manager *mgr
 	return best;
 }
 
+/* copy from mali_vma_offset_search, delete the lock operation */
+struct mali_vma_node *__mali_vma_offset_search(struct mali_allocation_manager *mgr,
+		unsigned long start, unsigned long pages)
+{
+	struct mali_vma_node *node, *best;
+	struct rb_node *iter;
+	unsigned long offset;
+	//read_lock(&mgr->vm_lock);
+
+	iter = mgr->allocation_mgr_rb.rb_node;
+	best = NULL;
+
+	while (likely(iter)) {
+		node = rb_entry(iter, struct mali_vma_node, vm_rb);
+		offset = node->vm_node.start;
+		if (start >= offset) {
+			iter = iter->rb_right;
+			best = node;
+			if (start == offset)
+				break;
+		} else {
+			iter = iter->rb_left;
+		}
+	}
+
+	if (best) {
+		offset = best->vm_node.start + best->vm_node.size;
+		if (offset <= start + pages)
+			best = NULL;
+	}
+	//read_unlock(&mgr->vm_lock);
+
+	return best;
+}

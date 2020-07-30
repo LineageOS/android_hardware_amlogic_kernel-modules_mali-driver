@@ -42,7 +42,7 @@ _mali_osk_errcode_t mali_mem_bind_dma_buf(mali_mem_allocation *alloc,
 		mali_mem_backend *mem_backend,
 		int fd, u32 flags);
 
-#if !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if 1//!defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
 int mali_dma_buf_map_job(struct mali_pp_job *job);
 void mali_dma_buf_unmap_job(struct mali_pp_job *job);
 #endif

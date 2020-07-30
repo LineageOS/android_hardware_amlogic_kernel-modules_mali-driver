@@ -68,10 +68,12 @@ static int mali_dma_buf_map(mali_mem_backend *mem_backend)
 	mem->map_ref++;
 
 	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: map attachment %p, new map_ref = %d\n", mem, mem->map_ref));
+	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: is_mapped %d, new map_ref = %d\n", mem->is_mapped, mem_backend->flags));
 #if (!defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)) && (defined(CONFIG_MALI_DMA_BUF_LAZY_MAP))
 	if (MALI_FALSE == mem->is_mapped)
 #else
-	if (1 == mem->map_ref)
+	if (1 == mem->map_ref || (MALI_FALSE == mem->is_mapped &&
+		mem_backend->flags & MALI_MEM_BACKEND_FLAG_VIDEO_LAZY_MAP))
 #endif
 	{
 		/* First reference taken, so we need to map the dma buf */
@@ -150,7 +152,7 @@ static void mali_dma_buf_unmap(mali_mem_allocation *alloc, struct mali_dma_buf_a
 	mem->map_ref--;
 
 	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: unmap attachment %p, new map_ref = %d\n", mem, mem->map_ref));
-
+	MALI_DEBUG_PRINT(5, ("Mali DMA-buf: unmap is_mapped %d\n", mem->is_mapped));
 	if (0 == mem->map_ref) {
 		if (NULL != mem->sgt) {
 			dma_buf_unmap_attachment(mem->attachment, mem->sgt, DMA_BIDIRECTIONAL);
@@ -169,7 +171,7 @@ static void mali_dma_buf_unmap(mali_mem_allocation *alloc, struct mali_dma_buf_a
 	mali_session_memory_unlock(alloc->session);
 }
 
-#if !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
+#if 1//!defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
 int mali_dma_buf_map_job(struct mali_pp_job *job)
 {
 	struct mali_dma_buf_attachment *mem;
@@ -329,6 +331,8 @@ _mali_osk_errcode_t mali_mem_bind_dma_buf(mali_mem_allocation *alloc,
 #else
 	dma_mem->map_ref = 0;
 #endif
+	if (flags & _MALI_MAP_VIDEO_LAYER)
+		dma_mem->map_ref = 1;
 	init_waitqueue_head(&dma_mem->wait_queue);
 
 	dma_mem->attachment = dma_buf_attach(dma_mem->buf, &mali_platform_device->dev);
@@ -343,10 +347,10 @@ _mali_osk_errcode_t mali_mem_bind_dma_buf(mali_mem_allocation *alloc,
 		alloc->flags |= MALI_MEM_FLAG_MALI_GUARD_PAGE;
 	}
 
-
 #if defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
 	/* Map memory into session's Mali virtual address space. */
-	if (0 != mali_dma_buf_map(mem_backend)) {
+	if (!(flags & _MALI_MAP_VIDEO_LAYER) &&
+		(0 != mali_dma_buf_map(mem_backend))) {
 		goto Failed_dma_map;
 	}
 #endif
@@ -417,20 +421,22 @@ _mali_osk_errcode_t meson_update_video_texture(struct  mali_session_data *sessio
 
 	attachment = dma_buf_attach(buf, &mali_platform_device->dev);
 	if (NULL == attachment) {
+		MALI_DEBUG_PRINT_ERROR(("Failed to attach dma-buf\n"));
 		ret = _MALI_OSK_ERR_FAULT;
 		goto failed_dma_attach;
 	}
 
 	sgt = dma_buf_map_attachment(attachment, DMA_BIDIRECTIONAL);
 	if (IS_ERR_OR_NULL(sgt)) {
-		MALI_DEBUG_PRINT_ERROR(("Failed to map dma-buf attachment\n"));
+		MALI_DEBUG_PRINT_ERROR(("Failed to dma-buf-map attachment\n"));
 		ret = _MALI_OSK_ERR_FAULT;
-		return -EFAULT;
+		goto failed_dma_map;
 	}
 
 	dma_buf_unmap_attachment(attachment, sgt, DMA_BIDIRECTIONAL);
 	sgt = NULL;
 
+failed_dma_map:
 	dma_buf_detach(buf, attachment);
 failed_dma_attach:
 	dma_buf_put(buf);
