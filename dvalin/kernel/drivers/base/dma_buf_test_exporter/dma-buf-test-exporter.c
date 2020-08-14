@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2012-2019 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2020 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,6 +40,15 @@
 
 /* Maximum size allowed in a single DMA_BUF_TE_ALLOC call */
 #define DMA_BUF_TE_ALLOC_MAX_SIZE ((8ull << 30) >> PAGE_SHIFT) /* 8 GB */
+
+/* Since kernel version 5.0 CONFIG_ARCH_NO_SG_CHAIN replaced CONFIG_ARCH_HAS_SG_CHAIN */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+#if (!defined(ARCH_HAS_SG_CHAIN) && !defined(CONFIG_ARCH_HAS_SG_CHAIN))
+#define NO_SG_CHAIN
+#endif
+#elif defined(CONFIG_ARCH_NO_SG_CHAIN)
+#define NO_SG_CHAIN
+#endif
 
 struct dma_buf_te_alloc {
 	/* the real alloc */
@@ -121,11 +130,11 @@ static struct sg_table *dma_buf_te_map(struct dma_buf_attachment *attachment, en
 	    "WARNING: Attempted to map already mapped attachment."))
 		return ERR_PTR(-EBUSY);
 
-#if !(defined(ARCH_HAS_SG_CHAIN) || defined(CONFIG_ARCH_HAS_SG_CHAIN))
+#ifdef NO_SG_CHAIN
 	/* if the ARCH can't chain we can't have allocs larger than a single sg can hold */
 	if (alloc->nr_pages > SG_MAX_SINGLE_ALLOC)
 		return ERR_PTR(-EINVAL);
-#endif
+#endif /* NO_SG_CHAIN */
 
 	sg = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!sg)
@@ -417,8 +426,10 @@ static struct dma_buf_ops dma_buf_te_ops = {
 	/* nop handlers for mandatory functions we ignore */
 	.kmap_atomic = dma_buf_te_kmap_atomic
 #else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)
 	.map = dma_buf_te_kmap,
 	.unmap = dma_buf_te_kunmap,
+#endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 	/* nop handlers for mandatory functions we ignore */
@@ -466,14 +477,14 @@ static int do_dma_buf_te_ioctl_alloc(struct dma_buf_te_ioctl_alloc __user *buf, 
 		goto invalid_size;
 	}
 
-#if !(defined(ARCH_HAS_SG_CHAIN) || defined(CONFIG_ARCH_HAS_SG_CHAIN))
+#ifdef NO_SG_CHAIN
 	/* Whilst it is possible to allocate larger buffer, we won't be able to
 	 * map it during actual usage (mmap() still succeeds). We fail here so
 	 * userspace code can deal with it early than having driver failure
 	 * later on. */
 	if (max_nr_pages > SG_MAX_SINGLE_ALLOC)
 		max_nr_pages = SG_MAX_SINGLE_ALLOC;
-#endif
+#endif /* NO_SG_CHAIN */
 
 	if (alloc_req.size > max_nr_pages) {
 		dev_err(te_device.this_device, "%s: buffer size of %llu pages exceeded the mapping limit of %zu pages",
@@ -725,16 +736,22 @@ static u32 dma_te_buf_fill(struct dma_buf *dma_buf, unsigned int value)
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, count) {
 		for (i = 0; i < sg_dma_len(sg); i = i + PAGE_SIZE) {
-			void *addr;
-
+			void *addr = NULL;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+			addr = dma_buf_te_kmap(dma_buf, i >> PAGE_SHIFT);
+#else
 			addr = dma_buf_kmap(dma_buf, i >> PAGE_SHIFT);
+#endif
 			if (!addr) {
-				/* dma_buf_kmap is unimplemented in exynos and returns NULL */
 				ret = -EPERM;
 				goto no_kmap;
 			}
 			memset(addr, value, PAGE_SIZE);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+			dma_buf_te_kunmap(dma_buf, i >> PAGE_SHIFT, addr);
+#else
 			dma_buf_kunmap(dma_buf, i >> PAGE_SHIFT, addr);
+#endif
 		}
 		offset += sg_dma_len(sg);
 	}
@@ -825,4 +842,3 @@ static void __exit dma_buf_te_exit(void)
 module_init(dma_buf_te_init);
 module_exit(dma_buf_te_exit);
 MODULE_LICENSE("GPL");
-
