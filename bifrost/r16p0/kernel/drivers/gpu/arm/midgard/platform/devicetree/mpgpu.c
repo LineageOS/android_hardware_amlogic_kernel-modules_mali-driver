@@ -33,21 +33,27 @@
 #include <asm/io.h>
 #endif
 
-//#include <mali_kbase.h>
+#include <mali_kbase.h>
+#include <mali_kbase_defs.h>
+
 #include "meson_main2.h"
 
 int meson_gpu_data_invalid_count = 0;
 int meson_gpu_fault = 0;
 
+extern u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type type);
 static ssize_t domain_stat_read(struct class *class,
 		struct class_attribute *attr, char *buf)
 {
 	unsigned int val;
+	u64 core_ready;
 	mali_plat_info_t* pmali_plat = get_mali_plat_data();
+	struct platform_device* ptr_plt_dev = pmali_plat->pdev;
+	struct kbase_device *kbdev = dev_get_drvdata(&ptr_plt_dev->dev);
 
-	val = readl(pmali_plat->reg_base_aobus + 0xf0) & 0xff;
-	return sprintf(buf, "%x\n", val>>4);
-	return 0;
+	core_ready = kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_SHADER);
+	val = core_ready;
+	return sprintf(buf, "%x\n", val);
 }
 
 #define PREHEAT_CMD "preheat"

@@ -163,20 +163,17 @@ quit:
     return ret;
 }
 #ifdef CONFIG_DEVFREQ_THERMAL
+/* note:
+ * why return the config_pp which come from dts [num_of_pp] dirrectly
+ * 1. the return value only used for thermal,
+ * and we have not dynamic adjust the core num.
+ * 2. avoid influent the IC before T5.
+ * TODO: need improve it, if we add dynamic adjust the core num.*/
 static u32 mali_get_online_pp(void)
 {
-    unsigned int val;
-    mali_plat_info_t* pmali_plat = get_mali_plat_data();
+    u32 fix_pp_num = mali_plat_data.cfg_pp;
 
-    val = readl(pmali_plat->reg_base_aobus + 0xf0) & 0xff;
-    if (val == 0x07)    /* No pp is working */
-        return 0;
-
-#ifndef MESON_DRV_BRING
-    return 2;
-#else
-    return mali_executor_get_num_cores_enabled();
-#endif
+    return fix_pp_num;
 }
 #endif
 #endif
