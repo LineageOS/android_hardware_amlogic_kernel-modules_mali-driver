@@ -34,9 +34,9 @@ define utgard-modules
 	@echo "make mali module MALI_OUT is $(PRODUCT_OUT)/obj/mali $(MALI_OUT)"
 	@echo "make mali module MAKE is $(MAKE)"
 	@echo "GPU_DRV_VERSION is $(1)"
-	PATH=$(KERNEL_TOOLPATHS):$$PATH \
+	PATH=$$(cd ./$(TARGET_HOST_TOOL_PATH); pwd):$$PATH \
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/mali  \
-	$(KERNEL_ARGS) CONFIG_MALI400=m  CONFIG_MALI450=m    \
+	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) CONFIG_MALI400=m  CONFIG_MALI450=m    \
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
 	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_AM_VDEC_H264_4K2K=y
@@ -53,9 +53,9 @@ define midgard-modules
 	cp $(2)/* $(PRODUCT_OUT)/obj/t83x -airf
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH) current dir is $(shell pwd)"
 	@echo "MALI is $(2), MALI_OUT is $(PRODUCT_OUT)/obj/t83x "
-	PATH=$(KERNEL_TOOLPATHS):$$PATH \
+	PATH=$$(cd ./$(TARGET_HOST_TOOL_PATH); pwd):$$PATH \
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/t83x/kernel/drivers/gpu/arm/midgard \
-	$(KERNEL_ARGS) \
+	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu" \
 	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
@@ -73,12 +73,12 @@ define bifrost-modules
 	cp $(2)/* $(PRODUCT_OUT)/obj/bifrost -airf
 	@echo "make mali module KERNEL_ARCH is $(KERNEL_ARCH) current dir is $(shell pwd)"
 	@echo "MALI is $(2), MALI_OUT is $(PRODUCT_OUT)/obj/bifrost "
-	PATH=$(KERNEL_TOOLPATHS):$$PATH \
+	PATH=$$(cd ./$(TARGET_HOST_TOOL_PATH); pwd):$$PATH \
 	$(MAKE) -C $(shell pwd)/$(PRODUCT_OUT)/obj/KERNEL_OBJ M=$(shell pwd)/$(PRODUCT_OUT)/obj/bifrost/kernel/drivers/gpu/arm/midgard \
-	$(KERNEL_ARGS) \
+	ARCH=$(3) CROSS_COMPILE=$(PREFIX_CROSS_COMPILE) \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu " \
 	EXTRA_CFLAGS+="-I$(shell pwd)/$(PRODUCT_OUT)/obj/bifrost/kernel/include " \
-	EXTRA_CFLAGS+="-Wno-error -DCONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=1 -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=0" \
+	EXTRA_CFLAGS+="-Wno-error=larger-than=16384  -DCONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=1 -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=0" \
 	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI_MIDGARD=m CONFIG_MALI_PLATFORM_DEVICETREE=y CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_BACKEND=gpu
 
