@@ -25,47 +25,7 @@
 #ifdef CONFIG_MALI_DEVFREQ
 static unsigned long t83x_static_power(unsigned long voltage)
 {
-#if 0
-	struct thermal_zone_device *tz;
-	unsigned long temperature, temp;
-	unsigned long temp_squared, temp_cubed, temp_scaling_factor;
-	const unsigned long coefficient = (410UL << 20) / (729000000UL >> 10);
-	const unsigned long voltage_cubed = (voltage * voltage * voltage) >> 10;
-
-	tz = thermal_zone_get_zone_by_name("gpu");
-	if (IS_ERR(tz)) {
-		pr_warn_ratelimited("Error getting gpu thermal zone (%ld), not yet ready?\n",
-				PTR_ERR(tz));
-		temperature = FALLBACK_STATIC_TEMPERATURE;
-	} else {
-		int ret;
-
-		ret = tz->ops->get_temp(tz, &temperature);
-		if (ret) {
-			pr_warn_ratelimited("Error reading temperature for gpu thermal zone: %d\n",
-					ret);
-			temperature = FALLBACK_STATIC_TEMPERATURE;
-		}
-	}
-
-	/* Calculate the temperature scaling factor. To be applied to the
-	 * voltage scaled power.
-	 */
-	temp = temperature / 1000;
-	temp_squared = temp * temp;
-	temp_cubed = temp_squared * temp;
-	temp_scaling_factor =
-			(2 * temp_cubed)
-			- (80 * temp_squared)
-			+ (4700 * temp)
-			+ 32000;
-
-	return (((coefficient * voltage_cubed) >> 20)
-			* temp_scaling_factor)
-				/ 1000000;
-#else
 	return 0;
-#endif
 }
 
 static unsigned long t83x_dynamic_power(unsigned long freq,

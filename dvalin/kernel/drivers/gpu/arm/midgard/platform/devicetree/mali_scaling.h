@@ -42,10 +42,10 @@ typedef struct mali_dvfs_threshold_table {
 	uint32_t    keep_count;
 	uint32_t    downthreshold;
 	uint32_t    upthreshold;
-    uint32_t    clk_freq;
-    const char  *clk_parent;
-    struct clk  *clkp_handle;
-    uint32_t    clkp_freq;
+	uint32_t    clk_freq;
+	const char  *clk_parent;
+	struct clk  *clkp_handle;
+	uint32_t    clkp_freq;
 } mali_dvfs_threshold_table;
 
 /**
@@ -57,6 +57,12 @@ typedef struct mali_scale_info_t {
 	u32 minclk;
 	u32 maxclk;
 } mali_scale_info_t;
+
+typedef struct mali_reset_info_t {
+	u32 reg_level;
+	u32 reg_mask;
+	u32 reg_bit;
+} mali_reset_info_t;
 
 /**
  * Platform spesific data for meson chips.
@@ -86,22 +92,27 @@ typedef struct mali_plat_info_t {
 	u32 maxclk_sysfs;
 	u32 maxpp_sysfs;
 
+	/* mali external reset reg info */
+	u32 reset_flag;
+	mali_reset_info_t module_reset;
+	mali_reset_info_t apb_reset;
+
 	/* set upper limit of pp or frequency, for THERMAL thermal or band width saving.*/
 	u32 limit_on;
 
 	/* for boost up gpu by user. */
 	void (*plat_preheat)(void);
 
-    struct platform_device *pdev;
-    void __iomem *reg_base_hiubus;
-    void __iomem *reg_base_aobus;
+	struct platform_device *pdev;
+	void __iomem *reg_base_hiubus;
+	void __iomem *reg_base_aobus;
 	struct work_struct wq_work;
-    struct clk *clk_mali;
-    struct clk *clk_mali_0;
-    struct clk *clk_mali_1;
-    void __iomem *reg_base_reset;
-    u32 clk_cntl_reg;
-    s32 reset_g12a;
+	struct clk *clk_mali;
+	struct clk *clk_mali_0;
+	struct clk *clk_mali_1;
+	void __iomem *reg_base_reset;
+	u32 clk_cntl_reg;
+	s32 reset_g12a;
 } mali_plat_info_t;
 mali_plat_info_t* get_mali_plat_data(void);
 

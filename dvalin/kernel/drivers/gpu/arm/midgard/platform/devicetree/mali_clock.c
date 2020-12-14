@@ -478,6 +478,65 @@ void set_str_src(u32 data)
 	printk("gpu: %s, %s, %d\n", __FILE__, __func__, __LINE__);
 }
 
+int mali_reset_info(struct platform_device *pdev, struct device_node *gpu_dn,
+		    struct mali_plat_info_t *mpdata)
+{
+	struct device_node *reset_dn, *apb_reset_dn;
+	int ret = 0;
+
+	reset_dn = of_get_child_by_name(gpu_dn, "reset_cfg");
+	if (!reset_dn) {
+		mpdata->reset_flag = 0;
+		dev_info(&pdev->dev, "no reset_cfg\n");
+	} else {
+		ret = of_property_read_u32(reset_dn,"reg_level",
+			&mpdata->module_reset.reg_level);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_level for reset\n");
+			return -ENOMEM;
+		}
+		ret = of_property_read_u32(reset_dn,"reg_mask",
+			&mpdata->module_reset.reg_mask);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_mask for reset\n");
+			return -ENOMEM;
+		}
+		ret = of_property_read_u32(reset_dn,"reg_bit",
+			&mpdata->module_reset.reg_bit);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_bit for reset\n");
+			return -ENOMEM;
+		}
+		mpdata->reset_flag = 1;
+	}
+	apb_reset_dn = of_get_child_by_name(gpu_dn, "capb_reset");
+	if (!apb_reset_dn) {
+		mpdata->reset_flag = 0;
+		dev_info(&pdev->dev, "no apb_reset\n");
+	} else {
+		ret = of_property_read_u32(apb_reset_dn,"reg_level",
+			&mpdata->apb_reset.reg_level);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_level for apb_reset\n");
+			return -ENOMEM;
+		}
+		ret = of_property_read_u32(apb_reset_dn,"reg_mask",
+			&mpdata->apb_reset.reg_mask);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_mask for apb_reset\n");
+			return -ENOMEM;
+		}
+		ret = of_property_read_u32(apb_reset_dn,"reg_bit",
+			&mpdata->apb_reset.reg_bit);
+		if (ret) {
+			dev_err(&pdev->dev, "no reg_bit for apb_reset\n");
+			return -ENOMEM;
+		}
+		mpdata->reset_flag = 1;
+	}
+	return ret;
+}
+
 int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 {
 	struct device_node *gpu_dn = pdev->dev.of_node;
@@ -570,6 +629,11 @@ int mali_dt_info(struct platform_device *pdev, struct mali_plat_info_t *mpdata)
 		return -ENOMEM;
 	}
 	clk_sample = mpdata->clk_sample;
+	/* mali external reset reg */
+	ret = mali_reset_info(pdev, gpu_dn, mpdata);
+	if (ret)
+		return ret;
+	/* dvfs clk table */
 	of_property_for_each_u32(gpu_dn, "tbl", prop, p, u) {
 		dvfs_clk_hdl = (phandle) u;
 		gpu_clk_dn = of_find_node_by_phandle(dvfs_clk_hdl);
