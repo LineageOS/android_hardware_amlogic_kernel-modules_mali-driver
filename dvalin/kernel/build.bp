@@ -1,15 +1,21 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2016-2020 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2021 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
- * of such GNU licence.
+ * of such GNU license.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
  *
  */
 
@@ -25,6 +31,7 @@ bob_install_group {
 
 bob_defaults {
     name: "kernel_defaults",
+    build_by_default: false,
     enabled: false,
     exclude_srcs: [
         "**/*.mod.c",
@@ -33,6 +40,7 @@ bob_defaults {
         "include",
     ],
     build_kernel_modules: {
+        build_by_default: true,
         enabled: true,
         kernel_dir: "{{.kernel_dir}}",
         kernel_cross_compile: "{{.kernel_compiler}}",
@@ -42,6 +50,8 @@ bob_defaults {
         kernel_ld: "{{.kernel_ld}}",
     },
     install_group: "IG_kernel_modules",
+    add_to_alias: ["kernel"],
+    owner: "{{.android_module_owner}}",
     cflags: [
         "-Wall",
     ],
@@ -54,49 +64,12 @@ bob_defaults {
             "optional",
         ],
     },
-    kbuild_options: [
-        // Start of CS experimental features definitions.
-        // If there is nothing below, definition should be added as follows:
-        // "MALI_EXPERIMENTAL_FEATURE={{.experimental_feature}}"
-        // experimental_feature above comes from Mconfig in
-        // <ddk_root>/product/base/
-        // However, in Mconfig, experimental_feature should be looked up (for
-        // similar explanation to this one) as ALLCAPS, i.e.
-        // EXPERIMENTAL_FEATURE.
-        //
-        // IMPORTANT: MALI_CS_EXPERIMENTAL should NEVER be defined below as it
-        // is an umbrella feature that would be open for inappropriate use
-        // (catch-all for experimental CS code without separating it into
-        // different features).
-        "MALI_JIT_PRESSURE_LIMIT={{.jit_pressure_limit}}",
-        "MALI_INCREMENTAL_RENDERING={{.incremental_rendering}}",
-    ],
 }
 
-bob_defaults {
-    name: "kutf_includes",
-    local_include_dirs: [
-        "drivers/gpu/arm/midgard/tests/include",
-    ],
-}
-
-bob_defaults {
-    name: "kernel_test_includes",
-    defaults: ["kutf_includes"],
-    local_include_dirs: [
-        "drivers/gpu/arm",
-        "drivers/gpu/arm/midgard",
-        "drivers/gpu/arm/midgard/backend/gpu",
-        "drivers/gpu/arm/midgard/debug",
-        "drivers/gpu/arm/midgard/debug/backend",
-    ],
-}
-
+// Alias for all kernel modules. `kernel_defaults` uses `add_to_alias` to
+// ensure any modules using that are included in this alias; any
+// bob_kernel_modules not using those defaults must explicitly use
+// `add_to_alias` or be listed here.
 bob_alias {
     name: "kernel",
-    srcs: [
-        "dma-buf-test-exporter",
-        "memory_group_manager",
-        "mali_kbase",
-    ],
 }
