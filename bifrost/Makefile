@@ -26,7 +26,9 @@ EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drive
                  -I$(KERNEL_SRC)/$(M)/../dvalin/kernel/include
 
 KBUILD_CFLAGS_MODULE += $(GKI_EXT_MODULE_PREDEFINE)
-
+$(warning "CC:"$(CC) )
+$(warning "HOSTCC:"$(HOSTCC) )
+$(warning "CROSS_COMPILE:"$(CROSS_COMPILE) )
 modules:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M)/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard  \
 	EXTRA_CFLAGS="-DCONFIG_MALI_PLATFORM_DEVICETREE -DCONFIG_MALI_MIDGARD_DVFS -DCONFIG_MALI_BACKEND=gpu " \

@@ -36,8 +36,6 @@
 
 struct kbase_device;
 
-#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-
 /**
  * kbase_io_history_init - initialize data struct for register access history
  *
@@ -62,6 +60,7 @@ void kbase_io_history_term(struct kbase_io_history *h);
  */
 void kbase_io_history_dump(struct kbase_device *kbdev);
 
+#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
 /**
  * kbasep_regs_history_debugfs_init - add debugfs entries for register history
  *

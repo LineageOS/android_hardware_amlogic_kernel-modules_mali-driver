@@ -22,10 +22,6 @@
 #include "mali_kbase.h"
 #include "mali_kbase_regs_history_debugfs.h"
 
-#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-
-#include <linux/debugfs.h>
-
 /**
  * kbase_io_history_resize - resize the register access history buffer.
  *
@@ -141,6 +137,10 @@ void kbase_io_history_dump(struct kbase_device *kbdev)
 
 	spin_unlock_irqrestore(&h->lock, flags);
 }
+
+#if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
+
+#include <linux/debugfs.h>
 
 static int regs_history_size_get(void *data, u64 *val)
 {

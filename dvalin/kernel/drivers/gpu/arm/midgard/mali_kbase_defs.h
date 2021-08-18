@@ -1076,9 +1076,7 @@ struct kbase_device {
 
 	atomic_t ctx_num;
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct kbase_io_history io_history;
-#endif /* CONFIG_DEBUG_FS */
 
 	struct kbase_hwaccess_data hwaccess;
 
