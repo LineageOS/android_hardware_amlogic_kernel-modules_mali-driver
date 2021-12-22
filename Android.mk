@@ -18,7 +18,7 @@ LOCAL_PATH := $(call my-dir)
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
 MALI_GPU_VARIANT ?= bifrost
-MALI_DRV_VERSION ?= r21p0
+MALI_DRV_VERSION ?= r32p1
 MALI_PATH        := $(abspath $(call my-dir))
 GPU_PATH         := $(MALI_GPU_VARIANT)/$(MALI_DRV_VERSION)/kernel/drivers/gpu/arm/midgard
 GPU_CONFIGS      := CONFIG_MALI_MIDGARD=m CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=y CONFIG_MALI_BACKEND=gpu
