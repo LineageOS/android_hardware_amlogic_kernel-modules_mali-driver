@@ -17,11 +17,19 @@
 LOCAL_PATH := $(call my-dir)
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
+ifeq ($(GPU_ARCH),utgard)
+MALI_GPU_VARIANT ?= utgard
+MALI_DRV_VERSION ?= r10p1
+MALI_PATH        := $(abspath $(call my-dir))
+GPU_PATH         := $(MALI_GPU_VARIANT)/$(MALI_DRV_VERSION)
+GPU_CONFIGS      := CONFIG_MALI400=m CONFIG_MALI450=m CONFIG_AM_VDEC_H264_4K2K=y
+else
 MALI_GPU_VARIANT ?= bifrost
 MALI_DRV_VERSION ?= r32p1
 MALI_PATH        := $(abspath $(call my-dir))
 GPU_PATH         := $(MALI_GPU_VARIANT)/$(MALI_DRV_VERSION)/kernel/drivers/gpu/arm/midgard
 GPU_CONFIGS      := CONFIG_MALI_MIDGARD=m CONFIG_MALI_MIDGARD_DVFS=y CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=y CONFIG_MALI_BACKEND=gpu
+endif
 
 include $(CLEAR_VARS)
 
@@ -45,6 +53,9 @@ GPU_CFLAGS := $(LOCAL_CFLAGS) $(addprefix -I,$(LOCAL_C_INCLUDES))
 $(_mali_ko): $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
 	@mkdir -p $(dir $@)
 	@cp -R $(MALI_PATH)/* $(dir $@)/
+ifeq ($(GPU_ARCH),utgard)
+	@cp -R $(MALI_PATH)/$(MALI_GPU_VARIANT)/platform $(dir $@)/$(GPU_PATH)
+endif
 	$(hide) +$(KERNEL_MAKE_CMD) $(PATH_OVERRIDE) $(KERNEL_MAKE_FLAGS) -C $(KERNEL_OUT) M=$(abspath $(_mali_intermediates))/$(GPU_PATH) ARCH=$(TARGET_KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) EXTRA_CFLAGS="$(GPU_CFLAGS)" $(GPU_CONFIGS) modules
 	$(KERNEL_TOOLCHAIN_PATH)strip --strip-unneeded $(dir $@)/$(GPU_PATH)/mali_kbase.ko; \
 	cp $(dir $@)/$(GPU_PATH)/mali_kbase.ko $@;
