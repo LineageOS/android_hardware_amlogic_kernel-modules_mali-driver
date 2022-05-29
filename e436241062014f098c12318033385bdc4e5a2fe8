@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "ded9f576_efbbc7d4",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 17162
+      },
+      "writtenOn": "2022-05-29T16:48:11Z",
+      "side": 1,
+      "message": "Tested on bifrost (g12a), midgard (gx, hertz), utgard (gx, a95xf1)",
+      "revId": "e436241062014f098c12318033385bdc4e5a2fe8",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
