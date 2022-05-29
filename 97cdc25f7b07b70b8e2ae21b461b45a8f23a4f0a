@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "0abe1f4b_0bf92fd0",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 17162
+      },
+      "writtenOn": "2022-05-29T16:27:50Z",
+      "side": 1,
+      "message": "Fixed splitted makefiles to use common MALI_PATH set to ardware/amlogic/kernel-modules/mali-driver from to level makefile. Previous version has issues with driver variants where active version set to one, that uses symlink.",
+      "revId": "97cdc25f7b07b70b8e2ae21b461b45a8f23a4f0a",
+      "serverId": "1ec6b3db-b2c1-4fa4-84a2-4c7efe89ba71"
+    }
+  ]
+}
