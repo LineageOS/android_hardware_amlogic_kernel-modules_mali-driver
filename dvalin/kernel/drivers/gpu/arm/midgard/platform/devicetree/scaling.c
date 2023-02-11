@@ -147,7 +147,6 @@ static int gp_pll_user_cb_gpu(struct gp_pll_user_handle_s *user,
 
 int mali_perf_set_num_pp_cores(int cores)
 {
-    cores = cores;
     return 0;
 }
 
