@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021 The LineageOS Project
+# Copyright (C) 2021-2023 The LineageOS Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ $(_mali_ko): $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
 	@mkdir -p $(dir $@)
 	@cp -R $(MALI_PATH)/* $(dir $@)/
 	$(hide) +$(KERNEL_MAKE_CMD) $(PATH_OVERRIDE) $(KERNEL_MAKE_FLAGS) -C $(KERNEL_OUT) M=$(abspath $(_mali_intermediates))/$(GPU_PATH) ARCH=$(TARGET_KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) EXTRA_CFLAGS="$(GPU_CFLAGS)" $(GPU_CONFIGS) modules
-	$(KERNEL_TOOLCHAIN_PATH)strip --strip-unneeded $(dir $@)/$(GPU_PATH)/mali_kbase.ko; \
+	$(TARGET_KERNEL_CLANG_PATH)/bin/llvm-strip --strip-unneeded $(dir $@)/$(GPU_PATH)/mali_kbase.ko; \
 	cp $(dir $@)/$(GPU_PATH)/mali_kbase.ko $@;
 
 include $(BUILD_SYSTEM)/base_rules.mk
