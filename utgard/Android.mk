@@ -29,7 +29,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE        := mali
 LOCAL_MODULE_SUFFIX := .ko
 LOCAL_MODULE_CLASS  := ETC
-LOCAL_MODULE_PATH   := $(TARGET_OUT_VENDOR)/lib/modules
 LOCAL_CFLAGS        := -Wno-error -Wno-pointer-sign -Wno-error=frame-larger-than=
 LOCAL_C_INCLUDES    := \
     $(MALI_PATH)/$(GPU_PATH)/backend/gpu \
@@ -37,6 +36,12 @@ LOCAL_C_INCLUDES    := \
     $(MALI_PATH)/$(GPU_PATH)/ipa \
     $(MALI_PATH)/$(GPU_PATH) \
     $(MALI_PATH)/dvalin/kernel/include
+
+ifeq ($(BUILDING_VENDOR_DLKM_IMAGE),)
+    LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR)/lib/modules
+else
+    LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_DLKM)/lib/modules
+endif
 
 _mali_intermediates := $(call intermediates-dir-for,$(LOCAL_MODULE_CLASS),$(LOCAL_MODULE))
 _mali_ko := $(_mali_intermediates)/$(LOCAL_MODULE)$(LOCAL_MODULE_SUFFIX)
