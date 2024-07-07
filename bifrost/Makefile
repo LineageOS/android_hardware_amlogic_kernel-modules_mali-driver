@@ -17,7 +17,7 @@
 
 GPU_TYPE:=dvalin
 GPU_ARCH:=bifrost
-GPU_DRV_VERSION?=r25p0
+GPU_DRV_VERSION?=r32p1
 
 EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard/backend/gpu \
                  -I$(KERNEL_SRC)/$(M)/../bifrost/$(GPU_DRV_VERSION)/kernel/drivers/gpu/arm/midgard/platform/devicetree \
