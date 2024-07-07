@@ -206,10 +206,10 @@ EXTRA_CFLAGS := $(foreach config,$(CONFIGS), \
 #
 
 all:
-	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) $(MAKE_ARGS) EXTRA_CFLAGS="$(EXTRA_CFLAGS)" KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
 
 modules_install:
-	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) modules_install
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) $(MAKE_ARGS) modules_install
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(CURDIR) $(MAKE_ARGS) clean
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) $(MAKE_ARGS) clean

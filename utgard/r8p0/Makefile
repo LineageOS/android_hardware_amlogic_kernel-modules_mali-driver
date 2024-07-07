@@ -204,13 +204,13 @@ EXTRA_DEFINES += -DMALI_MEM_SWAP_TRACKING=1
 endif
 
 all: $(UMP_SYMVERS_FILE)
-	$(MAKE) ARCH=$(ARCH) -C $(KDIR) M=$(CURDIR) modules
+	$(MAKE) ARCH=$(ARCH) -C $(KERNEL_SRC) M=$(M) modules
 	@rm $(FILES_PREFIX)__malidrv_build_info.c $(FILES_PREFIX)__malidrv_build_info.o
 
 clean:
-	$(MAKE) ARCH=$(ARCH) -C $(KDIR) M=$(CURDIR) clean
+	$(MAKE) ARCH=$(ARCH) -C $(KERNEL_SRC) M=$(M) clean
 
 kernelrelease:
-	$(MAKE) ARCH=$(ARCH) -C $(KDIR) kernelrelease
+	$(MAKE) ARCH=$(ARCH) -C $(KERNEL_SRC) kernelrelease
 
 export CONFIG KBUILD_EXTRA_SYMBOLS
