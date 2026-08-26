@@ -14,30 +14,42 @@
 # limitations under the License.
 #
 
-
 GPU_TYPE:=mali450
 GPU_ARCH:=utgard
 GPU_DRV_VERSION?=r10p1
 
-EXTRA_INCLUDE := -I$(KERNEL_SRC)/$(M)/../utgard/$(GPU_DRV_VERSION)/include \
-		 -I$(KERNEL_SRC)/$(M)/../utgard/$(GPU_DRV_VERSION)/linux/license/gpl \
-		 -I$(KERNEL_SRC)/$(M)/../utgard/$(GPU_DRV_VERSION)/common \
-		 -I$(KERNEL_SRC)/$(M)/../utgard/$(GPU_DRV_VERSION)/linux \
-		 -I$(KERNEL_SRC)/$(M)/../utgard/platform/meson_bu
+MALI_SRC := $(KERNEL_SRC)/$(M)/$(GPU_DRV_VERSION)
+MALI_PLAT := $(KERNEL_SRC)/$(M)/platform
+MALI_OUT := $(abspath $(OUT_DIR)/$(M)/$(GPU_DRV_VERSION))
+
+ifeq ($(OUT_DIR),)
+$(error OUT_DIR is not set; this Makefile expects to be called by the kernel build)
+endif
+
+EXTRA_INCLUDE := -I$(MALI_SRC)/include \
+		 -I$(MALI_SRC)/linux/license/gpl \
+		 -I$(MALI_SRC)/common \
+		 -I$(MALI_SRC)/linux \
+		 -I$(MALI_PLAT)/meson_bu
 
 KBUILD_CFLAGS_MODULE += $(GKI_EXT_MODULE_PREDEFINE)
 
 modules:
-	cd $(M)/$(GPU_DRV_VERSION); \
-	ln -s $(M)/platform platform; \
-	$(MAKE) -C $(KERNEL_SRC) M=$(M)/$(GPU_DRV_VERSION)  \
+	mkdir -p $(MALI_OUT)
+	cp -a -u $(MALI_SRC)/. $(MALI_OUT)/
+	cp -a -u $(MALI_PLAT) $(MALI_OUT)/
+	$(MAKE) -C $(KERNEL_SRC) M=$(MALI_OUT)  \
 	EXTRA_CFLAGS="-DCONFIG_MALI400=m -DCONFIG_MALI450=m" \
-	EXTRA_CFLAGS+="-Wno-error -Wno-pointer-sign -Wno-error=frame-larger-than= $(EXTRA_INCLUDE) $(KBUILD_CFLAGS_MODULE)" \
+	EXTRA_CFLAGS+="-Wno-error -Wno-pointer-sign -Wno-error=frame-larger-than= -Wno-error=strict-prototypes $(EXTRA_INCLUDE) $(KBUILD_CFLAGS_MODULE)" \
 	EXTRA_LDFLAGS+="--strip-debug" \
 	CONFIG_MALI400=m  CONFIG_MALI450=m CONFIG_AM_VDEC_H264_4K2K=y modules
 
+all: modules
+
 modules_install:
-	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(M)/$(GPU_DRV_VERSION) -C $(KERNEL_SRC) modules_install
+	@$(MAKE) INSTALL_MOD_STRIP=1 M=$(MALI_OUT) -C $(KERNEL_SRC) modules_install
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(M)/$(GPU_DRV_VERSION) clean
+	rm -rf $(MALI_OUT)
+
+.PHONY: modules all modules_install clean
